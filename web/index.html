@@ -250,7 +250,7 @@ function pintaEsc(){
     ${(EST.movimientos||[]).length?`<div style="margin-top:8px">${EST.movimientos.slice().reverse().map(p=>`<div class="item"><b>${hm(p.Momento)}</b> ${esc(p.Ruta)} · ${esc(p.Placa)} · ${esc(p.Viajes)} viaje(s)${+p.PesoKg?' · '+esc(p.PesoKg)+' kg':''}</div>`).join('')}</div>`:''}</div>`;
   }
   const pr=EST.programacion||[];
-  h+=`<div class="card"><h2>Mi programación</h2>${pr.length?pr.map(x=>`<div class="item"><div class="row"><div class="grow"><b>${fecha(x.Fecha)} · ${esc(x.Hora)}</b><br>${esc(x.Punto)}${x.Placa?' · '+esc(x.Placa):''}${x.Nota?`<br><span class="mut">${esc(x.Nota)}</span>`:''}</div>${x.Estado==='CONFIRMADA'?'<span class="badge ok">Confirmado</span>':`<button class="btn ok" data-act="confirmarProg" data-id="${esc(x.ID)}">CONFIRMAR</button>`}</div></div>`).join(''):'<p class="mut" style="margin:0">Sin turnos programados.</p>'}</div>`;
+  h+=`<div class="card"><h2>Mi programación</h2>${pr.length?pr.map(x=>`<div class="item"><div class="row"><div class="grow"><b>${fecha(x.Fecha)} · ${esc(x.Hora)}</b><br>${esc(x.Punto)}${x.Placa?' · '+esc(x.Placa):''} <span class="badge">${esc(TIPOS[x.Tipo||'TAT'])}</span>${x.Nota?`<br><span class="mut">${esc(x.Nota)}</span>`:''}</div>${x.Estado==='CONFIRMADA'?'<span class="badge ok">Confirmado</span>':`<button class="btn ok" data-act="confirmarProg" data-id="${esc(x.ID)}">CONFIRMAR</button>`}</div></div>`).join(''):'<p class="mut" style="margin:0">Sin turnos programados.</p>'}</div>`;
   const hi=EST.historial||[];
   h+=`<div class="card"><h2>Mis últimos turnos</h2>${hi.length?`<div class="scroll"><table><tr><th>Día</th><th>Tipo</th><th>Horario</th><th>Horas</th></tr>${hi.map(x=>`<tr><td>${fecha(x.Fecha)}</td><td>${esc(TIPOS[x.Tipo]||x.Tipo)}</td><td>${hm(x.Inicio)}–${hm(x.Fin)}</td><td>${f1(x.horas)}</td></tr>`).join('')}</table></div>`:'<p class="mut" style="margin:0">Aún no hay turnos.</p>'}</div>`;
   h+=`<div class="row"><button class="btn ghost sm" data-act="abrirPin">Cambiar mi PIN</button><button class="btn ghost sm" data-act="permisoNotif">Activar avisos</button><button class="btn ghost sm" data-act="refrescar">Actualizar</button></div>`;
@@ -307,13 +307,13 @@ async prog(){
   const calls=[api('listarProgramacion',{fecha:f})];if(S.rol==='A')calls.push(api('listarEscoltas'));
   const [pr,es]=await Promise.all(calls);A.data.prog=pr.programacion;
   if(S.rol!=='A'){
-    $('vista').innerHTML=`<div class="card"><label>Fecha</label><input type="date" id="pf" value="${f}" data-chg="pf"></div><div class="card"><h2>Programación ${fecha(f)}</h2>${pr.programacion.map(x=>`<div class="item"><b>${esc(nombreCorto(x.Escolta))}</b> · ${esc(x.Hora)} · ${esc(x.Punto)} ${esc(x.Placa)} ${x.Estado==='CONFIRMADA'?'<span class="badge ok">confirmó</span>':'<span class="badge warn">pendiente</span>'}</div>`).join('')||'<p class="mut" style="margin:0">Sin programación para esa fecha.</p>'}</div>`;return;
+    $('vista').innerHTML=`<div class="card"><label>Fecha</label><input type="date" id="pf" value="${f}" data-chg="pf"></div><div class="card"><h2>Programación ${fecha(f)}</h2>${pr.programacion.map(x=>`<div class="item"><b>${esc(nombreCorto(x.Escolta))}</b> · ${esc(x.Hora)} · ${esc(x.Punto)} ${esc(x.Placa)} <span class="badge">${esc(TIPOS[x.Tipo||'TAT'])}</span> ${x.Estado==='CONFIRMADA'?'<span class="badge ok">confirmó</span>':'<span class="badge warn">pendiente</span>'}</div>`).join('')||'<p class="mut" style="margin:0">Sin programación para esa fecha.</p>'}</div>`;return;
   }
   A.data.escoltas=es.escoltas;
   const act=es.escoltas.filter(e=>e.Activo!=='NO');
   $('vista').innerHTML=`<div class="card"><label>Fecha a programar</label><input type="date" id="pf" value="${f}" data-chg="pf"><p class="mut">Marca a quienes trabajan ese día. Los que no marques quedan en descanso. Cada escolta recibe un botón CONFIRMAR y tú ves quién ya confirmó.</p></div>
-  <div class="card"><div class="scroll"><table id="progTabla"><tr><th>✓</th><th>Escolta</th><th>Hora</th><th>Punto / ruta</th><th>Placa</th><th>Cliente</th><th>Estado</th></tr>
-  ${act.map(e=>{const x=pr.programacion.find(p=>p.EscoltaID===e.ID)||{};return `<tr data-esc="${esc(e.ID)}" data-pid="${esc(x.ID||'')}"><td><input type="checkbox" class="pk" ${x.ID?'checked':''} style="width:22px;height:22px"></td><td style="min-width:120px">${esc(nombreCorto(e.Nombre))}</td><td><input type="time" class="ph" value="${esc(x.Hora||'07:30')}" style="min-width:100px"></td><td><input class="pp" value="${esc(x.Punto||'')}" style="min-width:140px"></td><td><input class="pl" value="${esc(x.Placa||'')}" style="min-width:90px"></td><td><select class="pc"><option>REPCO</option><option ${x.Cliente==='PROSEGUR'?'selected':''}>PROSEGUR</option></select></td><td>${x.ID?(x.Estado==='CONFIRMADA'?'<span class="badge ok">confirmó</span>':'<span class="badge warn">pendiente</span>'):''}</td></tr>`}).join('')}</table></div>
+  <div class="card"><div class="scroll"><table id="progTabla"><tr><th>✓</th><th>Escolta</th><th>Hora</th><th>Punto / ruta</th><th>Placa</th><th>Tipo de turno</th><th>Estado</th></tr>
+  ${act.map(e=>{const x=pr.programacion.find(p=>p.EscoltaID===e.ID)||{};return `<tr data-esc="${esc(e.ID)}" data-pid="${esc(x.ID||'')}"><td><input type="checkbox" class="pk" ${x.ID?'checked':''} style="width:22px;height:22px"></td><td style="min-width:120px">${esc(nombreCorto(e.Nombre))}</td><td><input type="time" class="ph" value="${esc(x.Hora||'07:30')}" style="min-width:100px"></td><td><input class="pp" value="${esc(x.Punto||'')}" style="min-width:140px"></td><td><input class="pl" value="${esc(x.Placa||'')}" style="min-width:90px"></td><td><select class="pc">${Object.entries(TIPOS).map(([k,n])=>`<option value="${k}" ${(x.Tipo||'TAT')===k?'selected':''}>${n}</option>`).join('')}</select></td><td>${x.ID?(x.Estado==='CONFIRMADA'?'<span class="badge ok">confirmó</span>':'<span class="badge warn">pendiente</span>'):''}</td></tr>`}).join('')}</table></div>
   <div class="row" style="margin-top:12px"><button class="btn ok" data-act="guardarProg">Guardar programación</button><button class="btn ghost" data-act="msgProg">Mensaje de WhatsApp</button></div></div>`;
 },
 async horas(){
@@ -385,6 +385,8 @@ copiar(d){navigator.clipboard.writeText(d.v).then(()=>toast('Copiado'),()=>toast
 abrirInicio(){
   modal(`<h2 style="margin-top:0">Iniciar turno</h2><label>Tipo de turno</label><select id="i_tipo">${formTipos()}</select>
   <label>Placa del vehículo</label><input id="i_veh" autocapitalize="characters" placeholder="ABC123"><label>Zona / ruta</label><input id="i_zona" placeholder="Ej: Bodega Funza → Medellín"><p class="mut" id="i_gps">Se tomará tu ubicación al iniciar (en caravana no).</p><button class="btn big ok" id="i_go" data-act="iniciar">▶ Iniciar ahora</button>`);
+  const pg=((EST&&EST.programacion)||[]).find(x=>x.Fecha===hoyL());
+  if(pg){$('i_tipo').value=pg.Tipo||'TAT';$('i_veh').value=pg.Placa||'';$('i_zona').value=pg.Punto||''}
 },
 async iniciar(){
   const b=$('i_go');b.disabled=true;
@@ -421,7 +423,7 @@ async guardarTurno(){
 async borrarTurno(d){if(!confirm('¿Eliminar este turno definitivamente?'))return;try{await api('eliminarTurno',{id:d.id});closeModal();toast('Eliminado');irTab('turnos')}catch(e){toast(e.message,true)}},
 /* programación */
 chg_pf(){A.data.pf=val('pf');irTab('prog')},
-lineasProg(){return [...document.querySelectorAll('#progTabla tr[data-esc]')].filter(r=>r.querySelector('.pk').checked).map(r=>({ID:r.dataset.pid,EscoltaID:r.dataset.esc,Hora:r.querySelector('.ph').value,Punto:r.querySelector('.pp').value,Placa:r.querySelector('.pl').value,Cliente:r.querySelector('.pc').value}))},
+lineasProg(){return [...document.querySelectorAll('#progTabla tr[data-esc]')].filter(r=>r.querySelector('.pk').checked).map(r=>({ID:r.dataset.pid,EscoltaID:r.dataset.esc,Hora:r.querySelector('.ph').value,Punto:r.querySelector('.pp').value,Placa:r.querySelector('.pl').value,Tipo:r.querySelector('.pc').value}))},
 async guardarProg(){
   const f=val('pf'),ls=ACT.lineasProg();
   if(ls.some(l=>!l.Punto.trim()))return toast('Escribe el punto/ruta de cada escolta marcado',true);
@@ -435,7 +437,7 @@ async guardarProg(){
 msgProg(){
   const f=val('pf'),ls=ACT.lineasProg();if(!ls.length)return toast('No hay escoltas marcados',true);
   const nom=id=>{const e=A.data.escoltas.find(x=>x.ID===id);return e?nombreCorto(e.Nombre):''};
-  const txt=`*PROGRAMACIÓN ${fecha(f).toUpperCase()}*\n`+ls.map(l=>`• ${nom(l.EscoltaID)} — ${l.Hora} — ${l.Punto}${l.Placa?' — '+l.Placa:''}`).join('\n')+`\n\nConfirma tu turno en la app.`;
+  const txt=`*PROGRAMACIÓN ${fecha(f).toUpperCase()}*\n`+ls.map(l=>`• ${nom(l.EscoltaID)} — ${l.Hora} — ${l.Punto}${l.Placa?' — '+l.Placa:''}${l.Tipo&&l.Tipo!=='TAT'?' — '+TIPOS[l.Tipo].toUpperCase():''}`).join('\n')+`\n\nConfirma tu turno en la app.`;
   modal(`<h2 style="margin-top:0">Mensaje</h2><textarea id="mt" style="min-height:200px">${esc(txt)}</textarea><br><br><div class="row"><a class="btn ok" target="_blank" rel="noopener" id="mt_wa" href="${esc(wa('',txt))}">Abrir WhatsApp</a><button class="btn ghost" data-act="copiarTxt">Copiar</button></div>`);
 },
 copiarTxt(){navigator.clipboard.writeText($('mt').value).then(()=>toast('Copiado'),()=>toast('No se pudo copiar',true))},
