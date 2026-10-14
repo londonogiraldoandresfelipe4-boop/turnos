@@ -6,6 +6,11 @@
 <meta name="google" content="notranslate">
 <title>Seguimiento de llamadas</title>
 <meta name="theme-color" content="#0b2545">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
 :root{--bg:#f2f5f9;--card:#fff;--tx:#0f1b2d;--mut:#5b6b80;--line:#dbe3ee;--pri:#0b2545;--acc:#1f7ae0;--ok:#188a4b;--warn:#e8a317;--bad:#c62828}
@@ -60,6 +65,7 @@ function modal(h){closeModal();const m=document.createElement('div');m.className
 function closeModal(){const m=$('modal');if(m)m.remove()}
 function descargar(n,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download=n;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
 
+const LOGO=`<svg width="34" height="34" style="flex:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b2545"/><path d="M256 92c-66 0-118 51-118 114 0 84 118 214 118 214s118-130 118-214c0-63-52-114-118-114z" fill="#fff"/><circle cx="256" cy="206" r="78" fill="#188a4b"/><path d="M222 208l26 27 46-54" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><circle cx="392" cy="392" r="38" fill="#e8a317"/><circle cx="392" cy="392" r="16" fill="#0b2545"/></svg>`;
 /* ---- estado y conexión ---- */
 let S=(()=>{try{return JSON.parse(LS('em_s'))||{}}catch(e){return{}}})();
 const save=()=>LS('em_s',JSON.stringify(S));
@@ -78,7 +84,7 @@ async function api(action,payload,sinToken){
 let LG={rol:'S',adminCreado:true};
 function salir(sil){S.token='';S.rol='';save();clearInterval(salir.t);if(!sil)toast('Sesión cerrada');login()}
 async function login(){
-  $('root').innerHTML=`<header><h1>Seguimiento de llamadas<small>Embalajes del día</small></h1></header><main><div class="tabs" id="rt"></div><div class="card" id="lb"></div></main>`;
+  $('root').innerHTML=`<header>${LOGO}<h1>Seguimiento de llamadas<small>Embalajes del día</small></h1></header><main><div class="tabs" id="rt"></div><div class="card" id="lb"></div></main>`;
   pintaLogin();
   try{const p=await api('ping',{},true);LG.adminCreado=p.adminCreado;pintaLogin()}catch(e){}
 }
@@ -181,7 +187,7 @@ function inicio(){
   if(!S.token)return login();
   if(MAP){MAP.remove();MAP=null}EM.d=null;EM.f='todos';EM.q='';EM.v='lista';S.fecha=S.fecha||hoyL();
   const adm=S.rol==='A';
-  $('root').innerHTML=`<header><h1>Seguimiento de llamadas<small>${esc(S.nombre||'')}</small></h1>${adm?'<button data-act="claves">Claves</button>':''}<button data-act="salir">Salir</button></header><main>${adm?panelAdmin():''}<div id="res"><div class="card mut">Cargando…</div></div></main>`;
+  $('root').innerHTML=`<header>${LOGO}<h1>Seguimiento de llamadas<small>${esc(S.nombre||'')}</small></h1>${adm?'<button data-act="claves">Claves</button>':''}<button data-act="salir">Salir</button></header><main>${adm?panelAdmin():''}<div id="res"><div class="card mut">Cargando…</div></div></main>`;
   carga();clearInterval(salir.t);salir.t=setInterval(()=>{if(!$('modal')&&!document.querySelector('.leaflet-popup')&&!(document.activeElement&&/INPUT|TEXTAREA/.test(document.activeElement.tagName)))carga()},20000);
 }
 const hoyL=()=>new Date(Date.now()-5*3600*1000).toISOString().slice(0,10);
@@ -215,7 +221,7 @@ document.addEventListener('input',e=>{if(e.target.id==='q'&&EM.d){EM.q=e.target.
 document.addEventListener('change',e=>{if(e.target.id==='fd'){S.fecha=e.target.value||hoyL();save();inicio()}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lc')entrar()});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.token)carga()});
-if(!S.api){$('root').innerHTML=`<header><h1>Seguimiento de llamadas</h1></header><main><div class="card"><h2>Enlace del sistema</h2><p class="mut">Pega el enlace que termina en /exec.</p><input id="au" placeholder="https://script.google.com/macros/s/…/exec"><br><br><button class="btn big" data-act="gu">Guardar</button></div></main>`;ACT.gu=()=>{const u=val('au');if(!urlOk(u))return toast('Enlace no válido',true);S.api=u;save();location.reload()}}
+if(!S.api){$('root').innerHTML=`<header>${LOGO}<h1>Seguimiento de llamadas</h1></header><main><div class="card"><h2>Enlace del sistema</h2><p class="mut">Pega el enlace que termina en /exec.</p><input id="au" placeholder="https://script.google.com/macros/s/…/exec"><br><br><button class="btn big" data-act="gu">Guardar</button></div></main>`;ACT.gu=()=>{const u=val('au');if(!urlOk(u))return toast('Enlace no válido',true);S.api=u;save();location.reload()}}
 else inicio();
 </script>
 </body>
