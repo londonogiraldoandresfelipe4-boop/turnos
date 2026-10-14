@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="es" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google" content="notranslate">
+<title>Seguimiento de llamadas</title>
+<meta name="theme-color" content="#0b2545">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{--bg:#f2f5f9;--card:#fff;--tx:#0f1b2d;--mut:#5b6b80;--line:#dbe3ee;--pri:#0b2545;--acc:#1f7ae0;--ok:#188a4b;--warn:#e8a317;--bad:#c62828}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1220;--card:#131d30;--tx:#e8eef7;--mut:#93a4bb;--line:#24324b;--pri:#1b3a6b;--acc:#4a9bff}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{background:var(--pri);color:#fff;padding:10px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:20}
+header h1{font-size:17px;margin:0;flex:1;line-height:1.2}header small{display:block;font-weight:400;opacity:.8;font-size:12px}
+header button{background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:8px;padding:8px 12px;font-size:14px}
+main{max-width:760px;margin:0 auto;padding:12px 16px 80px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 0 12px}
+.card h2{font-size:16px;margin:0 0 6px}
+label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+input,textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--tx);font:inherit}
+button{font:inherit;cursor:pointer}
+.btn{display:inline-block;border:0;border-radius:12px;padding:12px 16px;background:var(--acc);color:#fff;font-weight:600}
+.btn.big{width:100%;padding:16px;font-size:18px}.btn.ok{background:var(--ok)}.btn.bad{background:var(--bad)}
+.btn.ghost{background:transparent;color:var(--acc);border:1px solid var(--acc)}.btn.sm{padding:8px 12px;font-size:14px;border-radius:9px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.grow{flex:1}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:4px 0}
+.tabs button{border:1px solid var(--line);background:var(--card);color:var(--tx);border-radius:999px;padding:9px 14px;white-space:nowrap;font-size:14px}
+.tabs button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.mut{color:var(--mut);font-size:13px}.center{text-align:center}
+.badge{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600;background:#e3f6ea;color:var(--ok)}
+.item{padding:10px 0 10px 10px;border-bottom:1px solid var(--line);border-left:4px solid var(--warn)}.item.ok{border-left-color:var(--ok);opacity:.8}.item:last-child{border-bottom:0}
+.bar{height:8px;background:var(--line);border-radius:6px;margin:8px 0}.bar i{display:block;height:8px;background:var(--ok);border-radius:6px}
+.banner{padding:10px 14px;border-radius:10px;margin:0 0 12px;font-size:14px;background:#fde4e4;color:var(--bad)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal>div{background:var(--card);width:100%;max-width:520px;border-radius:16px;padding:18px}
+.lbl{background:#0b2545;color:#fff;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid #fff;transform:translate(-50%,-50%)}
+.leaflet-popup-content{font:14px/1.35 system-ui,sans-serif;min-width:190px}.leaflet-popup-content .btn{margin:2px 2px 0 0}
+.dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin:0 4px 0 10px;vertical-align:-1px;border:2px solid #fff;box-shadow:0 0 0 1px #8887}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:10px;z-index:99;display:none;max-width:90%}
+#toast.bad{background:var(--bad)}
+</style>
+</head>
+<body>
+<div id="root"></div><div id="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const LS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){return null}};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const val=id=>{const e=$(id);return e?e.value.trim():''};
+const hm=s=>(s||'').slice(11,16);
+const DIAS=['dom','lun','mar','mié','jue','vie','sáb'];
+const fecha=f=>{if(!f)return'';const d=new Date(f+'T12:00:00Z');return DIAS[d.getUTCDay()]+' '+f.slice(8,10)+'/'+f.slice(5,7)};
+const corto=n=>String(n||'').split(' ').slice(0,2).join(' ');
+function toast(m,bad){const t=$('toast');t.textContent=m;t.className=bad?'bad':'';t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',3200)}
+function modal(h){closeModal();const m=document.createElement('div');m.className='modal';m.id='modal';m.innerHTML='<div>'+h+'</div>';m.addEventListener('click',e=>{if(e.target===m)closeModal()});document.body.appendChild(m)}
+function closeModal(){const m=$('modal');if(m)m.remove()}
+function descargar(n,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download=n;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
+
+/* ---- estado y conexión ---- */
+let S=(()=>{try{return JSON.parse(LS('em_s'))||{}}catch(e){return{}}})();
+const save=()=>LS('em_s',JSON.stringify(S));
+const urlOk=u=>/^(https:\/\/script\.google(usercontent)?\.com\/|http:\/\/localhost:)/.test(u||'');
+(function(){const m=location.hash.match(/api=([^&]+)/);if(m){const u=decodeURIComponent(m[1]);if(urlOk(u)){S.api=u;save()}history.replaceState(null,'',location.pathname+location.search)}})();
+async function api(action,payload,sinToken){
+  if(!S.api)throw new Error('Falta el enlace del sistema');
+  let r;try{r=await fetch(S.api,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,token:sinToken?'':S.token,payload:payload||{}})})}catch(e){const x=new Error('Sin conexión');x.offline=true;throw x}
+  const j=await r.json();
+  if(!j.ok){if(j.error==='SESION'){salir(true)}throw new Error(j.msg||j.error)}
+  return j.data;
+}
+(async function(){try{const r=await fetch('config.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const c=await r.json();if(urlOk(c&&c.api)&&c.api!==S.api){S.api=c.api;save();location.reload()}}catch(e){}})();
+
+/* ---- login ---- */
+let LG={rol:'S',adminCreado:true};
+function salir(sil){S.token='';S.rol='';save();clearInterval(salir.t);if(!sil)toast('Sesión cerrada');login()}
+async function login(){
+  $('root').innerHTML=`<header><h1>Seguimiento de llamadas<small>Embalajes del día</small></h1></header><main><div class="tabs" id="rt"></div><div class="card" id="lb"></div></main>`;
+  pintaLogin();
+  try{const p=await api('ping',{},true);LG.adminCreado=p.adminCreado;pintaLogin()}catch(e){}
+}
+function pintaLogin(){
+  $('rt').innerHTML=[['S','Sargento'],['A','Administrador']].map(([k,n])=>`<button class="${LG.rol===k?'on':''}" data-act="rol" data-r="${k}">${n}</button>`).join('');
+  $('lb').innerHTML=LG.rol==='S'
+   ?`<label>Tu nombre</label><input id="ln" value="${esc(LS('em_n')||'')}" placeholder="Ej: Sgto. Pérez"><label>Clave</label><input id="lc" type="password"><br><button class="btn big" data-act="entrar">Entrar</button>`
+   :`${LG.adminCreado?'':'<div class="banner" style="background:#fff1d6;color:#8a5a00">Primera vez: la clave que escribas será la clave de administrador (mínimo 6).</div>'}<label>${LG.adminCreado?'Clave de administrador':'Crea la clave de administrador'}</label><input id="lc" type="password"><br><button class="btn big" data-act="entrar">${LG.adminCreado?'Entrar':'Crear y entrar'}</button>`;
+}
+async function entrar(){
+  try{const n=val('ln');if(LG.rol==='S')LS('em_n',n);
+    const d=await api(LG.rol==='S'?'loginSargento':'loginAdmin',{nombre:n,clave:$('lc').value},true);
+    S.token=d.token;S.rol=d.rol;S.nombre=d.nombre;save();inicio()}catch(e){toast(e.message,true)}
+}
+
+/* ---- ubicación por localidad (centros aproximados) ---- */
+const norm=t=>String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+const LOC={'Usaquén':[4.7500,-74.0310],'Chapinero':[4.6500,-74.0560],'Santa Fe':[4.6050,-74.0650],'San Cristóbal':[4.5650,-74.0850],'Usme':[4.4700,-74.1200],'Tunjuelito':[4.5800,-74.1330],'Bosa':[4.6050,-74.1900],'Kennedy':[4.6300,-74.1500],'Fontibón':[4.6700,-74.1450],'Engativá':[4.7000,-74.1100],'Suba':[4.7400,-74.0900],'Barrios Unidos':[4.6700,-74.0800],'Teusaquillo':[4.6350,-74.0900],'Los Mártires':[4.6050,-74.0850],'Antonio Nariño':[4.5900,-74.1000],'Puente Aranda':[4.6150,-74.1100],'La Candelaria':[4.5950,-74.0730],'Rafael Uribe Uribe':[4.5600,-74.1100],'Ciudad Bolívar':[4.5400,-74.1600],'Sumapaz':[4.30,-74.25],
+ 'Soacha':[4.5790,-74.2160],'Funza':[4.7160,-74.2120],'Mosquera':[4.7060,-74.2300],'Madrid':[4.7320,-74.2650],'Cota':[4.8110,-74.1000],'Chía':[4.8620,-74.0580],'Cajicá':[4.9180,-74.0280],'Zipaquirá':[5.0220,-74.0050],'Facatativá':[4.8140,-74.3550],'Tocancipá':[4.9650,-73.9120],'Sopó':[4.9060,-73.9410],'La Calera':[4.7200,-73.9690],'Bogotá':[4.6097,-74.0817]};
+const LOCN=Object.keys(LOC).map(n=>[norm(n),n]).sort((a,b)=>b[0].length-a[0].length);
+const NOLOC=new Set(['bogota']); // "Bogotá" solo se usa si no aparece nada más específico
+function buscaLoc(txt){const t=' '+norm(txt)+' ';for(const [k,n] of LOCN){if(k!=='bogota'&&t.includes(' '+k+' '))return n}return t.includes(' bogota ')?'Bogotá':''}
+function analiza(det,enc){
+  const c=det.split(' | '),h=enc?enc.split(' | '):[];
+  const col=re=>{const i=h.findIndex(x=>re.test(norm(x)));return i>=0?c[i]||'':''};
+  let loc=buscaLoc(col(/localidad|municipio|ciudad/));if(!loc)loc=buscaLoc(c.join(' '));
+  let placa=col(/placa|vehiculo/);const m=det.match(/\b[A-Za-z]{3}\s?-?\s?\d{3}\b/);if(!/[A-Za-z]{3}\s?-?\d{3}/.test(placa))placa=m?m[0].toUpperCase().replace(/[\s-]/g,''):placa;
+  let ll=null;const g=det.match(/(-?\d{1,2}\.\d{3,})\s*[,;|\s]\s*(-?\d{2,3}\.\d{3,})/);if(g){const a=+g[1],b=+g[2];if(a>-5&&a<14&&b<-60&&b>-82)ll=[a,b]}
+  return{loc,placa,ll,conductor:col(/conductor/),cells:c,h};
+}
+/* ---- lista ---- */
+const EM={d:null,f:'todos',q:'',v:'lista'};
+const stOf=x=>x.Llamado!=='SI'?'pend':(x.Resultado==='No contestó'?'nc':'ok');
+const COL={pend:'#e8a317',ok:'#188a4b',nc:'#c62828'},TXT={pend:'Pendiente',ok:'Llamado',nc:'No contestó'};
+function cel(det,enc){const c=det.split(' | '),h=enc?enc.split(' | '):[];return c.map((v,i)=>i===0?`<b>${esc(v)}</b>`:`<span class="mut">${h[i]?esc(h[i])+': ':''}</span>${esc(v)}`).join('<br>')}
+function botones(x){const st=stOf(x);return `<div class="row" style="margin-top:8px">${st!=='pend'?`<button class="btn ghost sm" data-act="des" data-id="${esc(x.ID)}">Deshacer</button>`:`<button class="btn ok sm" data-act="marca" data-id="${esc(x.ID)}">✓ Llamado</button><button class="btn bad sm" data-act="marca" data-id="${esc(x.ID)}" data-r="No contestó">No contestó</button>`}<button class="btn ghost sm" data-act="nota" data-id="${esc(x.ID)}">📝 Nota</button></div>`}
+function estadoHtml(x){const st=stOf(x);return st==='pend'?'':`<div style="margin-top:4px"><span class="badge" style="background:${COL[st]}22;color:${COL[st]}">${st==='ok'?'✓ ':'✗ '}${esc(x.Resultado||'Llamado')}</span> <span class="mut">${esc(corto(x.LlamadoPor))} · ${hm(x.LlamadoEn)}</span></div>`}
+function filtrados(){const d=EM.d,q=EM.q.toLowerCase();return d.items.filter(x=>EM.f==='todos'||stOf(x)===EM.f).filter(x=>!q||x.Detalle.toLowerCase().includes(q)||(x.Nota||'').toLowerCase().includes(q))}
+function listaHtml(){
+  const d=EM.d;
+  return filtrados().map(x=>{const st=stOf(x);return `<div class="item" style="border-left-color:${COL[st]};${st!=='pend'?'opacity:.85':''}">${cel(x.Detalle,d.encabezado)}${estadoHtml(x)}${x.Nota?`<div class="mut">📝 ${esc(x.Nota)}</div>`:''}${botones(x)}</div>`}).join('')||'<p class="mut" style="margin:0">Nada por mostrar.</p>';
+}
+/* ---- mapa ---- */
+let MAP=null,CAPA=null,AJUSTADO=false;
+function popup(x,a){const st=stOf(x);return `<div>${cel(x.Detalle,EM.d.encabezado)}<div style="margin:4px 0"><span class="dot" style="margin-left:0;background:${COL[st]}"></span><b>${TXT[st]}</b>${st!=='pend'?` <span class="mut">${esc(corto(x.LlamadoPor))} · ${hm(x.LlamadoEn)}</span>`:''}</div>${x.Nota?`<div class="mut">📝 ${esc(x.Nota)}</div>`:''}${botones(x)}</div>`}
+function pintaMapa(){
+  const w=$('mapa');if(!w)return;
+  if(typeof L==='undefined'){w.innerHTML='<p class="mut" style="padding:14px">No se pudo cargar el mapa (se necesita internet). La lista sigue funcionando.</p>';return}
+  if(!MAP){MAP=L.map(w).setView([4.65,-74.12],11);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap'}).addTo(MAP);CAPA=L.layerGroup().addTo(MAP);AJUSTADO=false}
+  CAPA.clearLayers();const grupos={},sin=[],pts=[];
+  filtrados().forEach(x=>{const a=analiza(x.Detalle,EM.d.encabezado);x._a=a;if(a.ll)(grupos['~'+x.ID]=[{x,a}]);else if(a.loc)(grupos[a.loc]=grupos[a.loc]||[]).push({x,a});else sin.push(x)});
+  Object.keys(grupos).forEach(k=>{const g=grupos[k],c=k[0]==='~'?g[0].a.ll:LOC[k];
+    g.forEach((o,i)=>{let p=c;if(k[0]!=='~'){const r=i===0?0:0.007*Math.sqrt(i),an=i*2.4;p=[c[0]+r*Math.sin(an),c[1]+r*Math.cos(an)]}
+      const st=stOf(o.x);L.circleMarker(p,{radius:8,color:'#fff',weight:2,fillColor:COL[st],fillOpacity:.95}).bindPopup(()=>popup(o.x),{maxWidth:280}).addTo(CAPA);pts.push(p)});
+    if(k[0]!=='~'){const t=g.length,ok=g.filter(o=>stOf(o.x)!=='pend').length;L.marker([c[0]-0.02,c[1]],{icon:L.divIcon({className:'',html:`<div class="lbl">${esc(k)} · ${ok}/${t}</div>`,iconSize:[0,0]}),interactive:false,keyboard:false}).addTo(CAPA)}});
+  if(!AJUSTADO&&pts.length&&EM.v==='mapa'){MAP.fitBounds(L.latLngBounds(pts).pad(.2),{maxZoom:13});AJUSTADO=true}
+  $('sinub').innerHTML=sin.length?`<div class="card"><h2>Sin ubicar en el mapa (${sin.length})</h2><p class="mut" style="margin-top:0">No se encontró la localidad en estas filas. Salen en la lista.</p>${sin.map(x=>`<div class="item" style="border-left-color:${COL[stOf(x)]}">${cel(x.Detalle,EM.d.encabezado)}${botones(x)}</div>`).join('')}</div>`:'';
+}
+function setVista(v){EM.v=v;$('lista').style.display=v==='lista'?'':'none';$('vmapa').style.display=v==='mapa'?'':'none';if(v==='mapa'){pintaMapa();setTimeout(()=>MAP&&MAP.invalidateSize(),50)}}
+function pinta(){
+  const d=EM.d,n=$('res');if(!d||!n)return;
+  if(!d.total){if(MAP){MAP.remove();MAP=null}n.innerHTML=`<div class="card center"><p class="mut">${S.rol==='S'?'Aún no hay embalajes cargados para hoy. Se actualiza solo cuando el administrador los cargue.':'No hay embalajes cargados para este día.'}</p></div>`;return}
+  if(!$('mapa')){if(MAP){MAP.remove();MAP=null}
+    n.innerHTML=`<div id="top"></div><div class="card"><input id="q" placeholder="Buscar placa, cliente, localidad…" value="${esc(EM.q)}"></div>
+    <div id="vmapa" style="display:none"><div class="card" style="padding:0;overflow:hidden"><div id="mapa" style="height:62vh;min-height:360px"></div></div><div id="sinub"></div></div><div class="card" id="lista"></div>`}
+  const c={ok:0,nc:0,pend:0};d.items.forEach(x=>c[stOf(x)]++);const pct=d.total?Math.round((c.ok+c.nc)*100/d.total):0;
+  $('top').innerHTML=(S.rol==='S'?`<div class="mut" style="margin:4px 2px 8px">${d.fecha===d.hoy?'Hoy':'Día'} · ${fecha(d.fecha)}</div>`:'')+`<div class="card"><h2>${d.llamados} de ${d.total} gestionados <span class="mut">(${pct}%)</span></h2><div class="bar"><i style="width:${pct}%"></i></div>
+   <div class="mut"><span class="dot" style="margin-left:0;background:${COL.ok}"></span>${c.ok} llamados<span class="dot" style="background:${COL.nc}"></span>${c.nc} no contestaron<span class="dot" style="background:${COL.pend}"></span>${c.pend} pendientes</div>
+   <div class="tabs" style="margin-top:6px">${[['todos','Todos'],['pend','Pendientes ('+c.pend+')'],['ok','Llamados ('+c.ok+')'],['nc','No contestó ('+c.nc+')']].map(([k,t])=>`<button class="${EM.f===k?'on':''}" data-act="filtro" data-f="${k}">${t}</button>`).join('')}</div>
+   <div class="row" style="margin-top:6px"><div class="tabs grow" style="padding:0"><button class="${EM.v==='lista'?'on':''}" data-act="vista" data-v="lista">☰ Lista</button><button class="${EM.v==='mapa'?'on':''}" data-act="vista" data-v="mapa">🗺 Mapa</button></div><button class="btn ghost sm" data-act="soporte">⬇ Soporte (Excel)</button></div></div>`;
+  $('lista').innerHTML=listaHtml();$('lista').style.display=EM.v==='lista'?'':'none';$('vmapa').style.display=EM.v==='mapa'?'':'none';
+  if(EM.v==='mapa')pintaMapa();
+}
+/* ---- soporte descargable ---- */
+function soporte(){
+  const d=EM.d;if(!d||!d.total)return toast('No hay datos',true);
+  const h=d.encabezado?d.encabezado.split(' | '):[];const an=d.items.map(x=>analiza(x.Detalle,d.encabezado));
+  const nc=Math.max(h.length,...d.items.map(x=>x.Detalle.split(' | ').length));
+  const orig=Array.from({length:nc},(_,i)=>h[i]||'Dato '+(i+1));
+  const cab=['N°','Fecha','Placa','Localidad (detectada)','Latitud aprox.','Longitud aprox.','Ver en mapa',...orig,'Estado','Resultado','Llamado por','Fecha y hora de la llamada','Nota'];
+  const filas=d.items.map((x,i)=>{const a=an[i],ll=a.ll||(a.loc?LOC[a.loc]:null),c=x.Detalle.split(' | ');
+    return [i+1,d.fecha,a.placa,a.loc,ll?ll[0]:'',ll?ll[1]:'',ll?`https://www.google.com/maps?q=${ll[0]},${ll[1]}`:'',...orig.map((_,k)=>c[k]||''),TXT[stOf(x)],x.Llamado==='SI'?x.Resultado:'',x.LlamadoPor,x.LlamadoEn,x.Nota]});
+  const cnt=a=>{const o={ok:0,nc:0,pend:0};a.forEach(x=>o[stOf(x)]++);return o};
+  const T=cnt(d.items),ll=d.items.filter(x=>x.LlamadoEn).map(x=>x.LlamadoEn).sort();
+  const res=[['SOPORTE DE SEGUIMIENTO DE LLAMADAS — EMBALAJES'],['Fecha',d.fecha],['Generado',new Date().toLocaleString('es-CO')],[],['Total embalajes',d.total],['Llamados (contestaron)',T.ok],['No contestaron',T.nc],['Pendientes',T.pend],['% gestionado',d.total?Math.round((T.ok+T.nc)*100/d.total)+'%':''],['Primera llamada',ll[0]||''],['Última llamada',ll[ll.length-1]||''],[],['POR SARGENTO','Llamados','No contestó']];
+  const ps={};d.items.filter(x=>x.Llamado==='SI').forEach(x=>{const p=ps[x.LlamadoPor]=ps[x.LlamadoPor]||[0,0];stOf(x)==='nc'?p[1]++:p[0]++});Object.keys(ps).forEach(k=>res.push([k,ps[k][0],ps[k][1]]));
+  res.push([],['POR LOCALIDAD','Total','Llamados','No contestó','Pendientes']);
+  const pl={};d.items.forEach((x,i)=>{const k=an[i].loc||'Sin ubicar';(pl[k]=pl[k]||[]).push(x)});Object.keys(pl).sort().forEach(k=>{const c=cnt(pl[k]);res.push([k,pl[k].length,c.ok,c.nc,c.pend])});
+  const nom='seguimiento_embalajes_'+d.fecha;
+  if(typeof XLSX!=='undefined'){
+    const w=XLSX.utils.book_new(),s1=XLSX.utils.aoa_to_sheet([cab,...filas]),s2=XLSX.utils.aoa_to_sheet(res);
+    s1['!cols']=cab.map((c,i)=>({wch:i===6?14:Math.min(32,Math.max(10,String(c).length+2))}));s2['!cols']=[{wch:30},{wch:14},{wch:14},{wch:14},{wch:14}];
+    s1['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:filas.length,c:cab.length-1}})};
+    XLSX.utils.book_append_sheet(w,s1,'Seguimiento');XLSX.utils.book_append_sheet(w,s2,'Resumen');XLSX.writeFile(w,nom+'.xlsx');
+  }else{const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';descargar(nom+'.csv','﻿'+[cab,...filas].map(r=>r.map(q).join(';')).join('\n'));toast('Se descargó en CSV (sin Excel por falta de internet)')}
+}
+async function carga(){if(!S.token)return;try{EM.d=await api('listar',{fecha:S.rol==='A'?S.fecha:undefined});pinta()}catch(e){if(!EM.d&&$('res'))$('res').innerHTML=`<div class="banner">${esc(e.offline?'Sin conexión. Reintentando…':e.message)}</div>`}}
+async function accion(p){try{EM.d=await api('marcar',Object.assign({fecha:S.rol==='A'?S.fecha:undefined},p));pinta()}catch(e){toast(e.message,true)}}
+function inicio(){
+  if(!S.token)return login();
+  if(MAP){MAP.remove();MAP=null}EM.d=null;EM.f='todos';EM.q='';EM.v='lista';S.fecha=S.fecha||hoyL();
+  const adm=S.rol==='A';
+  $('root').innerHTML=`<header><h1>Seguimiento de llamadas<small>${esc(S.nombre||'')}</small></h1>${adm?'<button data-act="claves">Claves</button>':''}<button data-act="salir">Salir</button></header><main>${adm?panelAdmin():''}<div id="res"><div class="card mut">Cargando…</div></div></main>`;
+  carga();clearInterval(salir.t);salir.t=setInterval(()=>{if(!$('modal')&&!document.querySelector('.leaflet-popup')&&!(document.activeElement&&/INPUT|TEXTAREA/.test(document.activeElement.tagName)))carga()},20000);
+}
+const hoyL=()=>new Date(Date.now()-5*3600*1000).toISOString().slice(0,10);
+function panelAdmin(){return `<div class="card"><h2>Cargar embalajes del día</h2>
+ <label>Fecha (se pone sola en hoy)</label><input type="date" id="fd" value="${S.fecha}">
+ <p class="mut" style="margin:8px 0">Copia las filas desde Excel (o escríbelas, una por línea) y pégalas aquí. Los sargentos las ven al instante.</p>
+ <textarea id="tx" rows="6" placeholder="Pega aquí la lista…"></textarea>
+ <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="enc" style="width:auto"> La primera línea son los títulos de las columnas</label>
+ <div class="row" style="margin-top:10px"><button class="btn ok grow" data-act="cargar" data-rep="0">Agregar al día</button><button class="btn ghost grow" data-act="cargar" data-rep="1">Reemplazar el día</button></div>
+ <p class="mut" style="margin-bottom:0">“Agregar” suma lo nuevo sin tocar lo ya marcado (omite repetidos). “Reemplazar” borra ese día y lo carga de nuevo.</p></div>
+ <div class="row" style="margin-bottom:12px"><button class="btn bad sm" data-act="borrar">Borrar el día</button></div>`}
+
+const ACT={
+rol(d){LG.rol=d.r;pintaLogin()},entrar,salir(){salir()},
+filtro(d){EM.f=d.f;pinta()},
+vista(d){EM.v=d.v;pinta();if(d.v==='mapa')setTimeout(()=>MAP&&MAP.invalidateSize(),50)},soporte,
+marca(d){accion({id:d.id,resultado:d.r||'Llamado'})},
+des(d){accion({id:d.id,deshacer:true})},
+nota(d){const x=EM.d.items.find(i=>i.ID===d.id);modal(`<h2 style="margin-top:0">Nota</h2><input type="hidden" id="ni" value="${esc(d.id)}"><textarea id="nt" rows="3" maxlength="200" placeholder="Ej: pidió que lo llamen a las 3 pm">${esc(x&&x.Nota||'')}</textarea><br><br><button class="btn big" data-act="notaOk">Guardar</button>`)},
+async notaOk(){const id=val('ni'),n=$('nt').value;closeModal();await accion({id,nota:n})},
+async cargar(d){const t=$('tx').value;if(!t.trim())return toast('Pega primero la lista',true);
+ if(d.rep==='1'&&!confirm('Se borra la lista de ese día (con sus marcas) y se carga la nueva. ¿Continuar?'))return;
+ try{const r=await api('cargar',{fecha:S.fecha,texto:t,encabezado:$('enc').checked,reemplazar:d.rep==='1'});EM.d=r;$('tx').value='';pinta();toast('Cargados. Total del día: '+r.total+(r.omitidos?' ('+r.omitidos+' repetidos omitidos)':''))}catch(e){toast(e.message,true)}},
+async borrar(){if(!confirm('¿Borrar toda la lista de este día?'))return;try{EM.d=await api('borrar',{fecha:S.fecha});pinta();toast('Día borrado')}catch(e){toast(e.message,true)}},
+claves(){modal(`<h2 style="margin-top:0">Claves</h2><label>Clave de los sargentos (la usan todos; mínimo 4)</label><input id="cs"><br><br><button class="btn big" data-act="gcs">Guardar clave de sargentos</button><label style="margin-top:16px">Cambiar mi clave de administrador (mínimo 6)</label><input id="ca"><br><br><button class="btn ghost big" data-act="gca">Guardar mi clave</button>`)},
+async gcs(){try{await api('ponerClaveSargentos',{clave:val('cs')});closeModal();toast('Clave de sargentos guardada')}catch(e){toast(e.message,true)}},
+async gca(){try{if(val('ca').length<6)throw new Error('Mínimo 6 caracteres');await api('cambiarClaveAdmin',{clave:val('ca')});closeModal();toast('Clave guardada')}catch(e){toast(e.message,true)}}
+};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;const f=ACT[b.dataset.act];if(f){e.preventDefault();f(b.dataset)}});
+document.addEventListener('input',e=>{if(e.target.id==='q'&&EM.d){EM.q=e.target.value;$('lista').innerHTML=listaHtml();if(EM.v==='mapa')pintaMapa()}});
+document.addEventListener('change',e=>{if(e.target.id==='fd'){S.fecha=e.target.value||hoyL();save();inicio()}});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lc')entrar()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.token)carga()});
+if(!S.api){$('root').innerHTML=`<header><h1>Seguimiento de llamadas</h1></header><main><div class="card"><h2>Enlace del sistema</h2><p class="mut">Pega el enlace que termina en /exec.</p><input id="au" placeholder="https://script.google.com/macros/s/…/exec"><br><br><button class="btn big" data-act="gu">Guardar</button></div></main>`;ACT.gu=()=>{const u=val('au');if(!urlOk(u))return toast('Enlace no válido',true);S.api=u;save();location.reload()}}
+else inicio();
+</script>
+</body>
+</html>
