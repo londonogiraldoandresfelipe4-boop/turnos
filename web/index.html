@@ -1,0 +1,1028 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Registro de Turnos</title>
+<meta name="theme-color" content="#070e1c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+:root{--bg:#f2f5f9;--card:#fff;--tx:#0f1b2d;--mut:#5b6b80;--line:#dbe3ee;--pri:#0b2545;--acc:#1f7ae0;--ok:#188a4b;--warn:#c77700;--bad:#c62828;--okbg:#e3f6ea;--warnbg:#fff1d6;--badbg:#fde4e4}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{padding-bottom:env(safe-area-inset-bottom)}
+header{background:var(--pri);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:20}
+header h1{font-size:17px;margin:0;flex:1;line-height:1.2}
+header small{display:block;font-weight:400;opacity:.8;font-size:12px}
+header button{background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:8px;padding:8px 12px;font-size:14px}
+main{max-width:980px;margin:0 auto;padding:12px 16px 90px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 0 12px}
+.card h2{font-size:15px;margin:0 0 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+input,select,textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--tx);font:inherit}
+textarea{min-height:80px}
+button{font:inherit;cursor:pointer}
+.btn{display:inline-block;border:0;border-radius:12px;padding:13px 16px;background:var(--acc);color:#fff;font-weight:600;text-align:center;text-decoration:none}
+.btn.big{width:100%;padding:20px;font-size:20px}
+.btn.ok{background:var(--ok)}.btn.bad{background:var(--bad)}.btn.warn{background:var(--warn)}
+.btn.ghost{background:transparent;color:var(--acc);border:1px solid var(--acc)}
+.btn.sm{padding:8px 12px;font-size:14px;border-radius:9px}
+.btn[disabled]{opacity:.5}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px;margin:0 -4px;scrollbar-width:none}
+.tabs button{border:1px solid var(--line);background:var(--card);color:var(--tx);border-radius:999px;padding:9px 14px;white-space:nowrap;font-size:14px}
+.tabs button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.badge{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600;background:var(--line);color:var(--tx)}
+.tp-CARAVANA{--c:#1b9e4b}.tp-TAT{--c:#2f6fdb}.tp-MOVIMIENTO{--c:#0e8f9b}.tp-DISPONIBLE{--c:#d9730d}.tp-CAMBIO{--c:#8a4fd8}
+.tb{background:color-mix(in srgb,var(--c) 16%,transparent);color:var(--c);border:1px solid color-mix(in srgb,var(--c) 45%,transparent)}
+.gh{margin:10px 0 2px;padding:6px 10px;border-left:6px solid var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);border-radius:8px;font-weight:700;color:var(--c)}
+.gh span{color:var(--tx);font-weight:400}
+.lbx{border:1px solid var(--bd,#d0d7e2);border-radius:12px;padding:10px;margin:8px 0}
+.lbx.CONFLICTO,.lbx.REVISAR,.lbx.ERROR{border-color:#d9730d;background:#fff4e5;color:#5a2e00}.lbx.DIFERENCIA{border-color:#c9a400;background:#fffbe0;color:#4d4200}
+.opx{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font:700 11px/1.2 ui-monospace,Consolas,monospace;letter-spacing:.8px;color:#eafff3;background:linear-gradient(110deg,#052e1a 0%,#0a7a42 45%,#052e1a 100%);background-size:220% 100%;border:1px solid #22ff8a;box-shadow:0 0 8px #22ff8a99,inset 0 0 6px #22ff8a55;animation:opxScan 3s linear infinite;white-space:nowrap}
+.opx i{width:8px;height:8px;border-radius:50%;background:#22ff8a;box-shadow:0 0 8px #22ff8a;animation:opxPulse 1.2s ease-in-out infinite}
+.opx b{color:#22ff8a}
+tr.enop>td{background:linear-gradient(90deg,rgba(34,255,138,.16),rgba(34,255,138,.03))}
+tr.enop>td:first-child{box-shadow:inset 4px 0 0 #22ff8a}
+.opx-cab{margin:10px 0 2px;padding:8px 12px;border-radius:10px;border:1px solid #22ff8a;background:linear-gradient(110deg,#052e1a,#0a7a42 50%,#052e1a);color:#eafff3;font:700 13px ui-monospace,Consolas,monospace;letter-spacing:.8px;box-shadow:0 0 12px #22ff8a66}
+@keyframes opxScan{to{background-position:-220% 0}}
+@keyframes opxPulse{50%{opacity:.35;transform:scale(.7)}}
+@media (prefers-reduced-motion:reduce){.opx,.opx i{animation:none}}
+.badge.ok{background:var(--okbg);color:var(--ok)}.badge.warn{background:var(--warnbg);color:var(--warn)}.badge.bad{background:var(--badbg);color:var(--bad)}
+.big-time{font-size:44px;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;margin:4px 0}
+.bar{height:14px;background:var(--line);border-radius:8px;overflow:hidden;position:relative}
+.bar i{display:block;height:100%;background:var(--acc)}.bar i.w{background:var(--warn)}.bar i.b{background:var(--bad)}
+.mut{color:var(--mut);font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:12px;color:var(--mut);text-transform:uppercase}
+.scroll{overflow-x:auto}
+.item{padding:10px 0;border-bottom:1px solid var(--line)}.item:last-child{border:0}
+.banner{padding:10px 14px;border-radius:10px;margin:0 0 12px;font-size:14px}
+.banner.warn{background:var(--warnbg);color:var(--warn)}.banner.bad{background:var(--badbg);color:var(--bad)}.banner.ok{background:var(--okbg);color:var(--ok)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.modal>div{background:var(--card);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+@media(min-width:700px){.modal{align-items:center}.modal>div{border-radius:18px}}
+#toast{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:99;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+#toast div{background:#10243f;color:#fff;padding:12px 14px;border-radius:10px;font-size:14px;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+#toast div.err{background:var(--bad)}
+.center{max-width:430px;margin:0 auto}
+.pin{letter-spacing:.4em;text-align:center;font-size:26px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kpi{text-align:center;padding:8px}.kpi b{display:block;font-size:26px}.kpi span{font-size:12px;color:var(--mut)}
+code{background:var(--bg);padding:2px 6px;border-radius:6px;word-break:break-all}
+/* ===== CONSOLA DE DESPACHO (rediseño) ===== */
+:root{--bg:#050a14;--bg2:#08101f;--card:#0b1426;--tx:#dbe7f5;--mut:#7d92ae;--line:#192a45;--pri:#070e1c;--acc:#35d0ff;--accx:#04141c;--ok:#2fe39a;--warn:#ffb020;--bad:#ff5468;--okbg:rgba(47,227,154,.12);--warnbg:rgba(255,176,32,.13);--badbg:rgba(255,84,104,.14);--glow:0 0 18px rgba(53,208,255,.28);--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color-scheme:dark}
+html[data-tema=dia]{--bg:#edf2f8;--bg2:#e3eaf3;--card:#fff;--tx:#0d1a2c;--mut:#566a85;--line:#d3deec;--pri:#f9fbfe;--acc:#0a6cff;--accx:#fff;--ok:#0f8a56;--warn:#b86b00;--bad:#c92a3f;--okbg:#e0f6ec;--warnbg:#fff0d2;--badbg:#fde3e6;--glow:0 0 0 transparent;color-scheme:light}
+html,body{background:var(--bg);background-image:radial-gradient(1200px 500px at 85% -10%,rgba(53,208,255,.10),transparent 60%),radial-gradient(900px 500px at -10% 110%,rgba(120,90,255,.09),transparent 60%);background-attachment:fixed}
+html[data-tema=dia] body{background-image:none}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+/* barra de mando */
+header{background:linear-gradient(180deg,var(--pri),var(--bg2));border-bottom:1px solid var(--line);padding-bottom:12px;gap:12px;color:var(--tx)}
+header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,var(--acc),transparent);background-size:40% 100%;background-repeat:no-repeat;animation:barre 6s ease-in-out infinite alternate}
+@keyframes barre{from{background-position:-10% 0}to{background-position:110% 0}}
+header h1{display:flex;flex-direction:column;font-size:17px;letter-spacing:.01em}
+header small{color:var(--mut);opacity:1}
+header .led{width:9px;height:9px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok);flex:none;animation:latido 2s ease-in-out infinite}
+header .led.off{background:var(--bad);box-shadow:0 0 10px var(--bad);animation:none}
+@keyframes latido{50%{opacity:.35}}
+header .reloj{font:600 15px var(--mono);color:var(--acc);text-shadow:var(--glow);font-variant-numeric:tabular-nums;white-space:nowrap}
+header .reloj small{display:block;font:400 10px var(--mono);color:var(--mut);text-align:right;text-shadow:none}
+header button{background:transparent;color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:7px 11px;transition:border-color .2s,box-shadow .2s}
+header button:hover,header button:focus-visible{border-color:var(--acc);box-shadow:var(--glow)}
+main{padding-top:16px}
+/* módulos */
+.card{position:relative;background:linear-gradient(180deg,color-mix(in srgb,var(--card) 92%,var(--acc)),var(--card));border:1px solid var(--line);border-radius:10px;padding:14px 16px;box-shadow:0 8px 24px -14px rgba(0,0,0,.6)}
+html[data-tema=dia] .card{background:var(--card);box-shadow:0 6px 18px -12px rgba(11,37,69,.35)}
+.card::before,.card::after{content:"";position:absolute;width:14px;height:14px;pointer-events:none;border:2px solid var(--acc);opacity:.85;transition:width .25s,height .25s}
+.card::before{top:-1px;left:-1px;border-right:0;border-bottom:0;border-radius:10px 0 0 0}
+.card::after{bottom:-1px;right:-1px;border-left:0;border-top:0;border-radius:0 0 10px 0}
+.card:hover::before,.card:hover::after{width:26px;height:26px}
+.card h2{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:650;color:var(--tx);text-transform:none;letter-spacing:.01em;margin:0 0 10px}
+.card.plegable>h2{cursor:pointer;user-select:none;margin:-4px -6px 8px;padding:4px 6px;border-radius:8px}
+.card.plegable>h2:hover{background:color-mix(in srgb,var(--acc) 9%,transparent)}
+.card.plegable>h2:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.card.plegable>h2::after{content:"";margin-left:auto;flex:none;width:8px;height:8px;border-right:2px solid var(--acc);border-bottom:2px solid var(--acc);transform:rotate(45deg) translate(-2px,-2px);transition:transform .25s}
+.card.plg>h2{margin-bottom:-4px}
+.card.plg>h2::after{transform:rotate(-45deg)}
+.card.plg>:not(h2){display:none!important}
+.card.plegable>h2 .resumen{font:400 12px var(--mono);color:var(--mut);margin-left:4px}
+.card.plegable:not(.plg)>:not(h2){animation:abre .22s ease-out}
+@keyframes abre{from{opacity:0;transform:translateY(-4px)}}
+.modbar{display:flex;align-items:center;gap:8px;margin:0 0 12px;font:12px var(--mono);color:var(--mut)}
+.modbar span{flex:1;display:flex;align-items:center;gap:8px}
+.modbar span::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+.modbar button{background:transparent;border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:5px 10px;font:12px var(--mono)}
+.modbar button:hover{border-color:var(--acc)}
+/* pestañas segmentadas */
+.tabs{gap:4px;padding:4px;margin:0 0 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg2)}
+.tabs button{border:0;background:transparent;color:var(--mut);border-radius:8px;padding:9px 14px;position:relative;transition:color .2s,background .2s}
+.tabs button:hover{color:var(--tx)}
+.tabs button.on{background:color-mix(in srgb,var(--acc) 14%,transparent);color:var(--acc);border:0;box-shadow:inset 0 -2px 0 var(--acc),var(--glow);font-weight:650}
+/* controles */
+input,select,textarea{background:var(--bg2);border:1px solid var(--line);border-radius:8px;color:var(--tx);transition:border-color .2s,box-shadow .2s}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 22%,transparent)}
+.btn{background:var(--acc);color:var(--accx);border-radius:9px;transition:filter .2s,box-shadow .2s,transform .1s}
+.btn:hover{filter:brightness(1.1);box-shadow:var(--glow)}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible,button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.btn.ok{background:var(--ok);color:#03150d}.btn.bad{background:var(--bad);color:#fff}.btn.warn{background:var(--warn);color:#1a0f00}
+html[data-tema=dia] .btn.ok,html[data-tema=dia] .btn.bad{color:#fff}
+.btn.ghost{background:transparent;color:var(--acc);border:1px solid color-mix(in srgb,var(--acc) 60%,transparent)}
+.btn.big{font-size:20px;letter-spacing:.02em;box-shadow:0 0 0 1px color-mix(in srgb,var(--acc) 50%,transparent),var(--glow)}
+.btn.big.ok{box-shadow:0 0 0 1px var(--ok),0 0 26px rgba(47,227,154,.35)}
+.btn.big.bad{box-shadow:0 0 0 1px var(--bad),0 0 26px rgba(255,84,104,.35)}
+.badge{font-family:var(--mono);font-weight:600;font-size:11.5px;border-radius:6px;background:color-mix(in srgb,var(--mut) 20%,transparent);color:var(--tx)}
+.tb{border-radius:6px}
+/* datos */
+.big-time{font-family:var(--mono);color:var(--acc);text-shadow:var(--glow);letter-spacing:.02em}
+.kpi{border:1px solid var(--line);border-radius:8px;background:var(--bg2)}
+.kpi b{font:700 28px var(--mono);color:var(--acc);text-shadow:var(--glow)}
+.bar{height:8px;border-radius:4px;background:var(--bg2);border:1px solid var(--line)}
+.bar i{background:linear-gradient(90deg,var(--acc),color-mix(in srgb,var(--acc) 40%,#7a5cff));box-shadow:0 0 10px color-mix(in srgb,var(--acc) 60%,transparent)}
+th{font-size:11.5px;letter-spacing:.04em;text-transform:none;font-weight:600;font-family:var(--mono)}
+tbody tr:hover>td{background:color-mix(in srgb,var(--acc) 6%,transparent)}
+td,th{border-bottom-color:var(--line)}
+.item{border-bottom-color:var(--line)}
+.gh{border-radius:6px;font-family:var(--mono);font-size:13px}
+.banner{border-radius:8px;border:1px solid color-mix(in srgb,currentColor 35%,transparent)}
+code{background:var(--bg2);border:1px solid var(--line);font-family:var(--mono)}
+.lbx{border-color:var(--line);border-radius:8px}
+.lbx.CONFLICTO,.lbx.REVISAR,.lbx.ERROR{border-color:var(--warn);background:var(--warnbg);color:var(--tx)}
+.lbx.DIFERENCIA{border-color:var(--warn);background:var(--warnbg);color:var(--tx)}
+.modal{background:rgba(2,6,14,.72);backdrop-filter:blur(6px)}
+.modal>div{background:var(--card);border:1px solid var(--line);box-shadow:0 0 0 1px color-mix(in srgb,var(--acc) 25%,transparent),0 20px 60px rgba(0,0,0,.6)}
+.modal>div h2{font-size:17px;text-transform:none;color:var(--tx)}
+#toast div{background:var(--card);color:var(--tx);border:1px solid var(--acc);box-shadow:var(--glow)}
+#toast div.err{background:var(--badbg);border-color:var(--bad);color:var(--tx)}
+@media (prefers-reduced-motion:reduce){header::after,header .led,.card.plegable:not(.plg)>:not(h2){animation:none}.card::before,.card::after{transition:none}}
+@media (max-width:520px){header .reloj small{display:none}main{padding-left:12px;padding-right:12px}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="toast"></div>
+<script>
+'use strict';
+/* ================= utilidades ================= */
+const MEM={};
+const LS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);return null}catch(e){if(v===undefined)return MEM[k]||null;if(v===null)delete MEM[k];else MEM[k]=v;return null}};
+const jp=(s,d)=>{try{return JSON.parse(s)??d}catch(e){return d}};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+const val=id=>{const e=$(id);return e?e.value.trim():''};
+const TIPOS={TAT:'TAT (REPCO)',CARAVANA:'Caravana',MOVIMIENTO:'Movimiento de bodega',DISPONIBLE:'Disponible Prosegur'};
+const DIAS=['dom','lun','mar','mié','jue','vie','sáb'];
+const pad=n=>String(n).padStart(2,'0');
+const naive=(d=new Date())=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+const hoyL=()=>naive().slice(0,10);
+const msN=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(s||'');return m?Date.UTC(+m[1],+m[2]-1,+m[3],+(m[4]||0),+(m[5]||0),+(m[6]||0)):NaN};
+const addD=(f,n)=>new Date(msN(f)+n*864e5).toISOString().slice(0,10);
+const lunes=f=>addD(f,-((new Date(msN(f)).getUTCDay()+6)%7));
+const hm=s=>(s||'').slice(11,16);
+const fecha=f=>{if(!f)return'';const d=new Date(msN(f));return `${DIAS[d.getUTCDay()]} ${f.slice(8,10)}/${f.slice(5,7)}`};
+const fh=h=>{h=+h||0;const m=Math.round(h*60);return `${Math.floor(m/60)} h ${pad(m%60)} min`};
+const f1=h=>(+h||0).toFixed(1);
+const nombreCorto=n=>{const p=String(n||'').split(' ').filter(Boolean);return p.length>=3?p[0]+' '+p[2]:p.slice(0,2).join(' ')};
+function toast(t,err){const d=document.createElement('div');d.textContent=t;if(err)d.className='err';$('toast').appendChild(d);setTimeout(()=>d.remove(),err?6000:3200)}
+function modal(html){closeModal();const m=document.createElement('div');m.className='modal';m.id='modal';m.innerHTML='<div>'+html+'</div>';m.addEventListener('click',e=>{if(e.target===m)closeModal()});document.body.appendChild(m)}
+function closeModal(){const m=$('modal');if(m)m.remove()}
+function barra(v,tope){const p=Math.min(100,v/tope*100);const c=v>tope?'b':v>tope*0.85?'w':'';return `<div class="bar"><i class="${c}" style="width:${p}%"></i></div>`}
+function descargar(nombre,texto,tipo){const b=new Blob([texto],{type:tipo||'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nombre;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
+function wa(tel,texto){const t=String(tel||'').replace(/\D/g,'');const num=t?(t.length===10?'57'+t:t):'';return `https://wa.me/${num}?text=${encodeURIComponent(texto)}`}
+function getPos(ms){return new Promise(res=>{if(!navigator.geolocation)return res({});let hecho=false;const fin=v=>{if(!hecho){hecho=true;res(v)}};setTimeout(()=>fin({}),ms+1500);navigator.geolocation.getCurrentPosition(p=>fin({lat:p.coords.latitude,lng:p.coords.longitude,prec:p.coords.accuracy}),()=>fin({}),{enableHighAccuracy:true,timeout:ms,maximumAge:0})})}
+async function notificar(t,b){try{toast(t+(b?': '+b:''));if(navigator.vibrate)navigator.vibrate([200,100,200]);if('Notification' in window&&Notification.permission==='granted'){const reg=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();if(reg)reg.showNotification(t,{body:b||'',icon:'icon-192.png',badge:'icon-192.png'});else new Notification(t,{body:b||'',icon:'icon-192.png'})}}catch(e){}}
+
+/* ================= estado y API ================= */
+let S={api:LS('rt_api')||'',token:'',rol:'',id:'',nombre:'',cfg:{}};
+const ses=jp(LS('rt_s'),null);
+if(ses&&ses.token){Object.assign(S,ses)}
+let Q=jp(LS('rt_q'),[]);
+const saveQ=()=>LS('rt_q',JSON.stringify(Q));
+const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
+let online=true;
+
+async function api(action,payload,publico){
+  if(!S.api)throw Object.assign(new Error('Falta el enlace del sistema'),{server:true});
+  let r;
+  try{
+    const resp=await fetch(S.api,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,token:publico?'':S.token,payload:payload||{}})});
+    r=await resp.json();
+  }catch(e){online=false;pintaEstado();throw Object.assign(new Error('Sin conexión'),{offline:true})}
+  online=true;pintaEstado();
+  if(!r.ok){
+    if(r.error==='SESION'){salir(true);throw Object.assign(new Error('Sesión vencida'),{server:true})}
+    throw Object.assign(new Error(r.msg||r.error||'Error'),{server:true});
+  }
+  return r.data;
+}
+function pintaEstado(){const b=$('estado');if(!b)return;const n=Q.filter(x=>x.uid===S.id).length;b.innerHTML=(!online?'<div class="banner warn">Sin señal. Lo que registres se guarda en el celular y se envía solo cuando vuelva la conexión.</div>':'')+(n?`<div class="banner warn">${n} registro(s) pendiente(s) de enviar${online?' · <a href="#" data-act="enviarCola">Enviar ahora</a>':''}</div>`:'')}
+
+/* acciones del escolta con cola sin conexión */
+async function accion(action,payload){
+  try{return await api(action,payload)}
+  catch(e){
+    if(!e.offline)throw e;
+    const p={...payload,ts:Date.now()};
+    Q.push({action,payload:p,uid:S.id});saveQ();optimista(action,p);pintaEstado();
+    toast('Sin señal: guardado en el celular');return {offline:true};
+  }
+}
+function optimista(a,p){
+  const E=jp(LS('rt_est'),null);if(!E)return;
+  if(a==='iniciarTurno')E.turno={ID:'local',Tipo:p.tipo,Vehiculo:(p.vehiculo||'').toUpperCase(),ZonaRuta:(p.zona||'').toUpperCase(),Inicio:naive(new Date(p.ts)),pendiente:true};
+  if(a==='cerrarTurno')E.turno=null;
+  if(a==='registrarParada')E.paradas.push({Momento:naive(new Date(p.ts)),Tipo:p.tipo,Nota:p.nota});
+  if(a==='registrarMovimiento')E.movimientos.push({Momento:naive(new Date(p.ts)),Ruta:p.ruta,Placa:p.placa,Viajes:p.viajes,PesoKg:p.peso});
+  E.base=Date.now();E.ahora=naive();LS('rt_est',JSON.stringify(E));EST=E;pintaEsc();
+}
+let flushing=false;
+async function flush(){
+  if(flushing||!S.token||S.rol!=='E')return;
+  flushing=true;
+  try{
+    for(const it of Q.slice()){
+      if(it.uid!==S.id)continue;
+      try{await api(it.action,it.payload);Q.splice(Q.indexOf(it),1);saveQ()}
+      catch(e){if(e.offline)break;if(e.server){toast('No se pudo enviar un registro: '+e.message,true);Q.splice(Q.indexOf(it),1);saveQ()}else break}
+    }
+  }finally{flushing=false;pintaEstado()}
+  await cargaEsc(true);
+}
+
+/* ================= arranque ================= */
+const hash=new URLSearchParams(location.hash.slice(1));
+if(hash.get('api')){S.api=hash.get('api');LS('rt_api',S.api);history.replaceState(null,'',location.pathname+location.search)}
+/* Enlace que arma el Asistente REPCO: #importar=<código>. Se abre solo el cuadro «Importar del Asistente» con la programación ya cargada */
+if(hash.get('importar')){S.impPend=hash.get('importar');history.replaceState(null,'',location.pathname+location.search)}
+/* Si cambias la URL del servidor, basta editar config.json en GitHub: todos los celulares la toman solos al abrir la app */
+(async function sincronizaApi(){try{const r=await fetch('config.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const c=await r.json();const u=c&&c.api;
+  if(u&&/^(https:\/\/script\.google(usercontent)?\.com\/|http:\/\/localhost:)/.test(u)&&u!==S.api){S.api=u;LS('rt_api',u);location.reload()}}catch(e){}})();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+window.addEventListener('online',()=>{online=true;flush();pintaEstado()});
+window.addEventListener('offline',()=>{online=false;pintaEstado()});
+
+function salir(silencio){S.token='';S.rol='';S.id='';S.nombre='';saveS();LS('rt_est',null);clearInterval(T.pulso);clearInterval(T.tic);if(!silencio)toast('Sesión cerrada');vistaLogin()}
+const T={};
+function arrancar(){
+  if(!S.api)return vistaConfigApi();
+  if(S.token){S.rol==='E'?vistaEscolta():vistaAdmin();return}
+  vistaLogin();
+}
+
+/* ================= login ================= */
+function vistaConfigApi(){
+  $('root').innerHTML=`<header><h1>Registro de Turnos<small>Configuración inicial</small></h1></header><main><div class="card center">
+  <h2>Enlace del sistema</h2><p class="mut">Pega el enlace que termina en <code>/exec</code> (lo entrega el administrador). Normalmente no necesitas hacerlo: basta abrir el enlace que te enviaron.</p>
+  <input id="apiurl" placeholder="https://script.google.com/macros/s/…/exec" inputmode="url"><br><br><button class="btn big" data-act="guardarApi">Guardar</button></div></main>`;
+}
+let LOGIN={rol:'E',lista:null,adminCreado:true};
+async function vistaLogin(){
+  LOGIN.lista=null;
+  $('root').innerHTML=`<header><h1>Registro de Turnos<small id="op"></small></h1><button data-act="cambiarApi">⚙</button></header>
+  <main><div class="center"><div class="tabs" id="rolTabs"></div><div class="card" id="loginBox"><p class="mut">Cargando…</p></div><div id="estado"></div></div></main>`;
+  pintaLogin();
+  try{
+    const [l,a]=await Promise.all([api('listaEscoltas',{},true),api('estadoAdmin',{},true)]);
+    LOGIN.lista=l.escoltas;LOGIN.adminCreado=a.adminCreado;$('op').textContent=l.operacion||'';pintaLogin();
+  }catch(e){const b=$('loginBox');if(b)b.innerHTML=`<div class="banner bad">${e.offline?'No hay conexión con el sistema. Revisa tu internet.':esc(e.message)}</div><button class="btn" data-act="reintentarLogin">Reintentar</button>`}
+}
+function pintaLogin(){
+  $('rolTabs').innerHTML=[['E','Escolta'],['A','Administrador'],['C','Central']].map(([k,n])=>`<button class="${LOGIN.rol===k?'on':''}" data-act="rolLogin" data-r="${k}">${n}</button>`).join('');
+  const b=$('loginBox');if(!LOGIN.lista){b.innerHTML='<p class="mut">Cargando…</p>';return}
+  if(LOGIN.rol==='E')b.innerHTML=`<label>Tu nombre</label><select id="lg_id"><option value="">Elige…</option>${LOGIN.lista.map(e=>`<option value="${esc(e.id)}">${esc(e.nombre)}</option>`).join('')}</select>
+   <label>PIN</label><input id="lg_pin" class="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8"><br><button class="btn big" data-act="entrarE">Entrar</button>`;
+  else if(LOGIN.rol==='A')b.innerHTML=`${LOGIN.adminCreado?'':'<div class="banner warn">Primera vez: la clave que escribas ahora será la clave de administrador (mínimo 6 caracteres).</div>'}
+   <label>${LOGIN.adminCreado?'Clave de administrador':'Crea la clave de administrador'}</label><input id="lg_clave" type="password" autocomplete="current-password"><br><button class="btn big" data-act="entrarA">${LOGIN.adminCreado?'Entrar':'Crear y entrar'}</button>`;
+  else b.innerHTML=`<label>Clave de la Central</label><input id="lg_clave" type="password"><br><button class="btn big" data-act="entrarC">Entrar</button>`;
+}
+async function entrar(action,payload){
+  try{
+    const d=await api(action,payload,true);
+    S.token=d.token;S.rol=d.rol;S.id=d.id||d.rol;S.nombre=d.nombre;S.cfg=d.config||{};saveS();arrancar();
+  }catch(e){toast(e.message,true)}
+}
+
+/* ================= ESCOLTA ================= */
+let EST=jp(LS('rt_est'),null);
+function vistaEscolta(){
+  $('root').innerHTML=`<header><h1>${esc(nombreCorto(S.nombre))}<small>${esc(S.cfg.operacion||'')}</small></h1><button data-act="salir">Salir</button></header><main><div id="estado"></div><div id="esc"></div></main>`;
+  pintaEstado();pintaEsc();cargaEsc(false);flush();
+  clearInterval(T.pulso);T.pulso=setInterval(pulsoEsc,30000);
+  clearInterval(T.tic);T.tic=setInterval(tic,1000);
+  clearInterval(T.min);T.min=setInterval(()=>{if(S.token&&S.rol==='E'&&!$('modal')&&!(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))){pintaEsc();alertaInicio()}},60000);
+}
+const avisadoIni=new Set();
+function alertaInicio(){if(!EST||EST.turno)return;const hoy=hoyL(),tt=EST.tarde||10;if((EST.historial||[]).some(x=>x.Fecha===hoy))return;(EST.programacion||[]).filter(x=>x.Fecha===hoy&&!x.Motivo).forEach(x=>{const dif=mins(naive())-mins(x.Hora),k=x.ID+(dif>=tt?'T':'P');if(dif>=-10&&!avisadoIni.has(k)){avisadoIni.add(k);notificar(dif>=tt?'⛔ Aún no inicias tu turno':'⏰ Tu turno es a las '+x.Hora,dif>=tt?'Inicia o reporta el motivo':'Inícialo en la app');sonido()}})}
+async function cargaEsc(silencio){
+  try{const E=await api('miEstado');E.base=Date.now();EST=E;LS('rt_est',JSON.stringify(E));pintaEsc()}
+  catch(e){if(!silencio&&!e.offline)toast(e.message,true)}
+}
+let ultimaProg='',ultimaResp=null;
+async function pulsoEsc(){
+  if(Q.length)flush();
+  try{const p=await api('pulso');
+    if(p.resp!==undefined&&p.resp!==ultimaResp){if(ultimaResp!==null){notificar('Cambio de área',/ACEPTADA/.test(p.resp)?'Aprobado: ya puedes iniciar':'Respuesta del administrador');cargaEsc(true)}ultimaResp=p.resp}
+    if(p.ultimaProg!==ultimaProg){if(ultimaProg!==''&&p.pendientes>0)notificar('Nueva programación','Tienes turnos por confirmar');ultimaProg=p.ultimaProg;cargaEsc(true)}
+  }catch(e){}
+}
+function transcurrido(){ // horas del turno abierto
+  const t=EST&&EST.turno;if(!t)return 0;
+  if(t.pendiente)return Math.max(0,(Date.now()-msN0(t.Inicio))/36e5);
+  return Math.max(0,(msN(EST.ahora)-msN(t.Inicio))/36e5+(Date.now()-EST.base)/36e5);
+}
+const msN0=s=>{const m=/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(s);return m?new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]).getTime():NaN};
+function tic(){const e=$('reloj');if(e){const s=Math.floor(transcurrido()*3600);e.textContent=`${pad(Math.floor(s/3600))}:${pad(Math.floor(s%3600/60))}:${pad(s%60)}`}}
+const AVISO_TARDE='Ten en cuenta que los inicios tarde pueden afectar las solicitudes de permisos y las salidas a caravanas.';
+const MSG_PUNTUAL='¡Gracias por tu puntualidad! Llegar a tiempo cuida al equipo y abre las puertas a permisos y caravanas.';
+function kgTurno(){return (EST&&EST.movimientos||[]).reduce((a,x)=>a+(parseFloat(x.PesoKg)||0),0)}
+function bannerIni(t){
+  const a=String(t.AlertaIni||''),partes=a?a.split(' | '):[],tarde=partes.find(x=>/^INICIO TARDE/.test(x)),otras=partes.filter(x=>!/^INICIO TARDE/.test(x));
+  let h='';
+  if(tarde)h+=`<div class="banner bad" style="margin-top:10px;border:2px solid var(--bad)"><b>⛔ ${esc(tarde)}</b><br>${esc(AVISO_TARDE)}</div>`;
+  else if(!t.pendiente&&(EST&&EST.programacion||[]).some(x=>x.Fecha===hoyL()&&(x.Tipo||'TAT')===t.Tipo))h+=`<div class="banner ok" style="margin-top:10px">🌟 ${esc(MSG_PUNTUAL)}</div>`;
+  if(otras.length)h+=`<div class="banner warn" style="margin-top:10px">${esc(otras.join(' | '))}</div>`;
+  return h;
+}
+function bannerPeso(t){
+  if(t.Tipo!=='MOVIMIENTO')return '';
+  const kg=kgTurno();
+  return kg>0?`<div class="banner ok" style="margin-top:10px">📦 Peso reportado: <b>${f1(kg)} kg</b></div>`
+   :`<div class="banner bad" style="margin-top:10px;border:2px solid var(--bad)"><b>📦 Aún no has reportado el peso movido.</b><br>Pulsa «Movimiento» y escribe los kg. Sin peso no podrás cerrar el turno.</div>`;
+}
+function pintaEsc(){
+  const c=$('esc');if(!c)return;
+  if(!EST){c.innerHTML='<div class="card mut">Cargando…</div>';return}
+  const t=EST.turno,sem=EST.semana||{repco:0,prosegur:0,total:0},tope=EST.tope||60;
+  const extra=t?transcurrido():0;const totalVivo=sem.total; // el servidor ya cuenta el turno abierto
+  let h='';
+  h+=`<div class="card"><h2>Mis horas de la semana</h2><div class="row"><b style="font-size:24px">${f1(totalVivo)}</b><span class="mut">de ${tope} h</span><span class="grow"></span>${totalVivo>tope?'<span class="badge bad">Superaste el tope</span>':totalVivo>tope*0.85?'<span class="badge warn">Cerca del tope</span>':'<span class="badge ok">En rango</span>'}</div>${barra(totalVivo,tope)}<div class="mut" style="margin-top:6px">REPCO ${f1(sem.repco)} h · Prosegur ${f1(sem.prosegur)} h</div></div>`;
+  if(!t){
+    const hoy=hoyL(),asig=(EST.programacion||[]).filter(x=>x.Fecha===hoy);
+    const cam=(EST.cambios||[]).map(x=>x.Estado==='PENDIENTE'?`<div class="banner warn">⏳ Cambio solicitado (${esc(TIPOS[x.TipoTurno]||'')} · ${esc(x.Lugar)}): esperando respuesta del administrador.</div>`:x.Estado==='NEGADA'?`<div class="banner" style="background:var(--badbg);color:var(--bad)">⛔ Cambio negado${x.Respuesta?': '+esc(x.Respuesta):''}</div>`:'').join('');
+    const yaHoy=(EST.historial||[]).some(x=>x.Fecha===hoy);let ban='';
+    if(!yaHoy)asig.forEach(x=>{const dif=mins(naive())-mins(x.Hora),tt=EST.tarde||10;
+      if(x.Motivo)ban+=`<div class="banner" style="background:var(--okbg);color:var(--ok)">📝 Motivo reportado (${esc(x.Hora)}): ${esc(x.Motivo)}</div>`;
+      else if(dif>=tt)ban+=`<div class="banner" style="background:var(--badbg);color:var(--bad)">⛔ Tu turno de las ${esc(x.Hora)} no ha iniciado: ${dif} min de retraso.<br><b>Ten en cuenta que los inicios tarde pueden afectar las solicitudes de permisos y las salidas a caravanas.</b><br><button class="btn bad sm" style="margin-top:8px" data-act="abrirMotivo" data-id="${esc(x.ID)}">📝 Reportar el motivo</button></div>`;
+      else if(dif>=0)ban+=`<div class="banner warn">⏰ Tu turno de las ${esc(x.Hora)} ya comenzó. Inícialo.<br><button class="btn ghost sm" style="margin-top:8px" data-act="abrirMotivo" data-id="${esc(x.ID)}">No puedo iniciar: reportar motivo</button></div>`;
+      else if(dif>=-60)ban+=`<div class="banner warn">⏰ Tu turno es a las ${esc(x.Hora)} (en ${-dif} min).</div>`});
+    h+=ban;
+    h+=`<div class="card"><h2>Turno</h2><p style="margin:0 0 10px">${asig.length?'Hoy te toca: '+asig.map(x=>tbd(x.Tipo)+' <b>'+esc(x.Hora)+'</b> '+esc(x.Punto)).join('<br>'):'<span class="mut">No tienes turno asignado hoy.</span>'}</p>${cam}<button class="btn big ok" data-act="abrirInicio">▶ INICIAR TURNO</button><div style="margin-top:10px"><button class="btn ghost sm" data-act="abrirCambio">🔄 Solicitar cambio / otra área</button></div></div>`;
+  }else{
+    h+=`<div class="card"><h2>Turno en curso ${t.pendiente?'<span class="badge warn">por enviar</span>':''}</h2>
+    <div class="big-time" id="reloj">00:00:00</div>
+    <div class="center" style="text-align:center">${tbd(t.Tipo)} · inició ${hm(t.Inicio)}<br><span class="mut">${esc(t.Vehiculo||'—')} · ${esc(t.ZonaRuta||'—')}</span></div>
+    ${bannerIni(t)}${bannerPeso(t)}
+    <div class="grid2" style="margin-top:12px"><button class="btn" data-act="abrirParada">📍 Parada / Novedad</button><button class="btn ${t.Tipo==='MOVIMIENTO'?'':'ghost'}" data-act="abrirMov">📦 Movimiento</button></div><br>
+    <button class="btn big bad" data-act="abrirCierre">■ CERRAR TURNO</button><div style="margin-top:10px"><button class="btn ghost" style="width:100%;color:var(--bad);border-color:var(--bad)" data-act="sos">🆘 EMERGENCIA</button></div>
+    ${(EST.paradas||[]).length?`<div style="margin-top:12px">${EST.paradas.slice().reverse().map(p=>`<div class="item"><b>${hm(p.Momento)}</b> ${esc(p.Tipo)} <span class="mut">${esc(p.Nota||'')}</span></div>`).join('')}</div>`:''}
+    ${(EST.movimientos||[]).length?`<div style="margin-top:8px">${EST.movimientos.slice().reverse().map(p=>`<div class="item"><b>${hm(p.Momento)}</b> ${esc(p.Ruta)} · ${esc(p.Placa)} · ${esc(p.Viajes)} viaje(s)${+p.PesoKg?' · '+esc(p.PesoKg)+' kg':''}</div>`).join('')}</div>`:''}</div>`;
+  }
+  const pr=EST.programacion||[];
+  h+=`<div class="card"><h2>Mi programación</h2>${pr.length?pr.map(x=>`<div class="item"><div class="row"><div class="grow"><b>${fecha(x.Fecha)} · ${esc(x.Hora)}</b><br>${esc(x.Punto)}${x.Placa?' · '+esc(x.Placa):''} ${tbd(x.Tipo)}${x.Nota?`<br><span class="mut">${esc(x.Nota)}</span>`:''}</div>${x.Estado==='CONFIRMADA'?'<span class="badge ok">Confirmado</span>':`<button class="btn ok" data-act="confirmarProg" data-id="${esc(x.ID)}">CONFIRMAR</button>`}</div></div>`).join(''):'<p class="mut" style="margin:0">Sin turnos programados.</p>'}</div>`;
+  h+=`<div class="card"><h2>🏅 Puntualidad del equipo</h2><p class="mut" style="margin:0 0 10px">Mira cómo va la puntualidad de todos y tu propio porcentaje.</p><button class="btn" data-act="abrirPunt">Ver tabla de puntualidad</button></div>`;
+  const hi=EST.historial||[];
+  h+=`<div class="card"><h2>Mis últimos turnos</h2>${hi.length?`<div class="scroll"><table><tr><th>Día</th><th>Tipo</th><th>Horario</th><th>Horas</th></tr>${hi.map(x=>`<tr><td>${fecha(x.Fecha)}</td><td>${esc(TIPOS[x.Tipo]||x.Tipo)}</td><td>${hm(x.Inicio)}–${hm(x.Fin)}</td><td>${f1(x.horas)}</td></tr>`).join('')}</table></div>`:'<p class="mut" style="margin:0">Aún no hay turnos.</p>'}</div>`;
+  if(!LS('rt_ntfy_ok'))h+=cajaNtfy(EST.ntfy,'<br><button class="btn ghost sm" style="margin-top:6px" data-act="ntfyOk">Ya lo activé, ocultar</button>');
+  h+=`<div class="row"><button class="btn ghost sm" data-act="abrirPin">Cambiar mi PIN</button><button class="btn ghost sm" data-act="permisoNotif">Activar avisos</button><button class="btn ghost sm" data-act="refrescar">Actualizar</button></div>`;
+  c.innerHTML=h;tic();
+}
+function formTipos(){return Object.entries(TIPOS).map(([k,n])=>`<option value="${k}">${n}</option>`).join('')}
+
+/* ================= ADMIN / CENTRAL ================= */
+const A={tab:'tablero',data:{},cfg:null};
+const TABS_A=[['tablero','Tablero'],['turnos','Turnos'],['prog','Programación'],['horas','Horas'],['punt','Puntualidad'],['solic','Solicitudes'],['escoltas','Escoltas'],['export','Exportar'],['ajustes','Ajustes']];
+const TABS_C=[['tablero','Tablero'],['prog','Programación'],['solic','Solicitar personal']];
+function vistaAdmin(){
+  A.tab='tablero';
+  $('root').innerHTML=`<header><h1>${S.rol==='A'?'Administrador':'Central'}<small>${esc(S.cfg.operacion||'')}</small></h1><button data-act="salir">Salir</button></header><main><div id="estado"></div><div class="tabs" id="tabs"></div><div id="vista"></div></main>`;
+  pintaTabs();irTab(A.tab);
+  clearInterval(T.pulso);pulsoVisto=null;T.pulso=setInterval(pulsoAdm,20000);pulsoAdm();
+  if(S.impPend){const c=S.impPend;S.impPend=null;if(S.rol!=='A')toast('Entra como administrador para importar la programación del Asistente',true);else setTimeout(()=>{irTab('prog');setTimeout(()=>{ACT.impAbrir();const t=$('imp_c');if(t){t.value=c;ACT.impVer()}},500)},300)}
+}
+function pintaTabs(){const l=S.rol==='A'?TABS_A:TABS_C;$('tabs').innerHTML=l.map(([k,n])=>`<button class="${A.tab===k?'on':''}" data-act="tab" data-t="${k}">${n}</button>`).join('')}
+function irTab(t){A.tab=t;pintaTabs();const f=VISTAS[t];$('vista').innerHTML='<div class="card mut">Cargando…</div>';f().catch(e=>{$('vista').innerHTML=`<div class="banner bad">${esc(e.message)}</div>`})}
+const ORD_T=['CARAVANA','TAT','MOVIMIENTO','DISPONIBLE'];
+const opxB=c=>c?`<span class="opx"><i></i>OPERACIÓN ADICIONAL <b>· CARAVANA${c.dia>1?' DÍA '+c.dia:''}</b></span>`:'';
+
+/* Personal en descanso: la Central/administración pide escoltas como DISPONIBLE PROSEGUR y les escribe por WhatsApp */
+const DC_EST={LIBRE:['ok','🟢 Libre'],AVISO:['warn','🟡 Revisar'],NO:['bad','🔴 No']};
+function descansoCard(d,f){
+  if(!d)return '<div class="card"><h2 style="margin-top:0">🛌 Personal en descanso</h2><p class="mut" style="margin:0">No se pudo cargar la lista. Intenta de nuevo.</p></div>';
+  const fila=e=>{const [c,t]=DC_EST[e.estado]||DC_EST.LIBRE;
+    const ult=e.ultimo?`último turno ${fecha(e.ultimo)}${e.diasLibres>0?` · ${e.diasLibres} día(s) libre(s)`:''}`:'sin turnos recientes';
+    return `<div class="item dcrow" data-id="${esc(e.id)}" style="display:flex;gap:10px;align-items:flex-start"><input type="checkbox" class="dck" value="${esc(e.id)}" style="width:22px;height:22px;margin-top:2px"><div class="grow"><b>${esc(nombreCorto(e.nombre))}</b> <span class="badge ${c}">${t}</span><br><span class="mut" style="font-size:12.5px">${f1(e.horasSemana)} / ${e.tope} h en la semana · ${esc(ult)}${e.razones.length?'<br>'+e.razones.map(esc).join(' · '):''}</span></div>${e.tel?`<button class="btn ghost sm" data-act="dcPreguntar" data-id="${esc(e.id)}">💬 Preguntar</button>`:'<span class="mut" style="font-size:12px">sin celular</span>'}</div>`};
+  return `<div class="card" id="dcCard"><h2 style="margin-top:0">🛌 Personal en descanso · ${fecha(f)} <span class="badge">${d.escoltas.length}</span></h2>
+  <p class="mut" style="margin-top:0">Escoltas sin turno ese día (${d.ocupados} ya están programados o en caravana). Marca a quienes necesitas, escribe la hora y el punto de llegada: quedan programados como <b>Disponible Prosegur</b> y te sale el botón de WhatsApp para avisarles.</p>
+  <div class="grid2"><div><label>Hora</label><input type="time" id="dc_h" value="07:30"></div><div><label>Punto de llegada</label><input id="dc_p" placeholder="Ej: Bodega Funza" autocapitalize="characters"></div></div>
+  <div style="margin-top:8px">${d.escoltas.map(fila).join('')||'<p class="mut">Nadie en descanso ese día.</p>'}</div>
+  ${d.escoltas.length?'<div class="row" style="margin-top:10px"><button class="btn ok" data-act="dcProgramar">Programar como Disponible Prosegur y avisar</button></div>':''}</div>`}
+const tbd=k=>`<span class="badge tb tp-${k||'TAT'}">${esc(TIPOS[k||'TAT']||k)}</span>`;
+const gh=(k,n)=>`<div class="gh tp-${k}">${esc(TIPOS[k]).toUpperCase()} <span>(${n})</span></div>`;
+const waBtn=(id,nom)=>{const t=((A.data&&A.data.tel)||{})[id];if(!t)return '';const quien=S.rol==='C'?'la Central':'la administración';return `<a class="btn ok sm" target="_blank" rel="noopener" href="${esc(wa(t,`Hola ${nombreCorto(nom)}, te escribe ${quien} (${(S.cfg&&S.cfg.operacion)||'REPCO'}). `))}">💬 WhatsApp</a>`};
+const MOTIVOS_T=['Tráfico / bloqueo vial','Falla del vehículo','Sin señal o sin celular','Calamidad personal','Error en la programación','Cambio de área / de turno','Retraso justificado','Otro'];
+const MOTIVOS=['Incapacidad / enfermedad','Permiso autorizado','Falla del vehículo','Sin señal o sin celular','Error en la programación','Cambio de área / de turno','Retraso justificado','Otro'];
+const mins=t=>{const m=/(\d{1,2}):(\d{2})/.exec(String(t).length>8?String(t).slice(11):t);return m?+m[1]*60+ +m[2]:NaN};
+const estIni=(x,d)=>{if(x.Motivo)return `<span class="badge tb tp-CAMBIO">📝 ${esc(x.Motivo)}</span>`;const dif=mins(d.ahora)-mins(x.Hora),t=d.tarde||10;return dif>=t?`<span class="badge bad">⛔ SIN INICIAR +${dif} min</span>`:dif>=0?'<span class="badge warn">ya es la hora</span>':'<span class="badge warn">sin iniciar</span>'};
+const cajaNtfy=(topic,quien)=>topic?`<div class="card"><h2>Avisos al celular (con la app cerrada)</h2><p class="mut" style="margin-top:0">1) Instala la app gratuita <b>ntfy</b> (Play Store / App Store). 2) Ábrela, toca <b>+</b> y escribe este código. ${quien}</p><code>${esc(topic)}</code><div class="row" style="margin-top:8px"><button class="btn sm" data-act="copiar" data-v="${esc(topic)}">Copiar código</button><a class="btn ghost sm" href="ntfy://ntfy.sh/${esc(topic)}">Abrir en ntfy</a></div></div>`:'';
+let pulsoVisto=null,sinLeer=0;
+function sonido(){try{const c=new (window.AudioContext||window.webkitAudioContext)();const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=0.15;o.start();setTimeout(()=>{o.stop();c.close()},260)}catch(e){}}
+function titEvento(e){
+  const [m,q,a,d]=e.split('|');const n=nombreCorto(q);
+  if(a==='Confirmar programación')return ['✅ '+n+' confirmó',d];
+  if(a==='Novedad')return ['⚠ Novedad de '+n,d];
+  if(a==='Iniciar turno')return ['▶ '+n+' inició turno',d];
+  if(a==='Cerrar turno')return ['■ '+n+' cerró turno',d];
+  if(a==='SOS')return ['🆘 EMERGENCIA de '+n,d];
+  if(a==='Sin iniciar')return ['⛔ Sin iniciar turno',d];
+  if(a==='Motivo inicio')return ['📝 Motivo de no inicio',d];
+  if(a==='Cambio solicitado')return ['🔄 Cambio de área: '+n,d];
+  if(/^Cambio (ACEPTADO|NEGADO)/.test(a))return ['🔄 Cambio '+a.split(' ')[1].toLowerCase(),d];
+  if(a==='Solicitud creada')return ['📨 Solicitud de personal',d];
+  if(/^Solicitud (ACEPTADA|NEGADA)/.test(a))return ['📨 Solicitud '+a.split(' ')[1].toLowerCase(),d];
+  return [a,d];
+}
+async function pulsoAdm(){
+  if(!S.token||S.rol==='E')return;
+  try{const p=await api('pulso');
+    const evs=p.eventos||[];
+    if(pulsoVisto===null){pulsoVisto=new Set(evs)}
+    else{
+      const nuevos=evs.filter(e=>!pulsoVisto.has(e)&&e.split('|')[1]!==S.nombre);
+      evs.forEach(e=>pulsoVisto.add(e));
+      if(nuevos.length){
+        nuevos.slice(0,3).forEach(e=>{const [t,d]=titEvento(e);notificar(t,d)});
+        sonido();if(nuevos.some(e=>e.split('|')[2]==='SOS')){setTimeout(sonido,450);setTimeout(sonido,900);setTimeout(sonido,1350)}
+        if(document.hidden){sinLeer+=nuevos.length;document.title='('+sinLeer+') Registro de Turnos'}
+        if(!$('modal')){
+          if(A.tab==='tablero'||A.tab==='solic')irTab(A.tab);
+          else if(A.tab==='prog')refrescaEstadosProg();
+        }
+      }
+    }
+  }catch(e){}
+}
+async function refrescaEstadosProg(){
+  const f=val('pf');if(!f||!$('progTabla'))return;
+  try{const pr=await api('listarProgramacion',{fecha:f});A.data.prog=pr.programacion;A.data.caravanaProg=pr.caravana||{};
+    document.querySelectorAll('#progTabla tr[data-pid]').forEach(r=>{const x=pr.programacion.find(p=>p.ID===r.dataset.pid);if(x){r.lastElementChild.innerHTML=x.Estado==='CONFIRMADA'?'<span class="badge ok">confirmó</span>':'<span class="badge warn">pendiente</span>'}})}catch(e){}
+}
+const barraSem=(v,t)=>barra(v,t);
+const VISTAS={
+async tablero(){
+  const d=await api(S.rol==='A'?'tablero':'tableroLectura');A.data.tab=d;
+  const ab=d.abiertos;
+  let h=`<div class="grid3 card"><div class="kpi"><b>${ab.length}</b><span>En turno</span></div><div class="kpi"><b>${d.cerradosHoy.length}</b><span>Cerrados hoy</span></div><div class="kpi"><b>${d.sinIniciar.length}</b><span>Sin iniciar (prog.)</span></div></div>`;
+  if(d.solicitudesPendientes.length&&S.rol==='A')h+=`<div class="banner warn">${d.solicitudesPendientes.length} solicitud(es) de personal pendientes → pestaña Solicitudes</div>`;
+  A.data.tel=d.tel||{};
+  const pend=(d.sinIniciar||[]).filter(x=>x.Motivo||mins(d.ahora)-mins(x.Hora)>=0).sort((p,q)=>p.Hora<q.Hora?-1:1);
+  if(pend.length){const graves=pend.filter(x=>!x.Motivo&&mins(d.ahora)-mins(x.Hora)>=(d.tarde||10)).length;
+    h+=`<div class="card" style="border-color:${graves?'var(--bad)':'var(--warn)'}"><h2 style="color:${graves?'var(--bad)':'var(--warn)'}">${graves?'⛔ Sin iniciar turno ('+graves+')':'Por iniciar / con motivo'}</h2>${pend.map(x=>`<div class="item tp-${x.Tipo||'TAT'}"><div class="row"><div class="grow"><b>${esc(nombreCorto(x.Escolta))}</b> ${tbd(x.Tipo)} ${estIni(x,d)}<br><span class="mut">${esc(x.Hora)} · ${esc(x.Punto)}${x.Motivo&&x.MotivoNota?' · '+esc(x.MotivoNota):''}${x.Motivo?' · reportó '+esc(x.MotivoPor):''}</span></div>${waBtn(x.EscoltaID,x.Escolta)}<button class="btn ghost sm" data-act="abrirMotivo" data-id="${esc(x.ID)}">📝 ${x.Motivo?'Cambiar motivo':'Registrar motivo'}</button></div></div>`).join('')}</div>`}
+  h+=`<div class="card"><h2>En turno ahora</h2>${ab.length?ORD_T.map(k=>{const g=ab.filter(t=>t.Tipo===k);return g.length?gh(k,g.length)+g.map(t=>`<div class="item"><div class="row"><div class="grow"><b>${esc(nombreCorto(t.Escolta))}</b> ${t.AlertaIni?'<span class="badge warn">alerta</span>':''}<br><span class="mut">desde ${fecha(t.Inicio.slice(0,10))} ${hm(t.Inicio)} · ${fh(t.horas)} · ${esc(t.Vehiculo||'—')} · ${esc(t.ZonaRuta||'—')}${t.Tipo==='MOVIMIENTO'?(t.pesoKg>0?' · 📦 '+f1(t.pesoKg)+' kg':' · <b style="color:var(--bad)">📦 sin peso</b>'):''}</span>${t.AlertaIni?`<br><span style="color:var(--warn);font-size:13px">⚠ ${esc(t.AlertaIni)}</span>`:''}</div>${waBtn(t.EscoltaID,t.Escolta)}${t.LatIni?`<a class="btn ghost sm" target="_blank" rel="noopener" href="https://maps.google.com/?q=${esc(t.LatIni)},${esc(t.LngIni)}">Mapa</a>`:''}${S.rol==='A'?`<button class="btn bad sm" data-act="cerrarAdmin" data-id="${esc(t.ID)}">Cerrar</button>`:''}</div></div>`).join(''):''}).join(''):'<p class="mut" style="margin:0">Nadie en turno.</p>'}</div>`;
+  const lineaP=(x,f)=>{const en=d.abiertos.some(t=>t.EscoltaID===x.EscoltaID),ce=d.cerradosHoy.some(t=>t.EscoltaID===x.EscoltaID);const st=f!==d.hoy?'':en?'<span class="badge ok">en turno</span>':ce?'<span class="badge">cerró turno</span>':estIni(x,d);return `<div class="item" style="padding:6px 0"><div class="row"><div class="grow"><b>${esc(nombreCorto(x.Escolta))}</b> · ${esc(x.Hora)} · ${esc(x.Punto)} ${x.Placa?esc(x.Placa):''} ${st} ${x.Estado==='CONFIRMADA'?'<span class="badge ok">confirmó</span>':'<span class="badge warn">sin confirmar</span>'}</div>${waBtn(x.EscoltaID,x.Escolta)}</div></div>`};
+  h+=`<div class="card"><h2>Programación de hoy y mañana</h2>${[d.hoy,addD(d.hoy,1)].map(f=>{const l=(d.programacion||[]).filter(x=>x.Fecha===f).sort((p,q)=>p.Hora<q.Hora?-1:1);return `<div style="margin:12px 0 2px;font-weight:700;font-size:17px">${f===d.hoy?'HOY':'MAÑANA'} · ${fecha(f)} <span class="mut">(${l.length})</span></div>`+(ORD_T.map(k=>{const g=l.filter(x=>(x.Tipo||'TAT')===k);return g.length?gh(k,g.length)+g.map(x=>lineaP(x,f)).join(''):''}).join('')||'<p class="mut" style="margin:0 0 6px">Nadie programado.</p>')}).join('')}</div>`;
+  if(S.rol==='C')h+=cajaNtfy(d.ntfy,'Así te llegan las respuestas a tus solicitudes aunque la app esté cerrada.');
+  if(S.rol==='A'&&(d.actividad||[]).length)h+=`<div class="card"><h2>Actividad reciente</h2>${d.actividad.map(e=>{const [m,q,a,dt]=e.split('|');const [t]=titEvento(e);return `<div class="item" style="padding:6px 0"><span class="mut">${esc(m.slice(5,16))}</span> · <b>${esc(t)}</b> <span class="mut">${esc(dt)}</span></div>`}).join('')}</div>`;
+  h+=`<div class="card"><h2>Horas de la semana (tope ${d.tope} h)</h2>${d.semana.map(e=>`<div class="item"><div class="row"><b class="grow">${esc(nombreCorto(e.nombre))} ${e.enTurno?'<span class="badge ok">en turno</span>':''}</b><span>${f1(e.total)} h</span></div>${barra(e.total,d.tope)}<div class="mut">REPCO ${f1(e.repco)} · Prosegur ${f1(e.prosegur)}</div></div>`).join('')}</div>`;
+  $('vista').innerHTML=h;
+},
+async turnos(){
+  if(!A.data.tf)A.data.tf={desde:addD(hoyL(),-6),hasta:hoyL(),escoltaId:''};
+  const f=A.data.tf;
+  const [esc_,tt]=await Promise.all([api('listarEscoltas'),api('listarTurnos',f)]);A.data.escoltas=esc_.escoltas;A.data.turnos=tt.turnos;
+  $('vista').innerHTML=`<div class="card"><h2>Filtros de turnos</h2><div class="grid3"><div><label>Desde</label><input type="date" id="tf_d" value="${f.desde}"></div><div><label>Hasta</label><input type="date" id="tf_h" value="${f.hasta}"></div><div><label>Escolta</label><select id="tf_e"><option value="">Todos</option>${esc_.escoltas.map(e=>`<option value="${esc(e.ID)}" ${f.escoltaId===e.ID?'selected':''}>${esc(nombreCorto(e.Nombre))}</option>`).join('')}</select></div></div>
+  <div class="row" style="margin-top:10px"><button class="btn sm" data-act="filtrarTurnos">Buscar</button><button class="btn ok sm" data-act="nuevoTurno">+ Turno manual</button></div></div>
+  <div class="card"><h2>Turnos registrados</h2><div class="scroll"><table><tr><th>Fecha</th><th>Escolta</th><th>Tipo</th><th>Horario</th><th>Horas</th><th></th></tr>${tt.turnos.map(t=>`<tr><td>${fecha(t.Fecha)}</td><td>${esc(nombreCorto(t.Escolta))}<br><span class="mut">${esc(t.Vehiculo)} ${esc(t.ZonaRuta)}</span>${t.AlertaIni?`<br><span style="color:var(--warn);font-size:12px">⚠ ${esc(t.AlertaIni)}</span>`:''}${t.Origen==='APP-SIN SEÑAL'?'<br><span class="badge warn">sin señal</span>':''}</td><td>${esc(TIPOS[t.Tipo]||t.Tipo)}</td><td>${hm(t.Inicio)}–${t.Fin?hm(t.Fin)+(t.Fin.slice(0,10)!==t.Inicio.slice(0,10)?' (+1)':''):'<span class="badge ok">abierto</span>'}</td><td>${f1(t.horas)}</td><td><button class="btn ghost sm" data-act="editarTurno" data-id="${esc(t.ID)}">Editar</button></td></tr>`).join('')||'<tr><td colspan="6" class="mut">Sin turnos en ese rango.</td></tr>'}</table></div></div>`;
+},
+async prog(){
+  if(!A.data.pf)A.data.pf=addD(hoyL(),1);
+  const f=A.data.pf;
+  const calls=[api('listarProgramacion',{fecha:f})];if(S.rol==='A')calls.push(api('listarEscoltas'));
+  const dscP=api('listarDescanso',{fecha:f}).catch(()=>null);
+  const [pr,es]=await Promise.all(calls);A.data.prog=pr.programacion;
+  const dsc=await dscP;A.data.desc=dsc;if(dsc){A.data.tel=Object.assign(A.data.tel||{},Object.fromEntries((dsc.escoltas||[]).map(e=>[e.id,e.tel])))}
+  const dcCard=descansoCard(dsc,f);
+  if(S.rol!=='A'){
+    $('vista').innerHTML=`<div class="card"><label>Fecha</label><input type="date" id="pf" value="${f}" data-chg="pf"></div>${dcCard}<div class="card"><h2>Programación ${fecha(f)}</h2>${pr.programacion.map(x=>`<div class="item"><b>${esc(nombreCorto(x.Escolta))}</b> · ${esc(x.Hora)} · ${esc(x.Punto)} ${esc(x.Placa)} <span class="badge">${esc(TIPOS[x.Tipo||'TAT'])}</span> ${opxB((pr.caravana||{})[x.EscoltaID])} ${x.Estado==='CONFIRMADA'?'<span class="badge ok">confirmó</span>':'<span class="badge warn">pendiente</span>'}${x.Tipo==='DISPONIBLE'?` <button class="btn ghost sm" data-act="dcCancelar" data-id="${esc(x.ID)}">Quitar</button>`:''}</div>`).join('')||'<p class="mut" style="margin:0">Sin programación para esa fecha.</p>'}</div>`;return;
+  }
+  A.data.escoltas=es.escoltas;
+  const act=es.escoltas.filter(e=>e.Activo!=='NO');
+  $('vista').innerHTML=`<div class="card"><h2>Fecha a programar</h2><label>Fecha</label><input type="date" id="pf" value="${f}" data-chg="pf"><p class="mut">Marca a quienes trabajan ese día. Los que no marques quedan en descanso. Cada escolta recibe un botón CONFIRMAR y tú ves quién ya confirmó.</p></div>
+  ${dcCard}
+  <div class="card" id="cvCard"><h2 style="margin-top:0">🚚 Caravana · ¿quién puede ir?</h2><p class="mut" style="margin-top:0">REPCO la pide, tú le das los nombres. Elige la salida y la app te dice quién está disponible de verdad: sin pasar el tope de horas, con su descanso, sin dejar el TAT sin cubrir, rotando la carga.</p>
+  <div class="grid3"><div><label>Salida</label><input type="date" id="cv_f" value="${A.data.cvf||addD(hoyL(),1)}"></div><div><label>Hora</label><input type="time" id="cv_h" value="07:00"></div><div><label>Destino</label><input id="cv_d" placeholder="MANIZALES"></div></div>
+  <div class="grid3" style="margin-top:8px"><div><label>Escoltas</label><input type="number" id="cv_n" value="3" min="1" max="8"></div><div><label>Días de caravana</label><input type="number" id="cv_dd" value="3" min="1" max="7"></div><div style="display:flex;align-items:flex-end"><button class="btn" data-act="cvBuscar" style="width:100%">Buscar tripulación</button></div></div>
+  <div id="cvMapa" style="margin-top:10px"></div><div id="cvRes"></div></div>
+  <div class="card"><h2>Escoltas del día</h2><div class="scroll"><table id="progTabla"><tr><th>✓</th><th>Escolta</th><th>Hora</th><th>Punto / ruta</th><th>Placa</th><th>Tipo de turno</th><th>Estado</th></tr>
+  ${(()=>{const CV=pr.caravana||{};const fila=(e,x)=>`<tr class="${CV[e.ID]?'enop':''}" data-esc="${esc(e.ID)}" data-pid="${esc(x.ID||'')}"><td><input type="checkbox" class="pk" ${x.ID?'checked':''} style="width:22px;height:22px"></td><td style="min-width:120px">${esc(nombreCorto(e.Nombre))}${CV[e.ID]?'<br>'+opxB(CV[e.ID])+(CV[e.ID].lugar?'<br><span class="mut" style="font-size:12px">'+esc(CV[e.ID].lugar)+'</span>':''):''}</td><td><input type="time" class="ph" value="${esc(x.Hora||'07:30')}" style="min-width:100px"></td><td><input class="pp" value="${esc(x.Punto||'')}" style="min-width:140px"></td><td><input class="pl" value="${esc(x.Placa||'')}" style="min-width:90px"></td><td><select class="pc">${Object.entries(TIPOS).map(([k,n])=>`<option value="${k}" ${(x.Tipo||'TAT')===k?'selected':''}>${n}</option>`).join('')}</select></td><td>${x.ID?(x.Estado==='CONFIRMADA'?'<span class="badge ok">confirmó</span>':'<span class="badge warn">pendiente</span>'):''}</td></tr>`;
+    const cab=t=>`<tr><td colspan="7" style="background:var(--bg);font-weight:700;padding:8px 6px">${t}</td></tr>`;
+    const cabT=(k,n)=>`<tr><td colspan="7" style="padding:0">${gh(k,n)}</td></tr>`;
+    const prog=act.map(e=>[e,pr.programacion.find(p=>p.EscoltaID===e.ID)]);let o='';
+    const opLib=prog.filter(([e,x])=>!x&&CV[e.ID]);
+    if(opLib.length)o+=`<tr><td colspan="7" style="padding:0"><div class="opx-cab">⚡ OPERACIÓN ADICIONAL · EN CARAVANA (${opLib.length}) — ya están en operación, marca ✓ solo si los programas</div></td></tr>`+opLib.map(([e,x])=>fila(e,{})).join('');
+    ORD_T.forEach(k=>{const g=prog.filter(([e,x])=>x&&(x.Tipo||'TAT')===k).sort((p,q)=>p[1].Hora<q[1].Hora?-1:1);if(g.length)o+=cabT(k,g.length)+g.map(([e,x])=>fila(e,x)).join('')});
+    const libres=prog.filter(([e,x])=>!x&&!CV[e.ID]);if(libres.length)o+=cab('SIN PROGRAMAR / DESCANSO ('+libres.length+') — marca ✓ para programar')+libres.map(([e,x])=>fila(e,{})).join('');
+    return o})()}</table></div>
+  <div class="row" style="margin-top:12px"><button class="btn ok" data-act="guardarProg">Guardar programación</button><button class="btn ghost" data-act="msgProg">Mensaje de WhatsApp</button><button class="btn ghost" data-act="impAbrir">📥 Importar del Asistente</button></div></div>`;
+},
+async horas(){
+  if(!A.data.hf)A.data.hf=lunes(hoyL());
+  const d=await api('resumenHoras',{desde:A.data.hf});A.data.res=d;
+  const dias=[];for(let i=0;i<7;i++)dias.push(addD(d.desde,i));
+  let tot={r:0,p:0};d.escoltas.forEach(e=>{tot.r+=e.repco;tot.p+=e.prosegur});
+  $('vista').innerHTML=`<div class="card"><h2>Semana</h2><div class="row"><button class="btn ghost sm" data-act="semana" data-n="-7">◀</button><b class="grow" style="text-align:center">${fecha(d.desde)} – ${fecha(d.hasta)}</b><button class="btn ghost sm" data-act="semana" data-n="7">▶</button></div></div>
+  <div class="card"><h2>Horas por escolta</h2><div class="scroll"><table><tr><th>Escolta</th>${dias.map(x=>`<th>${DIAS[new Date(msN(x)).getUTCDay()]}</th>`).join('')}<th>REPCO</th><th>Prosegur</th><th>Total</th></tr>
+  ${d.escoltas.map(e=>`<tr><td>${esc(nombreCorto(e.nombre))}</td>${dias.map(x=>`<td>${e.dias[x]?f1(e.dias[x]):'·'}</td>`).join('')}<td>${f1(e.repco)}</td><td>${f1(e.prosegur)}</td><td><b style="color:${e.total>d.tope?'var(--bad)':'inherit'}">${f1(e.total)}</b></td></tr>`).join('')}
+  <tr><th>TOTAL</th>${dias.map(()=>'<th></th>').join('')}<th>${f1(tot.r)}</th><th>${f1(tot.p)}</th><th>${f1(tot.r+tot.p)}</th></tr></table></div><p class="mut">Tope semanal: ${d.tope} h (lunes a domingo). Las horas de "Disponible Prosegur" se muestran aparte para la rentabilidad de REPCO.</p></div>`;
+},
+async solic(){
+  const d=await api('listarSolicitudes');A.data.sol=d.solicitudes;A.data.tel=d.tel||{};
+  let h='';
+  if(S.rol==='C'){
+    h+=`<div class="card"><h2>Solicitar personal en descanso</h2><div class="grid2"><div><label>Fecha</label><input type="date" id="sl_f" value="${hoyL()}"></div><div><label>Hora</label><input type="time" id="sl_h" value="07:00"></div></div>
+    <label>Lugar</label><input id="sl_l" placeholder="Ej: Bodega Funza"><div class="grid2"><div><label>Cantidad de escoltas</label><input type="number" id="sl_c" value="1" min="1"></div></div><label>Nota</label><textarea id="sl_n"></textarea><br><button class="btn big" data-act="enviarSol">Enviar solicitud</button></div>`;
+  }
+  const telAdm=(S.cfg&&S.cfg.tel_admin)||'';
+  h+=`<div class="card"><h2>Solicitudes</h2>${d.solicitudes.map(x=>{const cam=x.Clase==='CAMBIO';const est=`<span class="badge ${x.Estado==='ACEPTADA'?'ok':x.Estado==='NEGADA'?'bad':'warn'}">${esc(x.Estado)}</span>`;
+    const ti=cam?`<span class="tp-CAMBIO"><span class="badge tb">🔄 CAMBIO DE ÁREA</span></span> <b>${esc(nombreCorto(x.Por))}</b> → ${tbd(x.TipoTurno)} · ${esc(x.Lugar)}`:`<b>${esc(x.Lugar)}</b> · ${esc(x.Cantidad)} escolta(s)`;
+    return `<div class="item"><div class="row"><div class="grow">${ti}<br><span class="mut">${fecha(x.Fecha)} ${esc(x.Hora)} · pidió ${esc(x.Por)}${x.Nota?'<br>'+esc(x.Nota):''}</span>${x.Respuesta?`<br><b>Respuesta: ${esc(x.Respuesta)}</b>`:''}</div>${est}</div>
+  ${S.rol==='A'&&x.Estado==='PENDIENTE'?`<div class="row" style="margin-top:8px"><button class="btn ok sm" data-act="respSol" data-id="${esc(x.ID)}" data-ok="1">Aceptar</button><button class="btn bad sm" data-act="respSol" data-id="${esc(x.ID)}" data-ok="0">Negar</button>${cam?waBtn(x.EscoltaID,x.Por):''}</div>`:''}
+  ${S.rol==='C'&&telAdm?`<div style="margin-top:8px"><a class="btn ghost sm" target="_blank" rel="noopener" href="${esc(wa(telAdm,`Hola, sobre mi solicitud de personal (${x.Lugar}, ${fecha(x.Fecha)} ${x.Hora}) [${x.Estado}]: `))}">💬 Escribir al administrador</a></div>`:''}</div>`}).join('')||'<p class="mut" style="margin:0">Sin solicitudes.</p>'}</div>`;
+  $('vista').innerHTML=h;
+},
+async escoltas(){
+  const d=await api('listarEscoltas');A.data.escoltas=d.escoltas;
+  $('vista').innerHTML=`<div class="card"><h2>Agregar escoltas</h2><div class="grid2"><div><label>Nombre completo (apellidos y nombres)</label><input id="en_n"></div><div><label>Celular (WhatsApp)</label><input id="en_t" inputmode="tel"></div></div><br><div class="row"><button class="btn ok sm" data-act="addEscolta">Agregar</button><button class="btn ghost sm" data-act="pegarLista">Pegar lista de nombres</button><button class="btn ghost sm" data-act="cargarFijos">Cargar los 16 fijos</button></div></div>
+  <div class="card"><h2>Escoltas (${d.escoltas.filter(e=>e.Activo!=='NO').length} activos)</h2>${d.escoltas.map(e=>`<div class="item"><div class="row"><div class="grow"><b>${esc(e.Nombre)}</b> ${e.Activo==='NO'?'<span class="badge bad">inactivo</span>':''}<br><span class="mut">${esc(e.Telefono||'sin celular')}</span></div><button class="btn ghost sm" data-act="editEscolta" data-id="${esc(e.ID)}">Editar</button><button class="btn ghost sm" data-act="resetPin" data-id="${esc(e.ID)}">PIN</button></div></div>`).join('')||'<p class="mut" style="margin:0">Aún no hay escoltas. Usa "Cargar los 16 fijos" o pega tu lista.</p>'}</div>`;
+},
+async punt(){
+  if(!A.data.ptf)A.data.ptf={desde:hoyL().slice(0,8)+'01',hasta:hoyL()};
+  const f=A.data.ptf;
+  if(!A.data.pt)A.data.pt=await api('reportePuntualidad',f);
+  const p=A.data.pt,T=p.total,cl=v=>v==null?'':v>=95?'ok':v>=85?'warn':'bad';
+  const fila=(x,i)=>`<tr style="cursor:pointer" data-act="puntDet" data-i="${i}"><td>${esc(nombreCorto(x.nombre))}${x.incid.length?' <span class="mut">▾</span>':''}</td><td>${x.prog}</td><td>${x.atiempo}</td><td>${x.tarde?`<span class="badge warn">${x.tarde}</span> <span class="mut" style="font-size:12px">+${x.promTarde} min</span>`:'0'}</td><td>${x.noinicio?`<span class="badge bad">${x.noinicio}</span>`:'0'}</td><td>${x.pct==null?'—':`<span class="badge ${cl(x.pct)}">${x.pct} %</span>`}</td><td style="font-size:12px">${[x.geo?x.geo+' fuera de zona':'',x.sinubic?x.sinubic+' sin ubicación':'',x.difer?x.difer+' sin señal':'',x.sinprog?x.sinprog+' sin programar':''].filter(Boolean).join('<br>')||'<span class="mut">—</span>'}</td></tr>
+  <tr id="ptd_${i}" style="display:none"><td colspan="7" style="background:var(--bg)">${x.incid.length?x.incid.map(n=>`<div style="padding:4px 0;border-bottom:1px solid var(--line)"><b>${esc(fecha(n.fecha))}</b> · ${esc(n.tipo)} · programado ${esc(n.prog)} · <b>${esc(n.estado)}</b>${n.real?' · inició '+esc(n.real)+(n.dif>0?' (+'+n.dif+' min)':''):''}<br><span class="mut">${n.motivo?'Motivo: '+esc(n.motivo)+(n.nota?' — '+esc(n.nota):''):'Sin motivo reportado'}${n.origen?' · '+esc(n.origen):''}${n.alerta?' · '+esc(n.alerta):''}</span></div>`).join(''):'<span class="mut">Sin incidencias en el período.</span>'}</td></tr>`;
+  $('vista').innerHTML=`<div class="card"><h2 style="margin-top:0">Puntualidad y cumplimiento</h2><div class="grid2"><div><label>Desde</label><input type="date" id="pt_d" value="${f.desde}"></div><div><label>Hasta</label><input type="date" id="pt_h" value="${f.hasta}"></div></div>
+  <div class="row" style="margin-top:10px"><button class="btn" data-act="puntVer">Ver</button><button class="btn ghost" data-act="puntImprimir">🖨 Imprimir / PDF</button><button class="btn ghost" data-act="puntCsv">CSV con evidencia</button></div>
+  <p class="mut" style="margin-bottom:0;font-size:12px">Compara lo programado con lo realmente iniciado. "Tarde" = más de ${p.umbral} min después de la hora programada. Toca un escolta para ver cada incidencia con su motivo y origen.</p></div>
+  <div class="grid3 card"><div class="kpi"><b>${T.prog}</b><span>Programados</span></div><div class="kpi"><b>${T.tarde}</b><span>Tarde</span></div><div class="kpi"><b>${T.noinicio}</b><span>No iniciaron</span></div></div>
+  <div class="card"><h2>Puntualidad por escolta</h2><div class="mut" style="margin-bottom:6px">Puntualidad del equipo: <b>${T.pct==null?'—':T.pct+' %'}</b> · ${T.sinmotivo} incidencias sin motivo reportado</div><div class="scroll"><table><tr><th>Escolta</th><th>Prog.</th><th>A tiempo</th><th>Tarde</th><th>No inició</th><th>%</th><th>Otros</th></tr>${p.filas.map(fila).join('')||'<tr><td colspan="7" class="mut">No hay programación ni turnos en este período.</td></tr>'}</table></div></div>`;
+},
+async export(){
+  if(!A.data.xf)A.data.xf={desde:lunes(hoyL()),hasta:hoyL()};
+  const f=A.data.xf;
+  $('vista').innerHTML=`<div class="card"><h2>Exportar turnos cerrados</h2><div class="grid2"><div><label>Desde</label><input type="date" id="xd" value="${f.desde}"></div><div><label>Hasta</label><input type="date" id="xh" value="${f.hasta}"></div></div><br>
+  <div class="row"><button class="btn" data-act="exp" data-k="Tat">CSV para TAT · Control_Diario</button><button class="btn ghost" data-act="exp" data-k="Caravanas">CSV Caravanas</button><button class="btn ghost" data-act="exp" data-k="Todo">CSV completo</button><button class="btn warn" data-act="exp" data-k="Inicios">CSV inicios, retrasos y motivos</button></div>
+  <p class="mut">Abre el CSV en Excel o Google Sheets y pega las filas al final de la hoja correspondiente (separado por punto y coma). Todos los datos también viven en tu Google Sheet, pestaña "Turnos".</p></div>`;
+},
+async ajustes(){
+  const [c,g,nt]=await Promise.all([api('verConfig'),api('listarGeocercas'),api('ntfyInfo').catch(()=>null)]);A.data.nt=nt;A.cfg=c.config;A.data.geo=g.geocercas;
+  const k=c.config;setTimeout(()=>ACT.libroCargar&&ACT.libroCargar(),0);
+  const enlace=location.origin.startsWith('http')?location.origin+location.pathname+'#api='+encodeURIComponent(S.api):'';
+  $('vista').innerHTML=`<div class="card"><h2>Enlace para los escoltas</h2><p class="mut" style="margin-top:0">Envíalo por WhatsApp. Al abrirlo queda configurado y se puede instalar en la pantalla de inicio.</p><code>${esc(enlace)}</code><br><br><div class="row"><button class="btn sm" data-act="copiar" data-v="${esc(enlace)}">Copiar</button><a class="btn ghost sm" target="_blank" rel="noopener" href="${esc(wa('',`Registro de turnos: abre este enlace, elige tu nombre y escribe tu PIN. Luego "Agregar a pantalla de inicio".\n${enlace}`))}">Enviar por WhatsApp</a></div></div>
+  <div class="card"><h2>Reglas</h2><label>Nombre de la operación</label><input id="c_operacion" value="${esc(k.operacion)}">
+  <div class="grid2"><div><label>Tope semanal (h)</label><input id="c_tope_semanal" type="number" value="${esc(k.tope_semanal)}"></div><div><label>Horas por caravana (fijas, sin importar los días)</label><input id="c_horas_caravana" type="number" value="${esc(k.horas_caravana||36)}"></div><div><label>Días de la tabla de puntualidad</label><input id="c_punt_dias" type="number" min="7" max="90" value="${esc(k.punt_dias||30)}"></div>
+  <div><label>Inicio permitido desde</label><input id="c_hora_inicio_min" type="time" value="${esc(k.hora_inicio_min)}"></div><div><label>Inicio permitido hasta</label><input id="c_hora_inicio_max" type="time" value="${esc(k.hora_inicio_max)}"></div>
+  <div><label>Avisar al escolta antes (min)</label><input id="c_min_aviso_previo" type="number" value="${esc(k.min_aviso_previo)}"></div><div><label>Iniciar turno: minutos permitidos ANTES</label><input id="c_min_antes" type="number" value="${esc(k.min_antes)}"></div><div><label>Iniciar turno: minutos permitidos DESPUÉS (luego pide motivo)</label><input id="c_min_despues" type="number" value="${esc(k.min_despues)}"></div><div><label>Bloquear inicio antes de la franja</label><select id="c_bloquear_temprano"><option value="SI" ${k.bloquear_temprano!=='NO'?'selected':''}>SI</option><option value="NO" ${k.bloquear_temprano==='NO'?'selected':''}>NO</option></select></div><div><label>Cuenta como retraso desde (min)</label><input id="c_min_tarde" type="number" value="${esc(k.min_tarde)}"></div><div><label>Avisar a admin y Central desde (min)</label><input id="c_min_escalar" type="number" value="${esc(k.min_escalar)}"></div>
+  <div><label>Iniciar turno</label><select id="c_exigir_programacion"><option value="SI">Solo en lo asignado (pide cambio)</option><option value="NO" ${k.exigir_programacion==='NO'?'selected':''}>Libre (cualquier área)</option></select></div>
+  <div><label>Fuera de horario</label><select id="c_bloquear_fuera_horario"><option value="NO">Solo avisar</option><option value="SI" ${k.bloquear_fuera_horario==='SI'?'selected':''}>Bloquear inicio</option></select></div>
+  <div><label>Fuera de geocerca</label><select id="c_bloquear_fuera_geocerca"><option value="NO">Solo avisar</option><option value="SI" ${k.bloquear_fuera_geocerca==='SI'?'selected':''}>Bloquear inicio</option></select></div>
+  <div><label>Celular administrador</label><input id="c_tel_admin" inputmode="tel" value="${esc(k.tel_admin)}"></div><div><label>Celular Central</label><input id="c_tel_central" inputmode="tel" value="${esc(k.tel_central)}"></div></div>
+  <label>Correo para avisos (novedades, alertas, tope superado)</label><input id="c_email_avisos" type="email" value="${esc(k.email_avisos)}"><br><button class="btn ok" data-act="guardarCfg">Guardar reglas</button><p class="mut">Las caravanas nunca se validan con geocerca. Las geocercas solo aplican a TAT, movimiento y disponible.</p></div>
+  <div class="card" id="libroCard"><h2>📒 Conexión con el libro (Google Sheets)</h2><p class="mut" style="margin-top:0">La app escribe sola las horas de salida e ingreso en <b>TAT · Control_Diario</b> y en <b>CARAVANAS · Caravanas</b>. Nunca borra nada, no duplica y no pisa lo que digitaste a mano.</p>
+  <label>Enlace del libro en Google Drive</label><input id="c_libro_id" placeholder="https://docs.google.com/spreadsheets/d/…" value="${k.libro_id?esc('https://docs.google.com/spreadsheets/d/'+k.libro_id+'/edit'):''}">
+  <div class="grid2"><div><label>Sincronizar</label><select id="c_libro_activo"><option value="NO" ${k.libro_activo!=='SI'?'selected':''}>NO</option><option value="SI" ${k.libro_activo==='SI'?'selected':''}>SI</option></select></div><div><label>Desde la fecha</label><input type="date" id="c_libro_desde" value="${esc(k.libro_desde||'')}"></div></div>
+  <label>Equivalencias de nombres (solo si algún escolta no coincide con el libro)</label><textarea id="c_libro_alias" placeholder="NOMBRE EN LA APP = NOMBRE EN EL LIBRO">${esc(k.libro_alias||'')}</textarea>
+  <div class="row" style="margin-top:8px"><button class="btn ok" data-act="guardarLibro">Guardar y probar conexión</button><button class="btn ghost" data-act="libroSync">Sincronizar ahora</button></div><div id="libroEstado" style="margin-top:10px"><span class="mut">Cargando estado…</span></div></div>
+  <div class="card"><h2>Geocercas (zonas autorizadas para iniciar)</h2>${g.geocercas.map(x=>`<div class="item"><div class="row"><div class="grow"><b>${esc(x.Nombre)}</b> ${x.Activa==='NO'?'<span class="badge bad">inactiva</span>':''}<br><span class="mut">${esc(x.Lat)}, ${esc(x.Lng)} · ${esc(x.RadioM)} m</span></div><button class="btn ghost sm" data-act="editGeo" data-id="${esc(x.ID)}">Editar</button></div></div>`).join('')||'<p class="mut" style="margin:0">Sin geocercas: no se valida ubicación.</p>'}<br><button class="btn ghost sm" data-act="nuevaGeo">+ Nueva geocerca</button></div>
+${nt?`<div class="card"><h2>Avisos al celular (gratis, con la app cerrada)</h2><p class="mut" style="margin-top:0">Se usa la app gratuita <b>ntfy</b>. Cada persona la instala, toca <b>+</b> y escribe su código. Después recibe avisos como los de WhatsApp aunque la app esté cerrada.</p>
+  <b>Tu código (administrador)</b><br><code>${esc(nt.admin)}</code><div class="row" style="margin:6px 0 12px"><button class="btn sm" data-act="copiar" data-v="${esc(nt.admin)}">Copiar</button><a class="btn ghost sm" href="ntfy://ntfy.sh/${esc(nt.admin)}">Abrir en ntfy</a></div>
+  <b>Código de la Central</b><br><code>${esc(nt.central)}</code><div class="row" style="margin:6px 0 12px"><a class="btn ok sm" target="_blank" rel="noopener" href="${esc(wa(k.tel_central,`Para recibir avisos en tu celular: instala la app gratuita "ntfy", toca + y escribe este código: ${nt.central}`))}">Enviar a la Central</a></div>
+  <b>Escoltas</b> <span class="mut">(también lo ven en su app)</span>${nt.escoltas.map(e=>`<div class="item" style="padding:6px 0"><div class="row"><span class="grow">${esc(nombreCorto(e.Nombre))}</span><a class="btn ok sm" target="_blank" rel="noopener" href="${esc(wa(e.Telefono,`Para recibir avisos de turnos en tu celular: instala la app gratuita "ntfy", toca + y escribe este código: ${e.topic}`))}">Enviar código</a></div></div>`).join('')}</div>`:''}
+  <div class="card"><h2>Claves</h2><div class="row"><button class="btn ghost sm" data-act="claveCentral">${c.centralConfigurada?'Cambiar':'Crear'} clave de la Central</button><button class="btn ghost sm" data-act="claveAdmin">Cambiar mi clave</button><button class="btn ghost sm" data-act="permisoNotif">Activar avisos del celular</button></div></div>`;
+}
+};
+
+/* ================= acciones (delegación de eventos) ================= */
+const ACT={
+
+libroPintar(e,pr){
+  const box=$('libroEstado');if(!box)return;
+  const u=e.ultimo||{},est=u.cuando?(u.ok===false?`<div class="banner warn">⚠ Última vez ${esc(u.cuando.slice(5,16))}: ${esc(u.msg||'')}</div>`:`<div class="mut">✅ Última sincronización: ${esc(u.cuando.slice(5,16))}</div>`):'<div class="mut">Aún no se ha sincronizado nada.</div>';
+  const c=e.cuenta||{};
+  const btn=(clave,a,t,cls)=>`<button class="btn ${cls||'ghost'} sm" data-act="libroAccion" data-clave="${esc(clave)}" data-a="${a}">${t}</button>`;
+  const acc=x=>{const t=x.clave.charAt(0)==='T';
+    if(x.estado==='CONFLICTO')return t?btn(x.clave,'reemplazar','Es el mismo: usar la hora de la app','ok')+btn(x.clave,'agregar','Es otro servicio: agregar')+btn(x.clave,'ignorar','Ignorar'):btn(x.clave,'reintentar','Reintentar')+btn(x.clave,'ignorar','Ignorar');
+    if(x.estado==='REVISAR')return btn(x.clave,'reintentar','Reintentar','ok')+btn(x.clave,'escribir','Escribir tal cual')+btn(x.clave,'ignorar','Ignorar');
+    if(x.estado==='DIFERENCIA')return btn(x.clave,'reemplazar','Usar la hora de la app','ok')+btn(x.clave,'dejar','Dejar lo del libro');
+    return btn(x.clave,'reintentar','Reintentar','ok')+btn(x.clave,'ignorar','Ignorar')};
+  const pend=(e.pendientes||[]).map(x=>`<div class="lbx ${esc(x.estado)}"><b>${esc(x.estado)}</b> · ${esc(x.resumen)}<br><span style="font-size:13px">${esc(x.detalle)}</span><div class="row" style="margin-top:6px;flex-wrap:wrap">${acc(x)}</div></div>`).join('');
+  const rec=(e.recientes||[]).map(x=>`<div class="item" style="padding:4px 0;font-size:13px">✅ ${esc(x.resumen)} <span class="mut">→ ${esc(x.hoja)} fila ${esc(x.fila)}</span></div>`).join('');
+  let p='';
+  if(pr){p=`<div class="banner ok">✅ Conexión correcta con «${esc(pr.libro)}». Última fila TAT: ${esc(pr.ultimaTat)} · filas libres: ${pr.filasLibresTat} · última caravana: ${esc(pr.ultimaCaravana)}.</div>`;
+    if((pr.escoltasSinNombreEnLibro||[]).length)p+=`<div class="banner warn"><b>Estos escoltas no coinciden con el nombre del libro:</b>${pr.escoltasSinNombreEnLibro.map(x=>`<div style="margin:6px 0">${esc(x.nombre)}<br>${(x.sugerencias||[]).map(s=>`<button class="btn ghost sm" data-act="libroAlias" data-n="${esc(x.nombre)}" data-l="${esc(s)}">Es ${esc(s)}</button>`).join(' ')||'<span class="mut">No aparece en el maestro del libro: agrégalo en MAESTRO · Cédulas.</span>'}</div>`).join('')}</div>`}
+  box.innerHTML=p+est+`<div class="mut">Escritos: ${c.OK||0} · Por revisar: ${(c.CONFLICTO||0)+(c.REVISAR||0)+(c.ERROR||0)+(c.DIFERENCIA||0)} · Ignorados: ${c.IGNORADO||0}</div>`+pend+(rec?`<details style="margin-top:8px"><summary class="mut">Últimos escritos en el libro</summary>${rec}</details>`:'')},
+async libroCargar(){try{const e=await api('libroEstado');ACT.libroPintar(e)}catch(x){const b=$('libroEstado');if(b)b.innerHTML='<span class="mut">'+esc(x.message)+'</span>'}},
+async guardarLibro(){
+  const c={libro_id:val('c_libro_id'),libro_activo:val('c_libro_activo'),libro_desde:val('c_libro_desde'),libro_alias:val('c_libro_alias')};
+  try{const r=await api('guardarConfig',{config:c});A.cfg=r.config;toast('Guardado. Probando conexión…');
+    const pr=c.libro_id?await api('libroProbar',{}):null;const e=await api('libroEstado');ACT.libroPintar(e,pr)}catch(x){toast(x.message,true);const b=$('libroEstado');if(b)b.innerHTML='<div class="banner warn">'+esc(x.message)+'</div>'}},
+async libroSync(){try{toast('Sincronizando…');const e=await api('libroSincronizar');ACT.libroPintar(e);toast('Listo')}catch(x){toast(x.message,true)}},
+async libroAccion(d){try{const e=await api('libroResolver',{clave:d.clave,accion:d.a});ACT.libroPintar(e);toast('Hecho')}catch(x){toast(x.message,true)}},
+libroAlias(d){const t=$('c_libro_alias');t.value=(t.value.trim()?t.value.trim()+'\n':'')+d.n+' = '+d.l;toast('Agregado. Pulsa «Guardar y probar conexión».')},
+guardarApi(){const u=val('apiurl');if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(u))return toast('El enlace debe empezar por https://script.google.com/…',true);S.api=u;LS('rt_api',u);arrancar()},
+cambiarApi(){modal(`<h2 style="margin-top:0">Enlace del sistema</h2><input id="apiurl" value="${esc(S.api)}"><br><br><button class="btn big" data-act="guardarApi2">Guardar</button>`)},
+guardarApi2(){ACT.guardarApi();closeModal()},
+reintentarLogin(){vistaLogin()},
+
+rolLogin(d){LOGIN.rol=d.r;pintaLogin()},
+entrarE(){const id=val('lg_id'),pin=val('lg_pin');if(!id||!pin)return toast('Elige tu nombre y escribe el PIN',true);entrar('loginEscolta',{id,pin})},
+entrarA(){entrar('loginAdmin',{clave:$('lg_clave').value})},
+entrarC(){entrar('loginCentral',{clave:$('lg_clave').value})},
+salir(){if(Q.some(x=>x.uid===S.id)&&!confirm('Hay registros sin enviar. Si sales, siguen guardados y se enviarán cuando vuelvas a entrar. ¿Salir?'))return;salir()},
+enviarCola(){flush()},
+refrescar(){cargaEsc(false)},
+async permisoNotif(){if(!('Notification' in window))return toast('Este navegador no permite avisos',true);const r=await Notification.requestPermission();toast(r==='granted'?'Avisos activados (con la app abierta)':'No se permitieron avisos',r!=='granted')},
+copiar(d){navigator.clipboard.writeText(d.v).then(()=>toast('Copiado'),()=>toast('No se pudo copiar',true))},
+/* --- escolta --- */
+abrirInicio(){
+  const hoy=hoyL(),asig=((EST&&EST.programacion)||[]).filter(x=>x.Fecha===hoy);
+  const libre=EST&&EST.exigir===false;
+  if(!asig.length&&!libre){modal(`<h2 style="margin-top:0">Sin turno asignado hoy</h2><p>Hoy no tienes un turno programado. Para trabajar necesitas autorización del administrador.</p><button class="btn big" data-act="abrirCambio">🔄 Solicitar cambio / otra área</button>`);return}
+  const tipos=libre?Object.keys(TIPOS):[...new Set(asig.map(x=>x.Tipo||'TAT'))];
+  modal(`<h2 style="margin-top:0">Iniciar turno</h2><label>Tu turno asignado</label><select id="i_tipo" data-chg="inTipo">${tipos.map(k=>`<option value="${k}">${esc(TIPOS[k])}</option>`).join('')}</select>
+  <label>Placa del vehículo</label><input id="i_veh" autocapitalize="characters" placeholder="ABC123"><label>Zona / ruta</label><input id="i_zona" placeholder="Ej: Bodega Funza → Medellín"><div id="i_car" style="display:none;border:2px solid #1b9e4b;border-radius:12px;padding:10px;margin:8px 0"><b>🚛 Datos de la caravana</b><label>Código de caravana *</label><input id="i_cod" data-chg="car" inputmode="numeric" placeholder="Ej: 26 (el mismo del libro)" list="i_cods" autocomplete="off"><datalist id="i_cods">${((EST&&EST.caravanas)||[]).map(c=>`<option value="${esc(c.codigo)}">${esc(c.destino||'')}</option>`).join('')}</datalist><p class="mut" style="margin:4px 0">Si tus compañeros ya iniciaron, escribe el mismo código para unirte a su caravana.</p><label>Vehículos custodiados (placas, hasta 3)</label><div class="grid2"><input id="i_c1" placeholder="Placa 1" autocapitalize="characters"><input id="i_c2" placeholder="Placa 2" autocapitalize="characters"></div><input id="i_c3" placeholder="Placa 3" autocapitalize="characters" style="margin-top:6px"><label>Placa del blindado</label><input id="i_bl" placeholder="Placa" autocapitalize="characters"></div><div id="i_ven" class="mut" style="margin:8px 0"></div><div id="i_late" style="display:none;border:2px solid var(--bad);background:var(--badbg);color:var(--bad);border-radius:12px;padding:10px;margin:8px 0"><b>⛔ Estás iniciando tarde (<span id="i_dif"></span> min)</b><br><b>Ten en cuenta que los inicios tarde pueden afectar las solicitudes de permisos y las salidas a caravanas.</b><br>Se enviará un reporte al administrador. Indica el motivo:<label>Motivo del inicio tarde *</label><select id="i_mot"><option value="">— Elige el motivo —</option>${MOTIVOS_T.map(m=>`<option>${esc(m)}</option>`).join('')}</select><label>Detalle (opcional)</label><textarea id="i_motn" placeholder="Ej: bloqueo en la autopista, avisé al coordinador"></textarea></div><p class="mut" id="i_gps">Se tomará tu ubicación al iniciar (en caravana no).</p><button class="btn big ok" id="i_go" data-act="iniciar">▶ Iniciar ahora</button><div style="margin-top:12px"><button class="btn ghost sm" data-act="abrirCambio">¿Vas a otra área? Solicita el cambio</button></div>`);
+  ACT.chg_inTipo();
+},
+chg_inTipo(){const k=val('i_tipo'),pg=((EST&&EST.programacion)||[]).find(x=>x.Fecha===hoyL()&&(x.Tipo||'TAT')===k);if(pg){$('i_veh').value=pg.Placa||'';$('i_zona').value=pg.Punto||''}ACT.carBloque();ACT.ventana()},
+chg_car(){ACT.carAuto()},
+carBloque(){const c=$('i_car');if(c)c.style.display=val('i_tipo')==='CARAVANA'?'block':'none'},
+carAuto(){const x=((EST&&EST.caravanas)||[]).find(c=>c.codigo===String(parseInt(val('i_cod'),10)));if(!x)return;if(!val('i_zona'))$('i_zona').value=x.destino||'';[['i_c1',0],['i_c2',1],['i_c3',2]].forEach(([i,n])=>{if(!val(i))$(i).value=x.cust[n]||''});if(!val('i_bl'))$('i_bl').value=x.blindado||''},
+ventana(){const k=val('i_tipo'),pg=((EST&&EST.programacion)||[]).find(x=>x.Fecha===hoyL()&&(x.Tipo||'TAT')===k),ve=$('i_ven'),lt=$('i_late');if(!ve)return null;
+  if(!pg){ve.textContent='';lt.style.display='none';return null}
+  const an=EST&&EST.antes!=null?EST.antes:5,de=EST&&EST.despues!=null?EST.despues:5,hm=x=>{const[a,b]=String(x).split(':');return (+a)*60+(+b)},n=new Date(),dif=n.getHours()*60+n.getMinutes()-hm(pg.Hora),f=m=>pad(Math.floor(m/60))+':'+pad(m%60);
+  ve.innerHTML=`🕒 Tu hora: <b>${esc(pg.Hora)}</b> · puedes iniciar de <b>${f(hm(pg.Hora)-an)}</b> a <b>${f(hm(pg.Hora)+de)}</b>`;
+  if(dif>de&&!pg.Motivo){$('i_dif').textContent=dif;lt.style.display='block'}else lt.style.display='none';
+  return {dif,an,de,pg}},
+async abrirPunt(){
+  modal('<h2 style="margin-top:0">🏅 Puntualidad del equipo</h2><p class="mut">Cargando…</p>');
+  try{const d=await api('puntualidadEquipo');
+    const cl=v=>v<=5?'ok':v<=15?'warn':'bad',et=v=>v<=5?'Puntual':v<=15?'En observación':'Por mejorar';
+    const yo=d.filas.find(x=>x.id===d.yo);
+    let msg=`<div class="banner ok">🌟 ${esc(MSG_PUNTUAL)}</div>`;
+    if(yo)msg=yo.pctImp<=5?`<div class="banner ok">🌟 <b>¡Excelente! Tu impuntualidad es de ${yo.pctImp} %.</b> Tu puntualidad es ejemplo para el equipo. ¡Gracias!</div>`
+      :`<div class="banner ${yo.pctImp<=15?'warn':'bad'}"><b>Tu impuntualidad es de ${yo.pctImp} %.</b> Cada turno que inicies a tiempo la baja y mejora tus opciones de permisos y caravanas. ¡Tú puedes!</div>`;
+    const fila=(x,i)=>{const k=cl(x.pctImp),c=k==='ok'?'ok':k==='warn'?'warn':'bad';return `<tr style="${x.id===d.yo?'background:var(--okbg);font-weight:600':''}"><td>${i+1}</td><td>${esc(nombreCorto(x.nombre))}${x.id===d.yo?' (tú)':''}</td><td>${x.prog}</td><td>${x.tarde+x.noinicio}</td><td style="min-width:84px"><span class="badge ${k}">${x.pctImp} %</span><div style="background:var(--line);border-radius:6px;height:6px;margin-top:4px"><div style="width:${Math.min(100,x.pctImp)}%;height:6px;border-radius:6px;background:var(--${c})"></div></div></td></tr>`};
+    modal(`<h2 style="margin-top:0">🏅 Puntualidad del equipo</h2><p class="mut" style="margin-top:0">Últimos ${d.dias} días (${esc(fecha(d.desde))} al ${esc(fecha(d.hasta))}). Impuntualidad = turnos iniciados tarde (más de ${d.umbral} min) o sin iniciar, sobre los turnos programados.</p>${msg}
+    ${d.filas.length?`<div class="scroll"><table><tr><th>#</th><th>Escolta</th><th>Turnos</th><th>Fallas</th><th>Impuntualidad</th></tr>${d.filas.map(fila).join('')}</table></div>`:'<p class="mut">Aún no hay turnos programados para medir.</p>'}
+    ${d.equipoPctImp!=null?`<p style="margin:10px 0 0"><b>Todo el equipo:</b> ${d.equipoPctImp} % de impuntualidad</p>`:''}
+    <p class="mut" style="font-size:12px;margin:8px 0 12px"><span class="badge ok">0 – 5 %</span> Puntual · <span class="badge warn">5 – 15 %</span> En observación · <span class="badge bad">más de 15 %</span> Por mejorar</p>
+    <p class="mut" style="font-size:12px;margin:0 0 12px">${esc(AVISO_TARDE)}</p><button class="btn ghost big" data-act="cerrarModal">Cerrar</button>`);
+  }catch(e){closeModal();toast(e.message,true)}
+},
+abrirCambio(){
+  modal(`<h2 style="margin-top:0">Solicitar cambio / otra área</h2><p class="mut" style="margin-top:0">El administrador recibe tu solicitud. Cuando la apruebe podrás iniciar el turno en esa área.</p><label>Área a la que pasas</label><select id="cb_tipo">${formTipos()}</select><label>Lugar / ruta</label><input id="cb_lugar" placeholder="Ej: Bodega Funza"><label>Motivo (opcional)</label><textarea id="cb_nota"></textarea><br><button class="btn big" id="cb_go" data-act="enviarCambio">Enviar solicitud</button>`);
+},
+async enviarCambio(){const b=$('cb_go');b.disabled=true;try{await api('solicitarCambio',{tipo:val('cb_tipo'),lugar:val('cb_lugar'),nota:val('cb_nota')});closeModal();toast('Solicitud enviada al administrador');cargaEsc(true)}catch(e){toast(e.message,true);b.disabled=false}},
+abrirMotivo(d){
+  modal(`<h2 style="margin-top:0">Motivo de no inicio</h2><p class="mut" style="margin-top:0">Queda registrado con tu nombre, fecha y hora para el seguimiento.</p><label>Motivo</label><select id="mo_m">${MOTIVOS.map(m=>`<option>${esc(m)}</option>`).join('')}</select><label>Detalle (opcional)</label><textarea id="mo_n" placeholder="Ej: la camioneta no enciende, avisé al coordinador"></textarea><br><button class="btn big" id="mo_go" data-act="enviarMotivo" data-id="${esc(d.id)}">Guardar motivo</button>`);
+},
+async enviarMotivo(d){const b=$('mo_go');b.disabled=true;try{await api('reportarMotivo',{id:d.id,motivo:val('mo_m'),nota:val('mo_n')});closeModal();toast('Motivo registrado');if(S.rol==='E')cargaEsc(true);else irTab('tablero')}catch(e){toast(e.message,true);b.disabled=false}},
+async sos(){
+  if(!confirm('¿Enviar ALERTA DE EMERGENCIA a la Central y al administrador con tu ubicación?'))return;
+  try{const p=await getPos(6000);await api('sos',p);
+    const tc=(S.cfg&&S.cfg.tel_central)||'',ta=(S.cfg&&S.cfg.tel_admin)||'';
+    modal(`<h2 style="margin-top:0">🆘 Alerta enviada</h2><p>La Central y el administrador ya fueron avisados. Si puedes, llama ahora.</p>${tc?`<a class="btn bad big" href="tel:${esc(tc)}">📞 Llamar a la Central</a><br><br>`:''}${ta?`<a class="btn ghost big" href="tel:${esc(ta)}">📞 Llamar al administrador</a><br><br>`:''}<button class="btn ghost big" data-act="cerrarModal">Cerrar</button>`)
+  }catch(e){const tc=(S.cfg&&S.cfg.tel_central)||'';modal(`<h2 style="margin-top:0">No se pudo enviar</h2><p>Sin señal. Llama directamente a la Central.</p>${tc?`<a class="btn bad big" href="tel:${esc(tc)}">📞 Llamar a la Central</a>`:''}`)}
+},
+cerrarModal(){closeModal()},
+ntfyOk(){LS('rt_ntfy_ok','1');pintaEsc()},
+async iniciar(){
+  const b=$('i_go');b.disabled=true;
+  const tipo=val('i_tipo'),pl={tipo,vehiculo:val('i_veh'),zona:val('i_zona')};
+  const vv=ACT.ventana();
+  if(vv&&vv.dif<-vv.an&&!(EST&&EST.turno)){toast('Aún no es tu hora. Podrás iniciar 5 min antes de las '+vv.pg.Hora,true);b.disabled=false;return}
+  if(tipo==='CARAVANA'){const cod=val('i_cod').replace(/\D/g,'');if(!cod){toast('Escribe el código de la caravana',true);b.disabled=false;return}Object.assign(pl,{codigo:cod,cust1:val('i_c1'),cust2:val('i_c2'),cust3:val('i_c3'),blindado:val('i_bl')})}
+  if($('i_late')&&$('i_late').style.display==='block'){if(!val('i_mot')){toast('Elige el motivo del inicio tarde',true);b.disabled=false;return}pl.motivo=val('i_mot');pl.nota=val('i_motn')}
+  try{
+    if(tipo!=='CARAVANA'){b.textContent='Tomando ubicación…';const p=await getPos(10000);Object.assign(pl,p)}
+    const r=await accion('iniciarTurno',pl);closeModal();
+    if(r&&r.alertas&&r.alertas.some(a=>/^INICIO TARDE/.test(a)))toast('⛔ Inició tarde. '+AVISO_TARDE,true);else if(r&&r.alertas&&r.alertas.length)toast('Turno iniciado con aviso: '+r.alertas.join(', '));else toast('Turno iniciado. '+MSG_PUNTUAL);
+    if(!r.offline)await cargaEsc(true);
+  }catch(e){
+    if(String(e.message).startsWith('MOTIVO_TARDE')){const x=e.message.split('|');$('i_dif').textContent=x[1];$('i_late').style.display='block';toast('Estás iniciando tarde: elige el motivo y vuelve a pulsar Iniciar',true)}
+    else toast(e.message,true);b.disabled=false;b.textContent='▶ Iniciar ahora'}
+},
+abrirParada(){modal(`<h2 style="margin-top:0">Parada / Novedad</h2><label>Tipo</label><select id="p_tipo"><option value="PARADA">Parada</option><option value="NOVEDAD">Novedad</option><option value="PERNOCTA">Pernocta</option><option value="PEAJE">Peaje</option><option value="COMBUSTIBLE">Combustible</option></select><label>Nota</label><textarea id="p_nota"></textarea><br><button class="btn big" id="p_go" data-act="parada">Registrar con mi ubicación</button>`)},
+async parada(){const b=$('p_go');b.disabled=true;b.textContent='Tomando ubicación…';try{const p=await getPos(10000);await accion('registrarParada',{tipo:val('p_tipo'),nota:val('p_nota'),...p});closeModal();toast('Registrado');await cargaEsc(true)}catch(e){toast(e.message,true);b.disabled=false;b.textContent='Registrar con mi ubicación'}},
+abrirMov(){modal(`<h2 style="margin-top:0">Movimiento de bodega</h2><label>Ruta</label><input id="m_ruta"><label>Placa</label><input id="m_placa" value="${esc((EST&&EST.turno&&EST.turno.Vehiculo)||'')}"><div class="grid2"><div><label>Viajes</label><input id="m_viajes" type="number" value="1" min="1"></div><div><label>Peso (kg) *</label><input id="m_peso" type="number" inputmode="decimal" min="0" step="any"></div></div><p class="mut" style="margin:6px 0 0">El peso es obligatorio en los movimientos de bodega.</p><br><button class="btn big" data-act="mov">Registrar</button>`)},
+async mov(){const tm=EST&&EST.turno&&EST.turno.Tipo==='MOVIMIENTO';if(tm&&!(parseFloat(val('m_peso'))>0)){toast('Escribe el peso movido en kg',true);return}try{await accion('registrarMovimiento',{ruta:val('m_ruta'),placa:val('m_placa'),viajes:val('m_viajes'),peso:val('m_peso')});closeModal();toast('Movimiento registrado');await cargaEsc(true)}catch(e){toast(e.message,true)}},
+abrirCierre(){const t=EST&&EST.turno,falta=t&&t.Tipo==='MOVIMIENTO'&&kgTurno()<=0;modal(`<h2 style="margin-top:0">Cerrar turno</h2><p>${t&&t.Tipo==='CARAVANA'?`La caravana cuenta <b>${EST.hcar||36} h</b> fijas.`:`Llevas <b>${fh(transcurrido())}</b>.`}</p>${falta?`<div class="banner bad" style="border:2px solid var(--bad)"><b>📦 Falta el peso movido.</b><br>Registra el peso antes de cerrar.<br><button class="btn big" style="margin-top:8px" data-act="cierreIrMov">📦 Registrar el peso ahora</button><label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="c_sp" style="width:22px;height:22px"> Hoy no se movió carga (explícalo abajo)</label></div>`:''}<label>Observaciones ${falta?'(obligatorio si no hubo carga)':'(opcional)'}</label><textarea id="c_obs"></textarea><br><button class="btn big bad" id="c_go" data-act="cerrar">■ Cerrar turno</button>`)},
+cierreIrMov(){closeModal();ACT.abrirMov()},
+async cerrar(){const b=$('c_go');const t=EST&&EST.turno;const falta=t&&t.Tipo==='MOVIMIENTO'&&kgTurno()<=0,sp=!!($('c_sp')&&$('c_sp').checked);
+  if(falta&&!sp){toast('Registra el peso movido antes de cerrar el turno',true);return}
+  if(falta&&sp&&val('c_obs').trim().length<5){toast('Explica en observaciones por qué no se movió carga',true);return}
+  b.disabled=true;try{const p=t&&t.Tipo==='CARAVANA'?{}:await getPos(8000);const r=await accion('cerrarTurno',{obs:val('c_obs'),sinPeso:sp,...p});closeModal();toast(r.offline?'Cierre guardado':'Turno cerrado: '+fh(r.horas));if(!r.offline)await cargaEsc(true)}catch(e){toast(e.message==='PESO_FALTANTE'?'Registra el peso movido antes de cerrar el turno':e.message,true);b.disabled=false}},
+async confirmarProg(d){try{await api('confirmarProgramacion',{id:d.id});toast('Confirmado');cargaEsc(true)}catch(e){toast(e.message,true)}},
+abrirPin(){modal(`<h2 style="margin-top:0">Cambiar PIN</h2><label>PIN actual</label><input id="n_a" type="password" inputmode="numeric"><label>PIN nuevo (4 a 8 números)</label><input id="n_n" type="password" inputmode="numeric" maxlength="8"><br><button class="btn big" data-act="cambiarPin">Guardar</button>`)},
+async cambiarPin(){try{const r=await api('cambiarMiPin',{actual:val('n_a'),nuevo:val('n_n')});S.token=r.token;saveS();closeModal();toast('PIN cambiado')}catch(e){toast(e.message,true)}},
+/* --- navegación admin --- */
+tab(d){irTab(d.t)},
+async cerrarAdmin(d){if(!confirm('¿Cerrar este turno ahora?'))return;try{await api('cerrarTurnoAdmin',{id:d.id});toast('Turno cerrado');irTab('tablero')}catch(e){toast(e.message,true)}},
+/* turnos */
+filtrarTurnos(){A.data.tf={desde:val('tf_d'),hasta:val('tf_h'),escoltaId:val('tf_e')};irTab('turnos')},
+nuevoTurno(){formTurno({})},
+editarTurno(d){formTurno(A.data.turnos.find(t=>t.ID===d.id)||{})},
+async guardarTurno(){
+  const t={ID:val('t_id'),EscoltaID:val('t_esc'),Tipo:val('t_tipo'),codigo:val('t_cod'),Vehiculo:val('t_veh'),ZonaRuta:val('t_zona'),Obs:val('t_obs'),
+    Inicio:val('t_ini').replace('T',' ')+':00',Fin:val('t_fin')?val('t_fin').replace('T',' ')+':00':''};
+  if(!val('t_ini'))return toast('Falta la hora de inicio',true);
+  try{await api('guardarTurno',{turno:t});closeModal();toast('Turno guardado');irTab('turnos')}catch(e){toast(e.message,true)}
+},
+async borrarTurno(d){if(!confirm('¿Eliminar este turno definitivamente?'))return;try{await api('eliminarTurno',{id:d.id});closeModal();toast('Eliminado');irTab('turnos')}catch(e){toast(e.message,true)}},
+/* asignador de caravanas */
+async cvBuscar(){
+  const salida=val('cv_f');if(!salida)return toast('Elige la fecha de salida',true);
+  A.data.cvf=salida;$('cvRes').innerHTML='<p class="mut">Calculando disponibilidad…</p>';
+  try{const r=await api('sugerirCaravana',{salida,n:parseInt(val('cv_n'),10)||3,dias:parseInt(val('cv_dd'),10)||3,destino:val('cv_d')});A.data.cv=r;A.data.cvSel=new Set(r.recomendada);ACT.cvPintar()}
+  catch(e){$('cvRes').innerHTML='';toast(e.message,true)}
+},
+cvPintar(){
+  const r=A.data.cv,sel=A.data.cvSel;if(!r||!$('cvRes'))return;
+  const mapa=r.mapa.length?`<div class="mut" style="margin-bottom:4px">Tripulaciones de ${r.n} que podrías armar según el día de salida:</div><div style="display:flex;gap:6px;flex-wrap:wrap">${r.mapa.map(m=>`<div style="border:1px solid var(--line);border-radius:10px;padding:5px 9px;text-align:center;min-width:62px"><div class="mut" style="font-size:11px">${fecha(m.fecha)}</div><b style="color:var(--${m.tripulaciones>=2?'ok':m.tripulaciones===1?'warn':'bad'})">${m.tripulaciones}</b></div>`).join('')}</div>`:'';
+  $('cvMapa').innerHTML=mapa;
+  const badge=e=>e==='OK'?'<span class="badge ok">APTO</span>':e==='REEMPLAZO'?'<span class="badge warn">APTO · reemplazar en TAT</span>':'<span class="badge bad">NO PUEDE</span>';
+  const elegidos=r.candidatos.filter(c=>sel.has(c.id));
+  let h=`<div style="margin-top:12px"><b>Salida ${fecha(r.salida)} · ${r.dias} día(s) · regreso ${fecha(r.fin)}</b>${r.destino?' · '+esc(r.destino):''}</div>`;
+  if(r.faltan)h+=`<div class="card" style="background:var(--badbg);margin:8px 0"><b>Solo hay ${r.n-r.faltan} escolta(s) disponibles de los ${r.n} que pide.</b><br><span class="mut">Prueba otra fecha de salida (mira los números de arriba) o revisa los motivos de cada escolta.</span></div>`;
+  if(r.repetida)h+=`<div class="card" style="background:var(--warnbg);margin:8px 0">⚠ Esta tripulación ya salió en otra caravana esta semana y no hay un cambio que la evite.</div>`;
+  h+=`<div class="mut" style="margin:8px 0 2px">Marcados: <b>${elegidos.length}</b> de ${r.n}. Cambia a quien quieras; los que no cumplen las reglas aparecen abajo con el motivo.</div>`;
+  h+=r.candidatos.map(c=>{const no=c.estado==='NO';
+    return `<div class="item" style="${no?'opacity:.62':''}"><div class="row"><input type="checkbox" ${sel.has(c.id)?'checked':''} data-act="cvTog" data-id="${esc(c.id)}" style="width:22px;height:22px"><div class="grow"><b>${esc(nombreCorto(c.nombre))}</b> ${badge(c.estado)}<br><span class="mut" style="font-size:12px">${c.semanas.map(w=>`semana ${w.semana.slice(8,10)}/${w.semana.slice(5,7)}: ${w.antes}→${w.despues} h`).join(' · ')} · caravanas 28 d: ${c.car28}${c.tardes30?' · tarde: '+c.tardes30+' vez(es)':''}${c.exp?' · ya fue a esa ruta '+c.exp+' vez(es)':''}${c.descanso!==null?' · descansó '+c.descanso+' d':''}</span>${c.razones.map(x=>`<br><span style="color:var(--bad);font-size:12px">✖ ${esc(x)}</span>`).join('')}${c.avisos.map(x=>`<br><span style="color:var(--warn);font-size:12px">⚠ ${esc(x)}</span>`).join('')}</div></div></div>`}).join('');
+  h+=`<div class="row" style="margin-top:12px"><button class="btn ok" data-act="cvAsignar">Asignar y avisar a los escoltas</button><button class="btn ghost" data-act="cvCopiar">Copiar nombres para REPCO</button><button class="btn ghost" data-act="cvCopiarDisp">Copiar lista de disponibles</button></div>`;
+  $('cvRes').innerHTML=h;
+},
+cvTog(d){const s=A.data.cvSel;s.has(d.id)?s.delete(d.id):s.add(d.id);ACT.cvPintar()},
+cvTexto(){
+  const r=A.data.cv,sel=r.candidatos.filter(c=>A.data.cvSel.has(c.id)),h=val('cv_h')||'07:00';
+  return `🚚 CARAVANA\nSalida: ${fecha(r.salida)} ${h}\n${r.destino?'Destino: '+r.destino+'\n':''}Duración: ${r.dias} día(s), regreso ${fecha(r.fin)}\n\nEscoltas:\n`+sel.map((c,i)=>`${i+1}. ${c.nombre}`).join('\n');
+},
+cvCopiar(){if(!A.data.cvSel.size)return toast('Marca al menos un escolta',true);navigator.clipboard.writeText(ACT.cvTexto()).then(()=>toast('Copiado: pégalo en el chat con REPCO'),()=>toast('No se pudo copiar',true))},
+cvCopiarDisp(){
+  const r=A.data.cv,ok=r.candidatos.filter(c=>c.estado==='OK');
+  const t=`Escoltas disponibles para caravana con salida ${fecha(r.salida)} (${r.dias} día(s)):\n`+(ok.map((c,i)=>`${i+1}. ${c.nombre}`).join('\n')||'(ninguno disponible)');
+  navigator.clipboard.writeText(t).then(()=>toast('Lista copiada'),()=>toast('No se pudo copiar',true));
+},
+async cvAsignar(){
+  const r=A.data.cv,ids=[...A.data.cvSel],cs=ids.map(id=>r.candidatos.find(c=>c.id===id));
+  if(!cs.length)return toast('Marca al menos un escolta',true);
+  const no=cs.filter(c=>c.estado==='NO');
+  if(no.length&&!confirm('⚠ NO cumplen las reglas: '+no.map(c=>nombreCorto(c.nombre)).join(', ')+'.\n¿Asignar de todas formas?'))return;
+  const rep=cs.filter(c=>c.estado==='REEMPLAZO');
+  if(rep.length&&!confirm('Tienen TAT esos días: '+rep.map(c=>nombreCorto(c.nombre)).join(', ')+'.\nLa caravana reemplaza su TAT y tendrás que cubrirlo. ¿Continuar?'))return;
+  if(cs.length!==r.n&&!confirm('Marcaste '+cs.length+' y la caravana pide '+r.n+'. ¿Continuar?'))return;
+  try{
+    await api('guardarProgramacion',{fecha:r.salida,lineas:cs.map(c=>({ID:c.progId||'',EscoltaID:c.id,Hora:val('cv_h')||'07:00',Punto:r.destino||'CARAVANA',Placa:'',Tipo:'CARAVANA',Nota:'Caravana de '+r.dias+' día(s) hasta '+r.fin}))});
+    toast('Caravana programada: los escoltas recibieron el aviso');A.data.pf=r.salida;A.data.cv=null;irTab('prog');
+  }catch(e){toast(e.message,true)}
+},
+/* ===== importar la programación del Asistente REPCO ===== */
+impAbrir(){A.imp=null;modal(`<h2 style="margin-top:0">📥 Importar del Asistente</h2><p class="mut" style="margin-top:0">En el Asistente REPCO toca <b>"Copiar programación para la app"</b>, vuelve aquí y pega el código.</p><textarea id="imp_c" rows="4" placeholder="REPCO-PROG1:…" style="width:100%"></textarea><div class="row" style="margin-top:10px"><button class="btn" data-act="impVer">Ver vista previa</button><button class="btn ghost" data-act="cerrarModal">Cancelar</button></div><div id="imp_r" style="margin-top:12px"></div>`)},
+impTipo(punto,esc){const t=(punto+' '+esc).toUpperCase();return /DISPONIBLE/.test(t)?'DISPONIBLE':/MOVIMIENTO/.test(t)?'MOVIMIENTO':'TAT'},
+async impVer(){
+  try{
+    const t=String(($('imp_c')||{}).value||'').trim(),i=t.indexOf('REPCO-PROG1:');
+    if(i<0)throw new Error('El código no es válido. Cópialo de nuevo desde el Asistente.');
+    let j;try{j=JSON.parse(decodeURIComponent(escape(atob(t.slice(i+12).replace(/\s+/g,'')))))}catch(e){throw new Error('El código está incompleto. Cópialo de nuevo desde el Asistente.')}
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(j.f)||!Array.isArray(j.r)||!j.r.length)throw new Error('El código no trae programación.');
+    A.imp={fecha:j.f,filas:j.r.map(r=>({escolta:r[0],punto:r[1],hora:r[2],placa:r[3]||'',tipo:ACT.impTipo(r[1]||'',r[0]||''),escoltaId:''}))};
+    await ACT.impRefrescar();
+  }catch(e){toast(e.message,true)}
+},
+chg_impF(){ACT.impRefrescar()},
+async impRefrescar(){
+  if(!A.imp)return;
+  A.imp.filas.forEach((f,i)=>{const t=$('imp_t'+i),e=$('imp_e'+i);if(t)f.tipo=t.value;if(e&&e.value)f.escoltaId=e.value});
+  try{const r=await api('importarProgramacion',{fecha:A.imp.fecha,filas:A.imp.filas});A.imp.res=r;ACT.impPintar()}catch(e){toast(e.message,true)}
+},
+impPintar(){
+  const r=A.imp.res,c=r.cuenta||{},n=(c.NUEVA||0)+(c.ACTUALIZA||0);
+  const ET={NUEVA:['ok','Nueva'],ACTUALIZA:['warn','Cambia'],IGUAL:['','Sin cambios'],SIN_ESCOLTA:['bad','No encontré al escolta'],AMBIGUO:['bad','Varios posibles'],HORA:['bad','Hora inválida'],DUPLICADA:['','Repetida']};
+  const tipos=k=>Object.keys(TIPOS).map(x=>`<option value="${x}" ${x===k?'selected':''}>${esc(TIPOS[x])}</option>`).join('');
+  const filas=r.filas.map((x,i)=>{const [cl,tx]=ET[x.estado]||['',x.estado];
+    const sel=(x.estado==='SIN_ESCOLTA'||x.estado==='AMBIGUO')?`<select id="imp_e${i}" data-chg="impF"><option value="">Elegir escolta…</option>${(x.cand.length?x.cand:r.escoltas).map(e=>`<option value="${esc(e.id)}">${esc(nombreCorto(e.nombre))}</option>`).join('')}</select>`:'';
+    return `<tr><td>${esc(x.escolta)}${x.nombreApp?`<br><span class="mut" style="font-size:12px">→ ${esc(nombreCorto(x.nombreApp))}</span>`:''}${sel}</td><td>${esc(x.hora||'—')}</td><td style="font-size:12px">${esc(x.punto)}${x.placa?'<br>'+esc(x.placa):''}</td><td><select id="imp_t${i}" data-chg="impF" style="max-width:120px">${tipos(x.tipo)}</select></td><td><span class="badge ${cl}">${tx}</span>${x.antes?`<br><span class="mut" style="font-size:12px">antes: ${esc(x.antes)}</span>`:''}</td></tr>`}).join('');
+  $('imp_r').innerHTML=`<p><b>${fecha(r.fecha)}</b> · ${r.filas.length} filas: ${c.NUEVA||0} nuevas, ${c.ACTUALIZA||0} con cambios, ${c.IGUAL||0} sin cambios${(c.SIN_ESCOLTA||0)+(c.AMBIGUO||0)?`, <span style="color:var(--bad)">${(c.SIN_ESCOLTA||0)+(c.AMBIGUO||0)} sin escolta</span>`:''}.</p>
+  <div class="scroll"><table><tr><th>Escolta</th><th>Hora</th><th>Punto</th><th>Tipo</th><th>Estado</th></tr>${filas}</table></div>
+  <div class="row" style="margin-top:10px">${n?`<button class="btn ok" data-act="impAplicar">Importar ${n} ${n===1?'fila':'filas'}</button>`:'<span class="mut">No hay nada nuevo que importar.</span>'}<button class="btn ghost" data-act="cerrarModal">Cerrar</button></div>
+  <p class="mut" style="font-size:12px">Cada escolta recibirá su aviso de programación. Importar de nuevo el mismo código no duplica nada.</p>`;
+},
+async impAplicar(){
+  const n=((A.imp.res.cuenta.NUEVA||0)+(A.imp.res.cuenta.ACTUALIZA||0));
+  if(!confirm('Se guardarán '+n+' programaciones del '+A.imp.fecha+' y se avisará a cada escolta. ¿Continuar?'))return;
+  try{const r=await api('importarProgramacion',{fecha:A.imp.fecha,filas:A.imp.filas,aplicar:true});
+    toast('Importado: '+r.aplicado.creados+' nuevas, '+r.aplicado.actualizados+' actualizadas');closeModal();A.data.pf=A.imp.fecha;A.imp=null;irTab('prog')}catch(e){toast(e.message,true)}
+},
+/* ===== reporte de puntualidad ===== */
+puntVer(){A.data.ptf={desde:val('pt_d'),hasta:val('pt_h')};A.data.pt=null;irTab('punt')},
+puntDet(d){const e=$('ptd_'+d.i);if(e)e.style.display=e.style.display==='none'?'':'none'},
+puntCsv(){const p=A.data.pt;if(!p)return;descargar(`puntualidad_${p.desde}_${p.hasta}.csv`,p.csvDetalle);toast('Archivo descargado')},
+puntHtml(p){
+  const e=s=>esc(s);
+  const res=p.filas.map(f=>`<tr><td>${e(f.nombre)}</td><td>${f.prog}</td><td>${f.atiempo}</td><td>${f.tarde}${f.tarde?` (prom. +${f.promTarde} min, máx. +${f.maxTarde})`:''}</td><td>${f.noinicio}</td><td>${f.sinmotivo}</td><td><b>${f.pct==null?'—':f.pct+' %'}</b></td></tr>`).join('');
+  const det=p.filas.filter(f=>f.incid.length).map(f=>`<h3>${e(f.nombre)}</h3><table><tr><th>Fecha</th><th>Turno</th><th>Programado</th><th>Inició</th><th>Resultado</th><th>Motivo reportado</th><th>Origen / alertas</th></tr>${f.incid.map(i=>`<tr><td>${e(fecha(i.fecha))}</td><td>${e(i.tipo)}</td><td>${e(i.prog)}</td><td>${e(i.real||'—')}</td><td>${e(i.estado)}${i.dif!==''&&i.dif>0?' (+'+i.dif+' min)':''}</td><td>${e(i.motivo||'Sin motivo reportado')}${i.nota?'<br>'+e(i.nota):''}</td><td>${e(i.origen||'')}${i.alerta?'<br>'+e(i.alerta):''}</td></tr>`).join('')}</table>`).join('');
+  const T=p.total;
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Reporte de puntualidad</title><style>body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:18px}h1{font-size:18px;margin:0 0 4px}h3{font-size:13px;margin:16px 0 4px}table{width:100%;border-collapse:collapse;margin-top:6px}th,td{border:1px solid #999;padding:4px 6px;text-align:left;vertical-align:top}th{background:#eee}.n{color:#555;font-size:11px;margin-top:14px}</style></head><body>
+  <h1>Reporte de puntualidad y cumplimiento</h1><div>${e((S.cfg&&S.cfg.operacion)||'')} · Del ${e(p.desde)} al ${e(p.hasta)} · Generado ${e(p.generado)}</div>
+  <p><b>Equipo:</b> ${T.prog} turnos programados · ${T.atiempo} a tiempo · ${T.tarde} tarde · ${T.noinicio} no iniciaron · puntualidad ${T.pct==null?'—':T.pct+' %'}</p>
+  <table><tr><th>Escolta</th><th>Programados</th><th>A tiempo</th><th>Tarde</th><th>No inició</th><th>Sin motivo</th><th>Puntualidad</th></tr>${res}</table>
+  <h2 style="font-size:15px;margin-top:20px">Detalle de incidencias</h2>${det||'<p>Sin incidencias en el período.</p>'}
+  <p class="n">Criterio: "tarde" = inicio real más de ${p.umbral} min después de la hora programada. "No inició" = turno programado sin turno registrado. La hora de inicio es la registrada por la app (hora del celular del escolta); los registros hechos sin señal quedan marcados como APP-SIN SEÑAL. Este reporte es un apoyo informativo: cualquier medida disciplinaria requiere el procedimiento del reglamento interno.</p></body></html>`},
+puntImprimir(){
+  const p=A.data.pt;if(!p)return;
+  const f=document.createElement('iframe');f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0';document.body.append(f);
+  const d=f.contentWindow.document;d.open();d.write(ACT.puntHtml(p));d.close();
+  setTimeout(()=>{try{f.contentWindow.focus();f.contentWindow.print()}catch(e){toast('No se pudo abrir la impresión',true)}setTimeout(()=>f.remove(),2000)},300);
+},
+/* programación */
+chg_pf(){A.data.pf=val('pf');irTab('prog')},
+lineasProg(){return [...document.querySelectorAll('#progTabla tr[data-esc]')].filter(r=>r.querySelector('.pk').checked).map(r=>({ID:r.dataset.pid,EscoltaID:r.dataset.esc,Hora:r.querySelector('.ph').value,Punto:r.querySelector('.pp').value,Placa:r.querySelector('.pl').value,Tipo:r.querySelector('.pc').value}))},
+async guardarProg(){
+  const f=val('pf'),ls=ACT.lineasProg();
+  if(ls.some(l=>!l.Punto.trim()))return toast('Escribe el punto/ruta de cada escolta marcado',true);
+  const cv=(A.data.caravanaProg||{}),conf=ls.filter(l=>cv[l.EscoltaID]&&l.Tipo!=='CARAVANA');
+  if(conf.length&&!confirm('⚡ Operación adicional: '+conf.map(l=>nombreCorto(((A.data.escoltas||[]).find(x=>x.ID===l.EscoltaID)||{}).Nombre||'')).join(', ')+' está(n) en CARAVANA y lo(s) programas en otro tipo de turno. ¿Continuar?'))return;
+  try{
+    // quitar los que se desmarcaron
+    const marcados=ls.map(l=>l.ID).filter(Boolean);
+    for(const p of A.data.prog){if(!marcados.includes(p.ID))await api('eliminarProgramacion',{id:p.ID})}
+    const r=await api('guardarProgramacion',{fecha:f,lineas:ls});toast(`Programación guardada (${r.creados} nuevas, ${r.actualizados} actualizadas)`);irTab('prog')
+  }catch(e){toast(e.message,true)}
+},
+dcMsgPregunta(nom,f,h,p){return `Hola ${nombreCorto(nom).split(' ')[0]}, te escribe ${S.rol==='C'?'la Central':'la administración'} (${(S.cfg&&S.cfg.operacion)||'REPCO'}). ¿Puedes quedar como DISPONIBLE PROSEGUR el ${fecha(f)}${h?' a las '+h:''}${p?', con punto de llegada '+p:''}? Respóndeme por aquí, por favor.`},
+dcPreguntar(d){
+  const e=((A.data.desc||{}).escoltas||[]).find(x=>x.id===d.id);if(!e||!e.tel)return toast('Ese escolta no tiene celular registrado',true);
+  window.open(wa(e.tel,ACT.dcMsgPregunta(e.nombre,A.data.pf,val('dc_h'),val('dc_p'))),'_blank','noopener')
+},
+async dcProgramar(){
+  const ids=[...document.querySelectorAll('.dck:checked')].map(x=>x.value),h=val('dc_h'),p=val('dc_p'),f=A.data.pf;
+  if(!ids.length)return toast('Marca al menos un escolta',true);
+  if(!h)return toast('Escribe la hora',true);
+  if(!p)return toast('Escribe el punto de llegada',true);
+  const mal=ids.map(i=>((A.data.desc||{}).escoltas||[]).find(x=>x.id===i)).filter(x=>x&&x.estado!=='LIBRE');
+  if(mal.length&&!confirm(mal.map(x=>nombreCorto(x.nombre)+': '+x.razones.join(' · ')).join('\n')+'\n\n¿Programarlos de todas formas?'))return;
+  try{
+    const r=await api('programarDisponibles',{fecha:f,hora:h,punto:p,ids});
+    const link=location.origin+location.pathname+'#api='+encodeURIComponent(S.api);
+    const msg=c=>`Hola ${nombreCorto(c.nombre).split(' ')[0]}, quedaste programado como DISPONIBLE PROSEGUR:\n• Fecha: ${fecha(f)}\n• Hora: ${c.hora}\n• Punto de llegada: ${c.punto}\n\nConfírmalo en la app: ${link}`;
+    modal(`<h2 style="margin-top:0">✅ Programados (${r.creados.length})</h2><p class="mut" style="margin-top:0">Ya quedaron como Disponible Prosegur el ${fecha(f)} a las ${esc(h)} en ${esc(p)}. Avísales por WhatsApp:</p>
+    ${r.creados.map(c=>`<div class="item" style="display:flex;gap:8px;align-items:center"><b class="grow">${esc(nombreCorto(c.nombre))}</b>${c.tel?`<a class="btn ok sm" target="_blank" rel="noopener" href="${esc(wa(c.tel,msg(c)))}">💬 WhatsApp</a>`:'<span class="mut">sin celular</span>'}</div>`).join('')}
+    ${r.omitidos.length?`<p class="mut">No se programaron: ${r.omitidos.map(o=>esc(nombreCorto(o.nombre))+' ('+esc(o.motivo)+')').join(', ')}</p>`:''}
+    <div class="row" style="margin-top:12px"><button class="btn" data-act="dcListo">Listo</button></div>`)
+  }catch(e){toast(e.message,true)}
+},
+dcListo(){closeModal();irTab('prog')},
+async dcCancelar(d){if(!confirm('¿Quitar este turno de Disponible Prosegur?'))return;try{await api('cancelarDisponible',{id:d.id});toast('Quitado');irTab('prog')}catch(e){toast(e.message,true)}},
+msgProg(){
+  const f=val('pf'),ls=ACT.lineasProg();if(!ls.length)return toast('No hay escoltas marcados',true);
+  const link=location.origin+location.pathname+'#api='+encodeURIComponent(S.api);
+  const E=id=>(A.data.escoltas||[]).find(x=>x.ID===id)||{};
+  const indiv=l=>`Hola ${nombreCorto(E(l.EscoltaID).Nombre)}, tu programación para ${fecha(f)}:\n• Tipo: ${TIPOS[l.Tipo]}\n• Hora: ${l.Hora}\n• Punto / ruta: ${l.Punto}${l.Placa?'\n• Placa: '+l.Placa:''}\n\nConfírmala en la app: ${link}`;
+  const grupo=(k,it)=>`*${TIPOS[k].toUpperCase()} — ${fecha(f).toUpperCase()}*\n`+it.map(l=>`• ${nombreCorto(E(l.EscoltaID).Nombre)} — ${l.Hora} — ${l.Punto}${l.Placa?' — '+l.Placa:''}`).join('\n')+`\n\nConfirma tu turno en la app: ${link}`;
+  const todo=`*PROGRAMACIÓN ${fecha(f).toUpperCase()}*\n`+ORD_T.map(k=>{const it=ls.filter(l=>l.Tipo===k);return it.length?`\n*${TIPOS[k].toUpperCase()}*\n`+it.map(l=>`• ${nombreCorto(E(l.EscoltaID).Nombre)} — ${l.Hora} — ${l.Punto}${l.Placa?' — '+l.Placa:''}`).join('\n'):''}).join('\n')+`\n\nConfirma tu turno en la app: ${link}`;
+  let m=`<h2 style="margin-top:0">WhatsApp · ${fecha(f)}</h2><p class="mut" style="margin-top:0">Toca <b>WhatsApp</b> en cada escolta para enviarle su mensaje personal. Si lo guardaste hace poco, usa primero "Guardar programación".</p>`;
+  ORD_T.forEach(k=>{const it=ls.filter(l=>l.Tipo===k);if(!it.length)return;
+    m+=`<div class="gh tp-${k}">${esc(TIPOS[k]).toUpperCase()} <span>(${it.length})</span> <a class="btn ghost sm" style="float:right" target="_blank" rel="noopener" href="${esc(wa('',grupo(k,it)))}">Mensaje del grupo</a></div>`;
+    m+=it.map(l=>{const e=E(l.EscoltaID);return `<div class="item"><div class="row"><div class="grow"><b>${esc(nombreCorto(e.Nombre))}</b><br><span class="mut">${esc(l.Hora)} · ${esc(l.Punto)} ${esc(l.Placa)}${e.Telefono?'':' · <span style="color:var(--bad)">sin celular (edítalo en Escoltas)</span>'}</span></div><a class="btn ok sm" target="_blank" rel="noopener" href="${esc(wa(e.Telefono,indiv(l)))}">WhatsApp</a></div></div>`}).join('')});
+  m+=`<br><div class="row"><a class="btn ghost sm" target="_blank" rel="noopener" href="${esc(wa('',todo))}">Mensaje general (todo agrupado)</a><button class="btn ghost sm" data-act="copiar" data-v="${esc(todo)}">Copiar general</button></div>`;
+  modal(m);
+},
+copiarTxt(){navigator.clipboard.writeText($('mt').value).then(()=>toast('Copiado'),()=>toast('No se pudo copiar',true))},
+/* horas */
+semana(d){A.data.hf=addD(A.data.hf,+d.n);irTab('horas')},
+/* solicitudes */
+async enviarSol(){try{await api('crearSolicitud',{fecha:val('sl_f'),hora:val('sl_h'),lugar:val('sl_l'),cantidad:val('sl_c'),nota:val('sl_n')});toast('Solicitud enviada al administrador');irTab('solic')}catch(e){toast(e.message,true)}},
+respSol(d){
+  const s=A.data.sol.find(x=>x.ID===d.id),ok=d.ok==='1';
+  modal(`<h2 style="margin-top:0">${ok?'Aceptar':'Negar'} solicitud</h2><p>${s.Clase==='CAMBIO'?`<b>${esc(nombreCorto(s.Por))}</b> pide pasar a ${esc(TIPOS[s.TipoTurno]||'')} · ${esc(s.Lugar)}`:`<b>${esc(s.Lugar)}</b> · ${esc(s.Cantidad)} escolta(s) · ${fecha(s.Fecha)} ${esc(s.Hora)}`}</p><label>${s.Clase==='CAMBIO'?'Mensaje para el escolta (opcional)':'Respuesta / escoltas asignados'}</label><textarea id="rs_t"></textarea><br><button class="btn big ${ok?'ok':'bad'}" data-act="respSol2" data-id="${esc(d.id)}" data-ok="${d.ok}">Confirmar</button>`);
+},
+async respSol2(d){
+  const s=A.data.sol.find(x=>x.ID===d.id),ok=d.ok==='1',resp=val('rs_t');
+  try{await api('responderSolicitud',{id:d.id,aceptar:ok,respuesta:resp});
+    const cam=s.Clase==='CAMBIO';
+    const txt=cam?`Tu solicitud de cambio a ${TIPOS[s.TipoTurno]||''} (${s.Lugar}) fue ${ok?'APROBADA. Ya puedes iniciar tu turno.':'NEGADA.'}${resp?' '+resp:''}`:`Solicitud de personal (${s.Lugar}, ${fecha(s.Fecha)} ${s.Hora}): ${ok?'ACEPTADA':'NEGADA'}${resp?'. '+resp:''}`;
+    const tel=cam?(A.data.tel||{})[s.EscoltaID]:((A.cfg&&A.cfg.tel_central)||S.cfg.tel_central);
+    modal(`<h2 style="margin-top:0">Respuesta registrada</h2><p>${cam?'Avisa al escolta por WhatsApp (también le llega aviso a su celular si activó ntfy):':'Avisa a la Central por WhatsApp (también le llega aviso a su celular si activó ntfy):'}</p><a class="btn ok big" target="_blank" rel="noopener" href="${esc(wa(tel,txt))}">Abrir WhatsApp</a><br><br><button class="btn ghost big" data-act="cerrarYSol">Listo</button>`);
+  }catch(e){toast(e.message,true)}
+},
+cerrarYSol(){closeModal();irTab('solic')},
+/* escoltas */
+async addEscolta(){const n=val('en_n');if(!n)return toast('Escribe el nombre',true);try{const r=await api('guardarEscolta',{nombre:n,telefono:val('en_t')});mostrarPins([r]);irTab('escoltas')}catch(e){toast(e.message,true)}},
+pegarLista(){modal(`<h2 style="margin-top:0">Pegar lista</h2><p class="mut">Un nombre por línea (APELLIDOS NOMBRES).</p><textarea id="pl_t" style="min-height:200px"></textarea><br><button class="btn big" data-act="cargarLista">Crear escoltas</button>`)},
+async cargarLista(){try{const r=await api('cargarEscoltas',{lista:val('pl_t')});mostrarPins(r.creados);irTab('escoltas')}catch(e){toast(e.message,true)}},
+async cargarFijos(){if(!confirm('Se crearán los escoltas fijos que aún no existan. ¿Continuar?'))return;try{const r=await api('cargarFijos');mostrarPins(r.creados);irTab('escoltas')}catch(e){toast(e.message,true)}},
+editEscolta(d){const e=A.data.escoltas.find(x=>x.ID===d.id);modal(`<h2 style="margin-top:0">Editar escolta</h2><input type="hidden" id="ee_id" value="${esc(e.ID)}"><label>Nombre</label><input id="ee_n" value="${esc(e.Nombre)}"><label>Celular</label><input id="ee_t" value="${esc(e.Telefono)}" inputmode="tel"><label>Estado</label><select id="ee_a"><option value="SI">Activo</option><option value="NO" ${e.Activo==='NO'?'selected':''}>Inactivo (no puede entrar; conserva historial)</option></select><br><button class="btn big" data-act="guardarEsc">Guardar</button>`)},
+async guardarEsc(){try{await api('guardarEscolta',{id:val('ee_id'),nombre:val('ee_n'),telefono:val('ee_t'),activo:val('ee_a')==='SI'});closeModal();irTab('escoltas')}catch(e){toast(e.message,true)}},
+async resetPin(d){const e=A.data.escoltas.find(x=>x.ID===d.id);if(!confirm('¿Generar un PIN nuevo para '+e.Nombre+'?'))return;try{const r=await api('reiniciarPin',{id:d.id});mostrarPins([{nombre:r.nombre,pin:r.pin,id:d.id}])}catch(er){toast(er.message,true)}},
+/* export */
+async exp(d){
+  const f={desde:val('xd'),hasta:val('xh')};A.data.xf=f;
+  try{const r=await api('exportar',f);const n=d.k==='Tat'?r.csvTat:d.k==='Caravanas'?r.csvCaravanas:d.k==='Inicios'?r.csvInicios:r.csvTodo;
+    descargar(`turnos_${d.k.toLowerCase()}_${f.desde}_${f.hasta}.csv`,n);toast('Archivo descargado')}catch(e){toast(e.message,true)}
+},
+/* ajustes */
+async guardarCfg(){const c={};['operacion','tope_semanal','horas_caravana','punt_dias','hora_inicio_min','hora_inicio_max','bloquear_fuera_horario','bloquear_fuera_geocerca','exigir_programacion','min_aviso_previo','min_antes','min_despues','bloquear_temprano','min_tarde','min_escalar','tel_admin','tel_central','email_avisos'].forEach(k=>c[k]=val('c_'+k));try{const r=await api('guardarConfig',{config:c});A.cfg=r.config;S.cfg.operacion=c.operacion;S.cfg.tel_central=c.tel_central;S.cfg.tel_admin=c.tel_admin;saveS();toast('Reglas guardadas')}catch(e){toast(e.message,true)}},
+nuevaGeo(){formGeo({})},
+editGeo(d){formGeo(A.data.geo.find(x=>x.ID===d.id))},
+async usarMiUbicacion(){toast('Tomando ubicación…');const p=await getPos(12000);if(!p.lat)return toast('No se pudo obtener la ubicación',true);$('g_lat').value=p.lat.toFixed(6);$('g_lng').value=p.lng.toFixed(6)},
+async guardarGeo(){try{await api('guardarGeocerca',{id:val('g_id'),nombre:val('g_n'),lat:val('g_lat'),lng:val('g_lng'),radio:val('g_r'),activa:val('g_a')==='SI'});closeModal();irTab('ajustes')}catch(e){toast(e.message,true)}},
+async borrarGeo(d){if(!confirm('¿Eliminar geocerca?'))return;try{await api('eliminarGeocerca',{id:d.id});closeModal();irTab('ajustes')}catch(e){toast(e.message,true)}},
+claveCentral(){modal(`<h2 style="margin-top:0">Clave de la Central</h2><label>Nueva clave (mínimo 4)</label><input id="cc_c"><br><button class="btn big" data-act="guardarCC">Guardar</button>`)},
+async guardarCC(){try{await api('ponerPinCentral',{clave:val('cc_c')});closeModal();toast('Clave de Central guardada');irTab('ajustes')}catch(e){toast(e.message,true)}},
+claveAdmin(){modal(`<h2 style="margin-top:0">Cambiar mi clave</h2><label>Clave actual</label><input id="ca_a" type="password"><label>Clave nueva (mínimo 6)</label><input id="ca_n" type="password"><br><button class="btn big" data-act="guardarCA">Guardar</button>`)},
+async guardarCA(){try{await api('cambiarClaveAdmin',{actual:$('ca_a').value,nueva:$('ca_n').value});closeModal();toast('Clave cambiada')}catch(e){toast(e.message,true)}}
+};
+function formTurno(t){
+  const es=A.data.escoltas||[];const dt=s=>s?s.slice(0,16).replace(' ','T'):'';
+  modal(`<h2 style="margin-top:0">${t.ID?'Editar':'Nuevo'} turno</h2><input type="hidden" id="t_id" value="${esc(t.ID||'')}"><label>Escolta</label><select id="t_esc">${es.filter(e=>e.Activo!=='NO'||e.ID===t.EscoltaID).map(e=>`<option value="${esc(e.ID)}" ${e.ID===t.EscoltaID?'selected':''}>${esc(e.Nombre)}</option>`).join('')}</select>
+  <label>Tipo</label><select id="t_tipo">${Object.entries(TIPOS).map(([k,n])=>`<option value="${k}" ${k===t.Tipo?'selected':''}>${n}</option>`).join('')}</select>
+  <div class="grid2"><div><label>Inicio</label><input type="datetime-local" id="t_ini" value="${dt(t.Inicio)}"></div><div><label>Fin (vacío = abierto)</label><input type="datetime-local" id="t_fin" value="${dt(t.Fin)}"></div></div>
+  <label>Código de caravana (solo si es Caravana)</label><input id="t_cod" inputmode="numeric" value="${esc(t.Codigo||'')}"><label>Placa</label><input id="t_veh" value="${esc(t.Vehiculo||'')}"><label>Zona / ruta</label><input id="t_zona" value="${esc(t.ZonaRuta||'')}"><label>Observaciones</label><textarea id="t_obs">${esc(t.Obs||'')}</textarea>
+  <br><div class="row"><button class="btn ok grow" data-act="guardarTurno">Guardar</button>${t.ID?`<button class="btn bad" data-act="borrarTurno" data-id="${esc(t.ID)}">Eliminar</button>`:''}</div>`);
+}
+function formGeo(g){modal(`<h2 style="margin-top:0">${g.ID?'Editar':'Nueva'} geocerca</h2><input type="hidden" id="g_id" value="${esc(g.ID||'')}"><label>Nombre</label><input id="g_n" value="${esc(g.Nombre||'')}"><div class="grid2"><div><label>Latitud</label><input id="g_lat" value="${esc(g.Lat||'')}" inputmode="decimal"></div><div><label>Longitud</label><input id="g_lng" value="${esc(g.Lng||'')}" inputmode="decimal"></div><div><label>Radio (m)</label><input id="g_r" type="number" value="${esc(g.RadioM||150)}"></div><div><label>Estado</label><select id="g_a"><option value="SI">Activa</option><option value="NO" ${g.Activa==='NO'?'selected':''}>Inactiva</option></select></div></div><br><div class="row"><button class="btn ghost" data-act="usarMiUbicacion">📍 Usar mi ubicación</button><button class="btn ok grow" data-act="guardarGeo">Guardar</button>${g.ID?`<button class="btn bad" data-act="borrarGeo" data-id="${esc(g.ID)}">Eliminar</button>`:''}</div><p class="mut">Estando en el punto, toca "Usar mi ubicación".</p>`)}
+function mostrarPins(l){
+  if(!l.length)return toast('No hay escoltas nuevos para crear');
+  const txt=l.map(x=>`${x.nombre}: PIN ${x.pin}`).join('\n');
+  const tel=id=>{const e=(A.data.escoltas||[]).find(z=>z.ID===id);return e&&e.Telefono};
+  modal(`<h2 style="margin-top:0">PIN de acceso</h2><div class="banner warn">Anótalos ahora: por seguridad no se vuelven a mostrar (si se pierde uno, se genera otro con el botón PIN).</div>${l.map(x=>`<div class="item"><b>${esc(x.nombre)}</b> → <span style="font-size:22px;font-weight:700">${esc(x.pin)}</span>${x.id&&tel(x.id)?` <a class="btn ghost sm" target="_blank" rel="noopener" href="${esc(wa(tel(x.id),'Tu PIN para el registro de turnos es '+x.pin))}">WhatsApp</a>`:''}</div>`).join('')}<br><div class="row"><button class="btn" data-act="copiar" data-v="${esc(txt)}">Copiar todos</button><button class="btn ghost" data-act="imprimir">Imprimir</button></div>`);
+}
+ACT.imprimir=()=>window.print();
+
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;
+  const f=ACT[b.dataset.act];if(!f)return;e.preventDefault();f(b.dataset,b);
+});
+document.addEventListener('change',e=>{const c=e.target.dataset&&e.target.dataset.chg;if(c&&ACT['chg_'+c])ACT['chg_'+c]()});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lg_pin')ACT.entrarE();if(e.key==='Enter'&&e.target.id==='lg_clave')LOGIN.rol==='A'?ACT.entrarA():ACT.entrarC()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.token){sinLeer=0;document.title='Registro de Turnos';if(S.rol!=='E')pulsoAdm();if(S.rol==='E'){flush();cargaEsc(true)}else if(A.tab==='tablero')irTab('tablero')}});
+arrancar();
+</script>
+<script>
+/* ===== Consola: tema, reloj, módulos plegables ===== */
+(function(){
+const LS=k=>{try{return localStorage.getItem(k)}catch(e){return null}},SL=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}};
+const raiz=document.documentElement;
+function tema(t){if(t==='dia')raiz.setAttribute('data-tema','dia');else raiz.removeAttribute('data-tema');const m=document.querySelector('meta[name=theme-color]');if(m)m.content=t==='dia'?'#f9fbfe':'#070e1c'}
+tema(LS('tema')||'noche');
+const pad=n=>String(n).padStart(2,'0');
+function hora(){const d=new Date();const h=pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());const f=d.toLocaleDateString('es-CO',{weekday:'short',day:'2-digit',month:'short'}).replace(/\./g,'');document.querySelectorAll('header .reloj').forEach(r=>{r.firstChild.nodeValue=h;r.lastChild.textContent=f})}
+function cabecera(){
+  document.querySelectorAll('header').forEach(h=>{
+    if(!h.querySelector('.led')){const l=document.createElement('i');l.className='led';l.title='Conexión';h.insertBefore(l,h.firstChild)}
+    if(!h.querySelector('.reloj')){const r=document.createElement('div');r.className='reloj';r.innerHTML='00:00:00<small></small>';const b=h.querySelector('button');h.insertBefore(r,b)}
+    if(!h.querySelector('.btema')){const b=document.createElement('button');b.className='btema';b.type='button';b.setAttribute('aria-label','Cambiar entre modo noche y modo día');h.appendChild(b)}
+    const bt=h.querySelector('.btema');if(bt)bt.textContent=raiz.getAttribute('data-tema')==='dia'?'🌙':'☀';
+    const led=h.querySelector('.led');if(led)led.classList.toggle('off',!navigator.onLine);
+  });hora();
+}
+document.addEventListener('click',e=>{const b=e.target.closest('.btema');if(!b)return;const dia=raiz.getAttribute('data-tema')==='dia';tema(dia?'noche':'dia');SL('tema',dia?'noche':'dia');cabecera()});
+addEventListener('online',cabecera);addEventListener('offline',cabecera);
+setInterval(hora,1000);
+/* módulos */
+const clave=c=>{const t=(c.querySelector(':scope>h2')||{}).textContent||'';const v=(document.querySelector('.tabs .on')||{}).textContent||(c.closest('#esc')?'esc':'');return 'plg:'+v+':'+t.replace(/[\d()]+/g,'').trim().slice(0,40)};
+function modulos(){
+  const cs=document.querySelectorAll('main .card');
+  cs.forEach(c=>{
+    const h=c.querySelector(':scope>h2');if(!h||c.classList.contains('plegable')&&c.dataset.k)return;
+    c.classList.add('plegable');c.dataset.k=clave(c);
+    h.setAttribute('role','button');h.tabIndex=0;
+    if(LS(c.dataset.k)==='1')c.classList.add('plg');
+    h.setAttribute('aria-expanded',c.classList.contains('plg')?'false':'true');
+  });
+  const v=document.getElementById('vista');
+  if(v&&!v.querySelector(':scope>.modbar')&&v.querySelectorAll('.card.plegable').length>=3){
+    const m=document.createElement('div');m.className='modbar';m.innerHTML='<span>módulos</span><button type="button" data-plg="1">Plegar todo</button><button type="button" data-plg="0">Desplegar todo</button>';v.insertBefore(m,v.firstChild);
+  }
+}
+function alterna(c,plegar){const p=plegar==null?!c.classList.contains('plg'):plegar;c.classList.toggle('plg',p);SL(c.dataset.k,p?'1':null);const h=c.querySelector(':scope>h2');if(h)h.setAttribute('aria-expanded',p?'false':'true')}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-plg]');
+  if(b){document.querySelectorAll('#vista .card.plegable').forEach(c=>alterna(c,b.dataset.plg==='1'));return}
+  const h=e.target.closest('main .card.plegable>h2');
+  if(h&&!e.target.closest('a,button,input,select,label'))alterna(h.parentNode);
+});
+document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('main .card.plegable>h2')){e.preventDefault();alterna(e.target.parentNode)}});
+let q=0;const ob=new MutationObserver(()=>{if(q)return;q=requestAnimationFrame(()=>{q=0;cabecera();modulos()})});
+ob.observe(document.getElementById('root'),{childList:true,subtree:true});
+cabecera();modulos();
+})();
+</script>
+</body>
+</html>
