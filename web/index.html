@@ -207,7 +207,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.10.24-d';
+const APP_VERSION='2026.10.24-e';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -526,7 +526,7 @@ function rastroHtml(r){
 }
 function rtMuestra(p,n){if(p.length<=2)return [];const o=[];for(let i=1;i<=n;i++){const x=p[Math.round(i*(p.length-1)/(n+1))];if(x)o.push(x)}return o}
 
-const opxB=c=>c?`<span class="opx"><i></i>OPERACIÓN ADICIONAL <b>· CARAVANA${c.dia>1?' DÍA '+c.dia:''}</b></span>`:'';
+const opxB=c=>c?`<span class="opx"><i></i>OPERACIÓN ADICIONAL <b>· CARAVANA${c.dia>1?' DÍA '+c.dia:''}</b>${c.desde?' <span style="font-weight:400">· salió '+fecha(c.desde)+'</span>':''}</span>`:'';
 
 /* Personal en descanso: la Central/administración pide escoltas como DISPONIBLE PROSEGUR y les escribe por WhatsApp */
 const DC_EST={LIBRE:['ok','🟢 Libre'],AVISO:['warn','🟡 Revisar'],NO:['bad','🔴 No']};
