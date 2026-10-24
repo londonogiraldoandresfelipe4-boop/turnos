@@ -207,25 +207,31 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
+const APP_VERSION='2026.10.24-b';
+const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
+let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
+const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
+const NOM_ACC={iniciarTurno:'Inicio de turno',cerrarTurno:'Cierre de turno',registrarParada:'Parada / novedad',registrarMovimiento:'Movimiento de bodega',sos:'SOS',solicitarCambio:'Solicitud de cambio',confirmarProgramacion:'Confirmación de turno'};
 
 async function api(action,payload,publico){
   if(!S.api)throw Object.assign(new Error('Falta el enlace del sistema'),{server:true});
   let r;
   try{
-    const resp=await fetch(S.api,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,token:publico?'':S.token,payload:payload||{}})});
+    const resp=await fetch(S.api,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,token:publico?'':S.token,payload:{...(payload||{}),cl:Date.now(),dev:DEV}})});
     r=await resp.json();
   }catch(e){online=false;pintaEstado();throw Object.assign(new Error('Sin conexión'),{offline:true})}
   online=true;pintaEstado();
   if(!r.ok){
-    if(r.error==='SESION'){salir(true);throw Object.assign(new Error('Sesión vencida'),{server:true})}
+    if(r.error==='SESION'){salir(true);throw Object.assign(new Error('Sesión vencida'),{server:true,sesion:true})}
     throw Object.assign(new Error(r.msg||r.error||'Error'),{server:true});
   }
   return r.data;
 }
-function pintaEstado(){const b=$('estado');if(!b)return;const n=Q.filter(x=>x.uid===S.id).length;b.innerHTML=(!online?'<div class="banner warn">Sin señal. Lo que registres se guarda en el celular y se envía solo cuando vuelva la conexión.</div>':'')+(n?`<div class="banner warn">${n} registro(s) pendiente(s) de enviar${online?' · <a href="#" data-act="enviarCola">Enviar ahora</a>':''}</div>`:'')}
+function pintaEstado(){const b=$('estado');if(!b)return;const n=Q.filter(x=>x.uid===S.id).length,ne=QE.filter(x=>x.uid===S.id).length;b.innerHTML=(!online?'<div class="banner warn">Sin señal. Lo que registres se guarda en el celular y se envía solo cuando vuelva la conexión.</div>':'')+(n?`<div class="banner warn">${n} registro(s) pendiente(s) de enviar${online?' · <a href="#" data-act="enviarCola">Enviar ahora</a>':''}</div>`:'')+(ne?`<div class="banner bad">⚠ ${ne} registro(s) NO se guardaron en el sistema · <a href="#" data-act="verQE">Revisar</a></div>`:'')}
 
 /* acciones del escolta con cola sin conexión */
 async function accion(action,payload){
+  payload={...payload,rid:(payload&&payload.rid)||(Date.now().toString(36)+Math.random().toString(36).slice(2,10))}; /* mismo id si se reenvía: el servidor no duplica */
   try{return await api(action,payload)}
   catch(e){
     if(!e.offline)throw e;
@@ -250,7 +256,7 @@ async function flush(){
     for(const it of Q.slice()){
       if(it.uid!==S.id)continue;
       try{await api(it.action,it.payload);Q.splice(Q.indexOf(it),1);saveQ()}
-      catch(e){if(e.offline)break;if(e.server){toast('No se pudo enviar un registro: '+e.message,true);Q.splice(Q.indexOf(it),1);saveQ()}else break}
+      catch(e){if(e.offline||e.sesion)break;if(e.server){toast('Un registro fue rechazado: '+e.message,true);QE.push({...it,err:e.message,en:Date.now()});saveQE();Q.splice(Q.indexOf(it),1);saveQ()}else break}
     }
   }finally{flushing=false;pintaEstado()}
   await cargaEsc(true);
@@ -339,7 +345,7 @@ if(hash.get('importar')){S.impPend=hash.get('importar');history.replaceState(nul
 /* Si cambias la URL del servidor, basta editar config.json en GitHub: todos los celulares la toman solos al abrir la app */
 (async function sincronizaApi(){try{const r=await fetch('config.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const c=await r.json();const u=c&&c.api;
   if(u&&/^(https:\/\/script\.google(usercontent)?\.com\/|http:\/\/localhost:)/.test(u)&&u!==S.api){S.api=u;LS('rt_api',u);location.reload()}}catch(e){}})();
-if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(r=>{document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update().catch(()=>{})})}).catch(()=>{});
 window.addEventListener('online',()=>{online=true;flush();pintaEstado()});
 window.addEventListener('offline',()=>{online=false;pintaEstado()});
 
@@ -361,7 +367,7 @@ let LOGIN={rol:'E',lista:null,adminCreado:true};
 async function vistaLogin(){
   LOGIN.lista=null;
   $('root').innerHTML=`<header><h1>Registro de Turnos<small id="op"></small></h1><button data-act="cambiarApi">⚙</button></header>
-  <main><div class="center"><div class="tabs" id="rolTabs"></div><div class="card" id="loginBox"><p class="mut">Cargando…</p></div><div id="estado"></div></div></main>`;
+  <main><div class="center"><div class="tabs" id="rolTabs"></div><div class="card" id="loginBox"><p class="mut">Cargando…</p></div><div id="estado"></div><p class="mut" style="text-align:center;font-size:11px">Versión ${APP_VERSION}</p></div></main>`;
   pintaLogin();
   try{
     const [l,a]=await Promise.all([api('listaEscoltas',{},true),api('estadoAdmin',{},true)]);
@@ -706,6 +712,7 @@ async ajustes(){
   <div><label>Avisar al escolta antes (min)</label><input id="c_min_aviso_previo" type="number" value="${esc(k.min_aviso_previo)}"></div><div><label>Iniciar turno: minutos permitidos ANTES</label><input id="c_min_antes" type="number" value="${esc(k.min_antes)}"></div><div><label>Iniciar turno: minutos permitidos DESPUÉS (luego pide motivo)</label><input id="c_min_despues" type="number" value="${esc(k.min_despues)}"></div><div><label>Bloquear inicio antes de la franja</label><select id="c_bloquear_temprano"><option value="SI" ${k.bloquear_temprano!=='NO'?'selected':''}>SI</option><option value="NO" ${k.bloquear_temprano==='NO'?'selected':''}>NO</option></select></div><div><label>Cuenta como retraso desde (min)</label><input id="c_min_tarde" type="number" value="${esc(k.min_tarde)}"></div><div><label>Avisar a admin y Central desde (min)</label><input id="c_min_escalar" type="number" value="${esc(k.min_escalar)}"></div>
   <div><label>Iniciar turno</label><select id="c_exigir_programacion"><option value="SI">Solo en lo asignado (pide cambio)</option><option value="NO" ${k.exigir_programacion==='NO'?'selected':''}>Libre (cualquier área)</option></select></div>
   <div><label>Fuera de horario</label><select id="c_bloquear_fuera_horario"><option value="NO">Solo avisar</option><option value="SI" ${k.bloquear_fuera_horario==='SI'?'selected':''}>Bloquear inicio</option></select></div>
+  <div><label>Ubicación (GPS) al iniciar turno</label><select id="c_exigir_gps"><option value="SI">Obligatoria: sin GPS no inicia</option><option value="NO" ${k.exigir_gps==='NO'?'selected':''}>Opcional (solo avisar)</option></select></div>
   <div><label>Fuera de geocerca</label><select id="c_bloquear_fuera_geocerca"><option value="NO">Solo avisar</option><option value="SI" ${k.bloquear_fuera_geocerca==='SI'?'selected':''}>Bloquear inicio</option></select></div>
   <div><label>Celular administrador</label><input id="c_tel_admin" inputmode="tel" value="${esc(k.tel_admin)}"></div><div><label>Celular Central</label><input id="c_tel_central" inputmode="tel" value="${esc(k.tel_central)}"></div></div>
   <label>Correo para avisos (novedades, alertas, tope superado)</label><input id="c_email_avisos" type="email" value="${esc(k.email_avisos)}"><br><button class="btn ok" data-act="guardarCfg">Guardar reglas</button><p class="mut">Las caravanas nunca se validan con geocerca. Las geocercas solo aplican a TAT, movimiento y disponible.</p></div>
@@ -761,6 +768,9 @@ entrarA(){entrar('loginAdmin',{clave:$('lg_clave').value})},
 entrarC(){entrar('loginCentral',{clave:$('lg_clave').value})},
 salir(){if(Q.some(x=>x.uid===S.id)&&!confirm('Hay registros sin enviar. Si sales, siguen guardados y se enviarán cuando vuelvas a entrar. ¿Salir?'))return;salir()},
 enviarCola(){flush()},
+verQE(){const l=QE.filter(x=>x.uid===S.id);if(!l.length)return closeModal();modal(`<h2 style="margin-top:0">Registros que no se guardaron</h2><p class="mut">El sistema los rechazó. No se perdieron: siguen aquí. Corrige la causa y reintenta, o descártalos si ya no aplican.</p>${l.map((x,i)=>`<div class="card"><b>${esc(NOM_ACC[x.action]||x.action)}</b><br><small>${esc(new Date(x.payload.ts||x.en).toLocaleString())}</small><br><span style="color:#b00">${esc(x.err)}</span><br><button class="btn" data-act="qeRe" data-i="${i}">Reintentar</button> <button class="btn" data-act="qeDes" data-i="${i}">Descartar</button></div>`).join('')}`)},
+qeRe(d){const l=QE.filter(x=>x.uid===S.id),it=l[+d.i];if(!it)return;QE.splice(QE.indexOf(it),1);saveQE();const {err,en,...q}=it;Q.push(q);saveQ();closeModal();pintaEstado();flush()},
+qeDes(d){const l=QE.filter(x=>x.uid===S.id),it=l[+d.i];if(!it||!confirm('¿Descartar este registro? No se podrá recuperar.'))return;QE.splice(QE.indexOf(it),1);saveQE();closeModal();pintaEstado();if(QE.some(x=>x.uid===S.id))ACT.verQE()},
 refrescar(){cargaEsc(false)},
 async permisoNotif(){if(!('Notification' in window))return toast('Este navegador no permite avisos',true);const r=await Notification.requestPermission();toast(r==='granted'?'Avisos activados (con la app abierta)':'No se permitieron avisos',r!=='granted')},
 copiar(d){navigator.clipboard.writeText(d.v).then(()=>toast('Copiado'),()=>toast('No se pudo copiar',true))},
@@ -825,7 +835,9 @@ async iniciar(){
   if(tipo==='CARAVANA'){const cod=val('i_cod').replace(/\D/g,'');if(!cod){toast('Escribe el código de la caravana',true);b.disabled=false;return}Object.assign(pl,{codigo:cod,cust1:val('i_c1'),cust2:val('i_c2'),cust3:val('i_c3'),blindado:val('i_bl')})}
   if($('i_late')&&$('i_late').style.display==='block'){if(!val('i_mot')){toast('Elige el motivo del inicio tarde',true);b.disabled=false;return}pl.motivo=val('i_mot');pl.nota=val('i_motn')}
   try{
-    if(tipo!=='CARAVANA'){b.textContent='Tomando ubicación…';const p=await getPos(10000);Object.assign(pl,p)}
+    b.textContent='Tomando ubicación…';const p=await getPos(12000);Object.assign(pl,p);
+    if(!p.lat&&(S.cfg||{}).exigir_gps!=='NO'){let den='';try{const pm=await navigator.permissions.query({name:'geolocation'});if(pm.state==='denied')den=' El permiso está BLOQUEADO: en el celular entra a Ajustes → Aplicaciones (o el navegador) → Permisos → Ubicación → Permitir.'}catch(_){}
+      toast('No se pudo obtener tu ubicación. Activa el GPS del celular y permite la ubicación para iniciar el turno.'+den,true);b.disabled=false;b.textContent='▶ Iniciar ahora';return}
     const r=await accion('iniciarTurno',pl);closeModal();
     if(r&&r.alertas&&r.alertas.some(a=>/^INICIO TARDE/.test(a)))toast('⛔ Inició tarde. '+AVISO_TARDE,true);else if(r&&r.alertas&&r.alertas.length)toast('Turno iniciado con aviso: '+r.alertas.join(', '));else toast('Turno iniciado. '+MSG_PUNTUAL);
     if(!r.offline)await cargaEsc(true);
@@ -844,7 +856,7 @@ async cerrar(){const b=$('c_go');const t=EST&&EST.turno;const falta=t&&t.Tipo===
   if(falta&&sp&&val('c_obs').trim().length<5){toast('Explica en observaciones por qué no se movió carga',true);return}
   b.disabled=true;try{const p=t&&t.Tipo==='CARAVANA'?{}:await getPos(8000);const pg=t&&t.Tipo==='CARAVANA'?GPS.q.filter(x=>x.uid===S.id).slice(0,300):[];const r=await accion('cerrarTurno',{obs:val('c_obs'),sinPeso:sp,...p,...(pg.length?{pts:pg.map(x=>x.p)}:{})});if(pg.length){GPS.q=GPS.q.filter(x=>!pg.includes(x));gpsSave()}closeModal();toast(r.offline?'Cierre guardado':'Turno cerrado: '+fh(r.horas)+(r.km?' · '+f1(r.km)+' km':''));if(!r.offline)await cargaEsc(true)}catch(e){toast(e.message==='PESO_FALTANTE'?'Registra el peso movido antes de cerrar el turno':e.message,true);b.disabled=false}},
 async confirmarProg(d){try{await api('confirmarProgramacion',{id:d.id});toast('Confirmado');cargaEsc(true)}catch(e){toast(e.message,true)}},
-abrirPin(){modal(`<h2 style="margin-top:0">Cambiar PIN</h2><label>PIN actual</label><input id="n_a" type="password" inputmode="numeric"><label>PIN nuevo (4 a 8 números)</label><input id="n_n" type="password" inputmode="numeric" maxlength="8"><br><button class="btn big" data-act="cambiarPin">Guardar</button>`)},
+abrirPin(){modal(`<h2 style="margin-top:0">Cambiar PIN</h2><label>PIN actual</label><input id="n_a" type="password" inputmode="numeric"><label>PIN nuevo (6 a 8 números)</label><input id="n_n" type="password" inputmode="numeric" maxlength="8"><br><button class="btn big" data-act="cambiarPin">Guardar</button>`)},
 async cambiarPin(){try{const r=await api('cambiarMiPin',{actual:val('n_a'),nuevo:val('n_n')});S.token=r.token;saveS();closeModal();toast('PIN cambiado')}catch(e){toast(e.message,true)}},
 /* --- navegación admin --- */
 tab(d){irTab(d.t)},
@@ -1094,7 +1106,7 @@ async exp(d){
     descargar(`turnos_${d.k.toLowerCase()}_${f.desde}_${f.hasta}.csv`,n);toast('Archivo descargado')}catch(e){toast(e.message,true)}
 },
 /* ajustes */
-async guardarCfg(){const c={};['operacion','tope_semanal','horas_caravana','punt_dias','hora_inicio_min','hora_inicio_max','bloquear_fuera_horario','bloquear_fuera_geocerca','exigir_programacion','min_aviso_previo','min_antes','min_despues','bloquear_temprano','min_tarde','min_escalar','tel_admin','tel_central','email_avisos'].forEach(k=>c[k]=val('c_'+k));try{const r=await api('guardarConfig',{config:c});A.cfg=r.config;S.cfg.operacion=c.operacion;S.cfg.tel_central=c.tel_central;S.cfg.tel_admin=c.tel_admin;saveS();toast('Reglas guardadas')}catch(e){toast(e.message,true)}},
+async guardarCfg(){const c={};['operacion','tope_semanal','horas_caravana','punt_dias','hora_inicio_min','hora_inicio_max','bloquear_fuera_horario','bloquear_fuera_geocerca','exigir_gps','exigir_programacion','min_aviso_previo','min_antes','min_despues','bloquear_temprano','min_tarde','min_escalar','tel_admin','tel_central','email_avisos'].forEach(k=>c[k]=val('c_'+k));try{const r=await api('guardarConfig',{config:c});A.cfg=r.config;S.cfg.operacion=c.operacion;S.cfg.tel_central=c.tel_central;S.cfg.tel_admin=c.tel_admin;saveS();toast('Reglas guardadas')}catch(e){toast(e.message,true)}},
 nuevaGeo(){formGeo({})},
 editGeo(d){formGeo(A.data.geo.find(x=>x.ID===d.id))},
 async usarMiUbicacion(){toast('Tomando ubicación…');const p=await getPos(12000);if(!p.lat)return toast('No se pudo obtener la ubicación',true);$('g_lat').value=p.lat.toFixed(6);$('g_lng').value=p.lng.toFixed(6)},
@@ -1103,7 +1115,7 @@ async borrarGeo(d){if(!confirm('¿Eliminar geocerca?'))return;try{await api('eli
 claveCentral(){modal(`<h2 style="margin-top:0">Clave de la Central</h2><label>Nueva clave (mínimo 4)</label><input id="cc_c"><br><button class="btn big" data-act="guardarCC">Guardar</button>`)},
 async guardarCC(){try{await api('ponerPinCentral',{clave:val('cc_c')});closeModal();toast('Clave de Central guardada');irTab('ajustes')}catch(e){toast(e.message,true)}},
 claveAdmin(){modal(`<h2 style="margin-top:0">Cambiar mi clave</h2><label>Clave actual</label><input id="ca_a" type="password"><label>Clave nueva (mínimo 6)</label><input id="ca_n" type="password"><br><button class="btn big" data-act="guardarCA">Guardar</button>`)},
-async guardarCA(){try{await api('cambiarClaveAdmin',{actual:$('ca_a').value,nueva:$('ca_n').value});closeModal();toast('Clave cambiada')}catch(e){toast(e.message,true)}}
+async guardarCA(){try{const r=await api('cambiarClaveAdmin',{actual:$('ca_a').value,nueva:$('ca_n').value});if(r&&r.token){S.token=r.token;saveS()}closeModal();toast('Clave cambiada')}catch(e){toast(e.message,true)}}
 };
 function formTurno(t){
   const es=A.data.escoltas||[];const dt=s=>s?s.slice(0,16).replace(' ','T'):'';
