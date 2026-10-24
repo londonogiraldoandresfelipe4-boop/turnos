@@ -207,7 +207,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.10.24-e';
+const APP_VERSION='2026.10.24-f';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -268,7 +268,7 @@ const GPS={w:null,wl:null,q:jp(LS('rt_gpsq'),[]),ult:null,ref:null,kmSrv:0,mPend
 const gpsSave=()=>LS('rt_gpsq',JSON.stringify(GPS.q.slice(-3000)));
 function gpsDist(a,b,c,d){const R=6371000,r=Math.PI/180,x=(c-a)*r,y=(d-b)*r,h=Math.sin(x/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(y/2)**2;return 2*R*Math.asin(Math.min(1,Math.sqrt(h)))}
 function gpsMetros(pts,desde){let m=0,ref=desde;pts.forEach(p=>{if(ref){const d=gpsDist(ref.lat,ref.lng,p[1],p[2]);if(d>=12){m+=d;ref={lat:p[1],lng:p[2]}}}else ref={lat:p[1],lng:p[2]}});return m}
-const gpsCaravana=()=>{const t=EST&&EST.turno;return t&&t.Tipo==='CARAVANA'?t:null};
+const gpsCaravana=()=>{const t=EST&&EST.turno;return t&&(t.Tipo==='CARAVANA'||EST.geoTodos)?t:null};   /* con «rastrear todos los turnos» activo, también se siguen TAT, movimiento y disponible (entradas/salidas de geocercas) */
 function gpsSync(){
   const t=gpsCaravana();
   if(t&&S.rol==='E'){
@@ -286,7 +286,7 @@ function gpsIniciar(t){
   GPS.activo=true;GPS.kmSrv=parseFloat(t.Km)||0;GPS.mPend=0;GPS.ref=null;GPS.ult=null;GPS.msg='';GPS.hueco=0;GPS.lastEnv=Date.now();
   if(bg){
     GPS.native=true;
-    bg.addWatcher({backgroundTitle:'Caravana en curso',backgroundMessage:'Rastreando el recorrido (no cierres esta app)',requestPermissions:true,stale:false,distanceFilter:15},(l,err)=>{
+    bg.addWatcher({backgroundTitle:'Turno en curso',backgroundMessage:'Rastreando el recorrido (no cierres esta app)',requestPermissions:true,stale:false,distanceFilter:15},(l,err)=>{
       if(err){
         if(err.code==='NOT_AUTHORIZED'){GPS.msg='⛔ Falta el permiso de ubicación «Permitir todo el tiempo». Abre Ajustes de la app ▸ Permisos ▸ Ubicación ▸ «Permitir todo el tiempo».';gpsPintar();try{bg.openSettings()}catch(e){}}
         else gpsError({code:2});
@@ -601,6 +601,13 @@ async tablero(){
   const pend=(d.sinIniciar||[]).filter(x=>x.Motivo||mins(d.ahora)-mins(x.Hora)>=0).sort((p,q)=>p.Hora<q.Hora?-1:1);
   if(pend.length){const graves=pend.filter(x=>!x.Motivo&&mins(d.ahora)-mins(x.Hora)>=(d.tarde||10)).length;
     h+=`<div class="card" style="border-color:${graves?'var(--bad)':'var(--warn)'}"><h2 style="color:${graves?'var(--bad)':'var(--warn)'}">${graves?'⛔ Sin iniciar turno ('+graves+')':'Por iniciar / con motivo'}</h2>${pend.map(x=>`<div class="item tp-${x.Tipo||'TAT'}"><div class="row"><div class="grow"><b>${esc(nombreCorto(x.Escolta))}</b> ${tbd(x.Tipo)} ${estIni(x,d)}<br><span class="mut">${esc(x.Hora)} · ${esc(x.Punto)}${x.Motivo&&x.MotivoNota?' · '+esc(x.MotivoNota):''}${x.Motivo?' · reportó '+esc(x.MotivoPor):''}</span></div>${waBtn(x.EscoltaID,x.Escolta)}<button class="btn ghost sm" data-act="abrirMotivo" data-id="${esc(x.ID)}">📝 ${x.Motivo?'Cambiar motivo':'Registrar motivo'}</button></div></div>`).join('')}</div>`}
+  h+=(()=>{const ev=(d.geo||[]);if(!ev.length)return'';
+    const por={};ev.forEach(e=>{(por[e.TurnoID]=por[e.TurnoID]||[]).push(e)});
+    const dur=m=>m<60?m+' min':Math.floor(m/60)+' h '+String(m%60).padStart(2,'0')+' min';
+    const filas=Object.values(por).map(l=>{l.sort((p,q)=>(+p.Ts)-(+q.Ts));let ent={};const partes=l.map(e=>{const hh=e.Hora.slice(11,16);if(e.Evento==='ENTRADA'){ent[e.GeoID]=+e.Ts;return`<span class="badge ok">📍 entró ${esc(e.Geocerca)} ${hh}</span>`}
+        const t0=ent[e.GeoID];const est=t0?` <span class="mut">(estuvo ${dur(Math.max(1,Math.round((+e.Ts-t0)/60)))})</span>`:'';delete ent[e.GeoID];return`<span class="badge warn">🚪 salió ${esc(e.Geocerca)} ${hh}</span>${est}`});
+      return`<div class="item"><b>${esc(nombreCorto(l[0].Escolta))}</b> ${tbd(l[0].TipoTurno)}<br>${partes.join(' ')}</div>`}).join('');
+    return`<div class="card"><h2>Entradas y salidas de hoy</h2>${filas}</div>`})();
   h+=`<div class="card"><h2>En turno ahora</h2>${ab.length?ORD_T.map(k=>{const g=ab.filter(t=>t.Tipo===k);return g.length?gh(k,g.length)+g.map(t=>`<div class="item"><div class="row"><div class="grow"><b>${esc(nombreCorto(t.Escolta))}</b> ${t.AlertaIni?'<span class="badge warn">alerta</span>':''}<br><span class="mut">desde ${fecha(t.Inicio.slice(0,10))} ${hm(t.Inicio)} · ${fh(t.horas)} · ${esc(t.Vehiculo||'—')} · ${esc(t.ZonaRuta||'—')}${t.Tipo==='MOVIMIENTO'?(t.pesoKg>0?' · 📦 '+f1(t.pesoKg)+' kg':' · <b style="color:var(--bad)">📦 sin peso</b>'):(t.pesoKg>0?' · 📦 '+f1(t.pesoKg)+' kg':'')}</span>${t.Tipo==='CARAVANA'?gpsLinea(t):''}${t.AlertaIni?`<br><span style="color:var(--warn);font-size:13px">⚠ ${esc(t.AlertaIni)}</span>`:''}</div>${waBtn(t.EscoltaID,t.Escolta)}${t.LatIni?`<a class="btn ghost sm" target="_blank" rel="noopener" href="https://maps.google.com/?q=${esc(t.LatIni)},${esc(t.LngIni)}">Mapa</a>`:''}${S.rol==='A'?`<button class="btn bad sm" data-act="cerrarAdmin" data-id="${esc(t.ID)}">Cerrar</button>`:''}</div></div>`).join(''):''}).join(''):'<p class="mut" style="margin:0">Nadie en turno.</p>'}</div>`;
   const lineaP=(x,f)=>{const en=d.abiertos.some(t=>t.EscoltaID===x.EscoltaID),ce=d.cerradosHoy.some(t=>t.EscoltaID===x.EscoltaID);const st=f!==d.hoy?'':en?'<span class="badge ok">en turno</span>':ce?'<span class="badge">cerró turno</span>':estIni(x,d);return `<div class="item" style="padding:6px 0"><div class="row"><div class="grow"><b>${esc(nombreCorto(x.Escolta))}</b> · ${esc(x.Hora)} · ${esc(x.Punto)} ${x.Placa?esc(x.Placa):''} ${st} ${x.Estado==='CONFIRMADA'?'<span class="badge ok">confirmó</span>':'<span class="badge warn">sin confirmar</span>'}</div>${waBtn(x.EscoltaID,x.Escolta)}</div></div>`};
   h+=`<div class="card"><h2>Programación de hoy y mañana</h2>${[d.hoy,addD(d.hoy,1)].map(f=>{const l=(d.programacion||[]).filter(x=>x.Fecha===f).sort((p,q)=>p.Hora<q.Hora?-1:1);return `<div style="margin:12px 0 2px;font-weight:700;font-size:17px">${f===d.hoy?'HOY':'MAÑANA'} · ${fecha(f)} <span class="mut">(${l.length})</span></div>`+(ORD_T.map(k=>{const g=l.filter(x=>(x.Tipo||'TAT')===k);return g.length?gh(k,g.length)+g.map(x=>lineaP(x,f)).join(''):''}).join('')||'<p class="mut" style="margin:0 0 6px">Nadie programado.</p>')}).join('')}</div>`;
@@ -730,6 +737,9 @@ async ajustes(){
   <div><label>Fuera de horario</label><select id="c_bloquear_fuera_horario"><option value="NO">Solo avisar</option><option value="SI" ${k.bloquear_fuera_horario==='SI'?'selected':''}>Bloquear inicio</option></select></div>
   <div><label>Ubicación (GPS) al iniciar turno</label><select id="c_exigir_gps"><option value="SI">Obligatoria: sin GPS no inicia</option><option value="NO" ${k.exigir_gps==='NO'?'selected':''}>Opcional (solo avisar)</option></select></div>
   <div><label>Fuera de geocerca</label><select id="c_bloquear_fuera_geocerca"><option value="NO">Solo avisar</option><option value="SI" ${k.bloquear_fuera_geocerca==='SI'?'selected':''}>Bloquear inicio</option></select></div>
+  <div><label>Entradas y salidas de geocercas</label><select id="c_geo_eventos"><option value="SI">Registrar automáticamente</option><option value="NO" ${k.geo_eventos==='NO'?'selected':''}>No registrar</option></select></div>
+  <div><label>Rastrear con GPS</label><select id="c_geo_todos_turnos"><option value="NO">Solo caravanas</option><option value="SI" ${k.geo_todos_turnos==='SI'?'selected':''}>Todos los turnos (más batería)</option></select></div>
+  <div><label>Avisarme cuando una caravana entra o sale</label><select id="c_avisar_geo"><option value="SI">Sí</option><option value="NO" ${k.avisar_geo==='NO'?'selected':''}>No</option></select></div>
   <div><label>Celular administrador</label><input id="c_tel_admin" inputmode="tel" value="${esc(k.tel_admin)}"></div><div><label>Celular Central</label><input id="c_tel_central" inputmode="tel" value="${esc(k.tel_central)}"></div></div>
   <label>Correo para avisos (novedades, alertas, tope superado)</label><input id="c_email_avisos" type="email" value="${esc(k.email_avisos)}"><br><button class="btn ok" data-act="guardarCfg">Guardar reglas</button><p class="mut">Las caravanas nunca se validan con geocerca. Las geocercas solo aplican a TAT, movimiento y disponible.</p></div>
   <div class="card" id="libroCard"><h2>📒 Conexión con el libro (Google Sheets)</h2><p class="mut" style="margin-top:0">La app escribe sola las horas de salida e ingreso en <b>TAT · Control_Diario</b> y en <b>CARAVANAS · Caravanas</b>. Nunca borra nada, no duplica y no pisa lo que digitaste a mano.</p>
@@ -1122,7 +1132,7 @@ async exp(d){
     descargar(`turnos_${d.k.toLowerCase()}_${f.desde}_${f.hasta}.csv`,n);toast('Archivo descargado')}catch(e){toast(e.message,true)}
 },
 /* ajustes */
-async guardarCfg(){const c={};['operacion','tope_semanal','horas_caravana','punt_dias','hora_inicio_min','hora_inicio_max','bloquear_fuera_horario','bloquear_fuera_geocerca','exigir_gps','exigir_programacion','min_aviso_previo','min_antes','min_despues','bloquear_temprano','min_tarde','min_escalar','tel_admin','tel_central','email_avisos'].forEach(k=>c[k]=val('c_'+k));try{const r=await api('guardarConfig',{config:c});A.cfg=r.config;S.cfg.operacion=c.operacion;S.cfg.tel_central=c.tel_central;S.cfg.tel_admin=c.tel_admin;saveS();toast('Reglas guardadas')}catch(e){toast(e.message,true)}},
+async guardarCfg(){const c={};['operacion','tope_semanal','horas_caravana','punt_dias','hora_inicio_min','hora_inicio_max','bloquear_fuera_horario','bloquear_fuera_geocerca','geo_eventos','geo_todos_turnos','avisar_geo','exigir_gps','exigir_programacion','min_aviso_previo','min_antes','min_despues','bloquear_temprano','min_tarde','min_escalar','tel_admin','tel_central','email_avisos'].forEach(k=>c[k]=val('c_'+k));try{const r=await api('guardarConfig',{config:c});A.cfg=r.config;S.cfg.operacion=c.operacion;S.cfg.tel_central=c.tel_central;S.cfg.tel_admin=c.tel_admin;saveS();toast('Reglas guardadas')}catch(e){toast(e.message,true)}},
 nuevaGeo(){formGeo({})},
 editGeo(d){formGeo(A.data.geo.find(x=>x.ID===d.id))},
 async usarMiUbicacion(){toast('Tomando ubicación…');const p=await getPos(12000);if(!p.lat)return toast('No se pudo obtener la ubicación',true);$('g_lat').value=p.lat.toFixed(6);$('g_lng').value=p.lng.toFixed(6)},
