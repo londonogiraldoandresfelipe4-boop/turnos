@@ -207,7 +207,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.10.24-b';
+const APP_VERSION='2026.10.24-c';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -278,14 +278,30 @@ function gpsSync(){
   }else if(GPS.activo)gpsDetener();
   gpsPintar();
 }
+/* En la APK (Capacitor) hay un plugin de ubicación que sigue funcionando con la pantalla apagada; en el navegador se usa watchPosition. */
+const gpsNativo=()=>{try{const C=window.Capacitor;return C&&C.isNativePlatform&&C.isNativePlatform()&&C.registerPlugin?(GPS.bg=GPS.bg||C.registerPlugin('BackgroundGeolocation')):null}catch(e){return null}};
 function gpsIniciar(t){
-  if(!navigator.geolocation){GPS.msg='Este celular no permite GPS.';return}
-  GPS.activo=true;GPS.kmSrv=parseFloat(t.Km)||0;GPS.mPend=0;GPS.ref=null;GPS.ult=null;GPS.msg='';GPS.hueco=0;
-  GPS.w=navigator.geolocation.watchPosition(gpsPunto,gpsError,{enableHighAccuracy:true,maximumAge:0,timeout:30000});
+  const bg=gpsNativo();
+  if(!bg&&!navigator.geolocation){GPS.msg='Este celular no permite GPS.';return}
+  GPS.activo=true;GPS.kmSrv=parseFloat(t.Km)||0;GPS.mPend=0;GPS.ref=null;GPS.ult=null;GPS.msg='';GPS.hueco=0;GPS.lastEnv=Date.now();
+  if(bg){
+    GPS.native=true;
+    bg.addWatcher({backgroundTitle:'Caravana en curso',backgroundMessage:'Rastreando el recorrido (no cierres esta app)',requestPermissions:true,stale:false,distanceFilter:15},(l,err)=>{
+      if(err){
+        if(err.code==='NOT_AUTHORIZED'){GPS.msg='⛔ Falta el permiso de ubicación «Permitir todo el tiempo». Abre Ajustes de la app ▸ Permisos ▸ Ubicación ▸ «Permitir todo el tiempo».';gpsPintar();try{bg.openSettings()}catch(e){}}
+        else gpsError({code:2});
+        return;
+      }
+      gpsPunto({coords:{latitude:l.latitude,longitude:l.longitude,accuracy:l.accuracy||0},timestamp:l.time||Date.now()});
+    }).then(id=>{GPS.w=id;if(!GPS.activo){try{bg.removeWatcher({id})}catch(e){}}}).catch(()=>{GPS.msg='No se pudo iniciar el rastreo en segundo plano.';gpsPintar()});
+  }else{
+    GPS.native=false;
+    GPS.w=navigator.geolocation.watchPosition(gpsPunto,gpsError,{enableHighAccuracy:true,maximumAge:0,timeout:30000});
+  }
   GPS.timer=setInterval(gpsEnviar,40000);gpsPantalla();
 }
 function gpsDetener(){
-  if(GPS.w!=null)navigator.geolocation.clearWatch(GPS.w);GPS.w=null;clearInterval(GPS.timer);GPS.timer=null;GPS.activo=false;
+  if(GPS.w!=null){if(GPS.native){try{GPS.bg.removeWatcher({id:GPS.w})}catch(e){}}else navigator.geolocation.clearWatch(GPS.w)}GPS.w=null;clearInterval(GPS.timer);GPS.timer=null;GPS.activo=false;
   try{if(GPS.wl)GPS.wl.release()}catch(e){}GPS.wl=null;
 }
 function gpsPantalla(){try{if(GPS.activo&&!GPS.wl&&navigator.wakeLock&&!document.hidden)navigator.wakeLock.request('screen').then(l=>{GPS.wl=l;l.addEventListener('release',()=>{GPS.wl=null})}).catch(()=>{})}catch(e){}}
@@ -307,7 +323,7 @@ function gpsPunto(p){
     if(d>=12){GPS.mPend+=d;GPS.ref={lat,lng}}
   }else GPS.ref={lat,lng};
   GPS.ult={lat,lng,ts};GPS.q.push({uid:S.id,p:[ts,lat,lng,Math.round(prec)]});gpsSave();gpsPintar();
-  if(GPS.q.filter(x=>x.uid===S.id).length>=15)gpsEnviar();
+  if(GPS.q.filter(x=>x.uid===S.id).length>=15||Date.now()-(GPS.lastEnv||0)>40000)gpsEnviar();
 }
 function gpsError(e){
   GPS.msg=e.code===1?'⛔ El celular no deja usar la ubicación. Actívala para esta app (Ubicación: «Permitir»).':'📡 Buscando señal GPS… (sal a un lugar abierto si tarda).';
@@ -316,7 +332,7 @@ function gpsError(e){
 async function gpsEnviar(){
   if(GPS.env||!S.token||S.rol!=='E'||!GPS.activo&&!GPS.q.length)return;
   const mios=GPS.q.filter(x=>x.uid===S.id);if(!mios.length)return;
-  const lote=mios.slice(0,300);GPS.env=1;
+  const lote=mios.slice(0,300);GPS.env=1;GPS.lastEnv=Date.now();
   try{
     const r=await api('registrarRastro',{turnoId:GPS.tid,pts:lote.map(x=>x.p)});
     GPS.q=GPS.q.filter(x=>!lote.includes(x));gpsSave();
@@ -333,7 +349,7 @@ function gpsPintar(){
   const km=GPS.kmSrv+GPS.mPend/1000,pend=GPS.q.filter(x=>x.uid===S.id).length;
   b.innerHTML=`<div class="card" style="margin:12px 0 0;border-color:var(--ok)"><div class="row"><div class="grow"><b>📡 Rastreo GPS activo</b><br><span class="mut" style="font-size:13px" id="gpsHace"></span></div><div style="text-align:right"><b style="font-size:30px">${f1(km)}</b><br><span class="mut">km</span></div></div>
   ${GPS.msg?`<div class="banner warn" style="margin-top:8px">${esc(GPS.msg)}</div>`:''}
-  ${GPS.hueco?`<div class="banner warn" style="margin-top:8px">⚠ El rastro estuvo interrumpido ${GPS.hueco} min (la app estaba en segundo plano). Mantén la app abierta con la pantalla encendida durante todo el viaje.</div>`:`<p class="mut" style="margin:8px 0 0;font-size:12.5px">Deja esta pantalla abierta durante todo el viaje (se mantiene encendida sola). ${pend?pend+' punto(s) por enviar.':'Todo enviado.'}</p>`}</div>`;
+  ${GPS.hueco?`<div class="banner warn" style="margin-top:8px">⚠ El rastro estuvo interrumpido ${GPS.hueco} min ${GPS.native?'(sin señal GPS o el celular cortó la app). Revisa que la app tenga ubicación «Permitir todo el tiempo» y sin ahorro de batería.':'(la app estaba en segundo plano). Mantén la app abierta con la pantalla encendida durante todo el viaje.'}</div>`:`<p class="mut" style="margin:8px 0 0;font-size:12.5px">${GPS.native?'Puedes bloquear el celular: el rastreo sigue en segundo plano.':'Deja esta pantalla abierta durante todo el viaje (se mantiene encendida sola).'} ${pend?pend+' punto(s) por enviar.':'Todo enviado.'}</p>`}</div>`;
   gpsTic();
 }
 function gpsTic(){const e=$('gpsHace');if(!e)return;e.textContent=GPS.ult?`Último punto hace ${Math.max(0,Math.round(Date.now()/1000-GPS.ult.ts))} s`+(GPS.prec!=null?` · precisión ${GPS.prec} m`:''):'Esperando el primer punto GPS…'}
