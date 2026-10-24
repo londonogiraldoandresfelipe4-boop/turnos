@@ -207,7 +207,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.10.24-c';
+const APP_VERSION='2026.10.24-d';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -642,7 +642,7 @@ async prog(){
     const cabT=(k,n)=>`<tr><td colspan="7" style="padding:0">${gh(k,n)}</td></tr>`;
     const prog=act.map(e=>[e,pr.programacion.find(p=>p.EscoltaID===e.ID)]);let o='';
     const opLib=prog.filter(([e,x])=>!x&&CV[e.ID]);
-    if(opLib.length)o+=`<tr><td colspan="7" style="padding:0"><div class="opx-cab">⚡ OPERACIÓN ADICIONAL · EN CARAVANA (${opLib.length}) — ya están en operación, marca ✓ solo si los programas</div></td></tr>`+opLib.map(([e,x])=>fila(e,{})).join('');
+    if(opLib.length)o+=`<tr><td colspan="7" style="padding:0"><div class="opx-cab">⚡ EN CARAVANA (${opLib.length}) — programada o en curso: siguen ocupados todos los días de la operación; marca ✓ solo si los programas en otro turno</div></td></tr>`+opLib.map(([e,x])=>fila(e,{})).join('');
     ORD_T.forEach(k=>{const g=prog.filter(([e,x])=>x&&(x.Tipo||'TAT')===k).sort((p,q)=>p[1].Hora<q[1].Hora?-1:1);if(g.length)o+=cabT(k,g.length)+g.map(([e,x])=>fila(e,x)).join('')});
     const libres=prog.filter(([e,x])=>!x&&!CV[e.ID]);if(libres.length)o+=cab('SIN PROGRAMAR / DESCANSO ('+libres.length+') — marca ✓ para programar')+libres.map(([e,x])=>fila(e,{})).join('');
     return o})()}</table></div>
