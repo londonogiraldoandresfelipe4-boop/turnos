@@ -163,6 +163,30 @@ code{background:var(--bg2);border:1px solid var(--line);font-family:var(--mono)}
 #toast div.err{background:var(--badbg);border-color:var(--bad);color:var(--tx)}
 @media (prefers-reduced-motion:reduce){header::after,header .led,.card.plegable:not(.plg)>:not(h2){animation:none}.card::before,.card::after{transition:none}}
 @media (max-width:520px){header .reloj small{display:none}main{padding-left:12px;padding-right:12px}}
+/* ===== HUD v2: medidores, rejilla y datos ===== */
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:linear-gradient(rgba(53,208,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(53,208,255,.045) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(ellipse at 50% 0,#000 20%,transparent 75%);-webkit-mask-image:radial-gradient(ellipse at 50% 0,#000 20%,transparent 75%)}
+html[data-tema=dia] body::before{display:none}
+.meter{position:relative;height:12px;margin:7px 0 5px;border-radius:3px;background:var(--bg2);border:1px solid var(--line);overflow:visible;
+  background-image:repeating-linear-gradient(90deg,transparent 0,transparent calc(10% - 1px),color-mix(in srgb,var(--mut) 35%,transparent) calc(10% - 1px),color-mix(in srgb,var(--mut) 35%,transparent) 10%)}
+.meter>i{position:absolute;left:0;top:0;bottom:0;display:block;border-radius:2px;background:linear-gradient(90deg,#1aa9ff,var(--acc) 55%,#7a5cff);box-shadow:0 0 12px color-mix(in srgb,var(--acc) 70%,transparent);animation:llenar .9s cubic-bezier(.2,.8,.2,1) both}
+.meter>i.w{background:linear-gradient(90deg,#ff9d00,var(--warn));box-shadow:0 0 12px color-mix(in srgb,var(--warn) 70%,transparent)}
+.meter>i.b{background:repeating-linear-gradient(135deg,var(--bad) 0 8px,color-mix(in srgb,var(--bad) 55%,#000) 8px 16px);background-size:22px 22px;box-shadow:0 0 14px color-mix(in srgb,var(--bad) 80%,transparent);animation:llenar .9s cubic-bezier(.2,.8,.2,1) both,franja 1.2s linear infinite}
+.meter::after{content:"";position:absolute;right:-1px;top:-4px;bottom:-4px;width:2px;background:var(--ok);box-shadow:0 0 8px var(--ok);border-radius:1px}
+@keyframes llenar{from{width:0!important}}
+@keyframes franja{to{background-position:22px 0}}
+.hh{font:700 22px var(--mono);color:var(--acc);text-shadow:var(--glow);font-variant-numeric:tabular-nums;letter-spacing:-.02em;white-space:nowrap}
+.hh small{font:500 11px var(--mono);color:var(--mut);text-shadow:none;margin-left:3px;letter-spacing:.06em}
+.hh.w{color:var(--warn);text-shadow:0 0 14px color-mix(in srgb,var(--warn) 55%,transparent)}
+.hh.b{color:var(--bad);text-shadow:0 0 14px color-mix(in srgb,var(--bad) 60%,transparent)}
+.hh em{font:700 11px var(--mono);font-style:normal;margin-left:7px;padding:2px 6px;border-radius:4px;color:var(--bad);border:1px solid color-mix(in srgb,var(--bad) 55%,transparent);background:var(--badbg);text-shadow:none;vertical-align:middle}
+.item .row b.grow{font:650 14px var(--mono);letter-spacing:.04em;text-transform:uppercase}
+.sub-h{font:11.5px var(--mono);color:var(--mut);display:flex;gap:14px}
+.sub-h span::before{content:"";display:inline-block;width:6px;height:6px;border-radius:1px;margin-right:6px;background:var(--acc);box-shadow:0 0 6px var(--acc)}
+.sub-h span+span::before{background:#7a5cff;box-shadow:0 0 6px #7a5cff}
+.kpi{position:relative;overflow:hidden}
+.kpi::after{content:"";position:absolute;inset:auto 0 0 0;height:2px;background:linear-gradient(90deg,transparent,var(--acc),transparent);opacity:.7}
+.badge.ok{box-shadow:0 0 10px color-mix(in srgb,var(--ok) 35%,transparent)}
+@media (prefers-reduced-motion:reduce){.meter>i,.meter>i.b{animation:none}}
 </style>
 </head>
 <body>
@@ -193,7 +217,8 @@ const nombreCorto=n=>{const p=String(n||'').split(' ').filter(Boolean);return p.
 function toast(t,err){const d=document.createElement('div');d.textContent=t;if(err)d.className='err';$('toast').appendChild(d);setTimeout(()=>d.remove(),err?6000:3200)}
 function modal(html){closeModal();const m=document.createElement('div');m.className='modal';m.id='modal';m.innerHTML='<div>'+html+'</div>';m.addEventListener('click',e=>{if(e.target===m)closeModal()});document.body.appendChild(m)}
 function closeModal(){const m=$('modal');if(m)m.remove()}
-function barra(v,tope){const p=Math.min(100,v/tope*100);const c=v>tope?'b':v>tope*0.85?'w':'';return `<div class="bar"><i class="${c}" style="width:${p}%"></i></div>`}
+function barra(v,tope){const p=Math.min(100,v/tope*100);const c=v>tope?'b':v>tope*0.85?'w':'';return `<div class="meter"><i class="${c}" style="width:${p}%"></i></div>`}
+const hcls=(v,tope)=>v>tope?'b':v>tope*0.85?'w':''
 function descargar(nombre,texto,tipo){const b=new Blob([texto],{type:tipo||'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nombre;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
 function wa(tel,texto){const t=String(tel||'').replace(/\D/g,'');const num=t?(t.length===10?'57'+t:t):'';return `https://wa.me/${num}?text=${encodeURIComponent(texto)}`}
 function getPos(ms){return new Promise(res=>{if(!navigator.geolocation)return res({});let hecho=false;const fin=v=>{if(!hecho){hecho=true;res(v)}};setTimeout(()=>fin({}),ms+1500);navigator.geolocation.getCurrentPosition(p=>fin({lat:p.coords.latitude,lng:p.coords.longitude,prec:p.coords.accuracy}),()=>fin({}),{enableHighAccuracy:true,timeout:ms,maximumAge:0})})}
@@ -207,7 +232,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.10.24-i';
+const APP_VERSION='2026.10.24-j';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -623,7 +648,7 @@ async tablero(){
   h+=`<div class="card"><h2>Programación de hoy y mañana</h2>${[d.hoy,addD(d.hoy,1)].map(f=>{const l=(d.programacion||[]).filter(x=>x.Fecha===f).sort((p,q)=>p.Hora<q.Hora?-1:1);return `<div style="margin:12px 0 2px;font-weight:700;font-size:17px">${f===d.hoy?'HOY':'MAÑANA'} · ${fecha(f)} <span class="mut">(${l.length})</span></div>`+(ORD_T.map(k=>{const g=l.filter(x=>(x.Tipo||'TAT')===k);return g.length?gh(k,g.length)+g.map(x=>lineaP(x,f)).join(''):''}).join('')||'<p class="mut" style="margin:0 0 6px">Nadie programado.</p>')}).join('')}</div>`;
   if(S.rol==='C')h+=cajaNtfy(d.ntfy,'Así te llegan las respuestas a tus solicitudes aunque la app esté cerrada.');
   if(S.rol==='A'&&(d.actividad||[]).length)h+=`<div class="card"><h2>Actividad reciente</h2>${d.actividad.map(e=>{const [m,q,a,dt]=e.split('|');const [t]=titEvento(e);return `<div class="item" style="padding:6px 0"><span class="mut">${esc(m.slice(5,16))}</span> · <b>${esc(t)}</b> <span class="mut">${esc(dt)}</span></div>`}).join('')}</div>`;
-  h+=`<div class="card"><h2>Horas de la semana (tope ${d.tope} h)</h2>${d.semana.map(e=>`<div class="item"><div class="row"><b class="grow">${esc(nombreCorto(e.nombre))} ${e.enTurno?'<span class="badge ok">en turno</span>':''}</b><span>${f1(e.total)} h</span></div>${barra(e.total,d.tope)}<div class="mut">REPCO ${f1(e.repco)} · Prosegur ${f1(e.prosegur)}</div></div>`).join('')}</div>`;
+  h+=`<div class="card"><h2>Horas de la semana (tope ${d.tope} h)</h2>${d.semana.map(e=>`<div class="item"><div class="row"><b class="grow">${esc(nombreCorto(e.nombre))} ${e.enTurno?'<span class="badge ok">en turno</span>':''}</b><span class="hh ${hcls(e.total,d.tope)}">${f1(e.total)}<small>H</small>${e.total>d.tope?`<em>+${f1(e.total-d.tope)}</em>`:''}</span></div>${barra(e.total,d.tope)}<div class="sub-h"><span>REPCO ${f1(e.repco)}</span><span>Prosegur ${f1(e.prosegur)}</span></div></div>`).join('')}</div>`;
   $('vista').innerHTML=h+(S.rol==='A'?'<div id="saludBox"></div>':'');if(S.rol==='A')pintaSalud();
 },
 async turnos(){
