@@ -189,15 +189,31 @@ html[data-tema=dia] body::before{display:none}
 @media (prefers-reduced-motion:reduce){.meter>i,.meter>i.b{animation:none}}
 
 /* ---- Tablero ejecutivo ---- */
+.ej-hero{position:relative;overflow:hidden;border:1px solid var(--acc);border-radius:10px;padding:14px;background:linear-gradient(135deg,var(--bg2),var(--card));box-shadow:var(--glow)}
+.ej-hero::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(53,208,255,.045) 3px 4px);pointer-events:none}
+.ej-hero h2{margin:0;font:700 12px var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--acc)}
+.ej-hero .big{font:700 24px var(--mono);color:var(--tx);margin:4px 0 0;text-shadow:var(--glow)}
+.ej-hero .sub{font-size:12px;color:var(--mut);margin-top:2px}
+.ej-live{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok);margin-right:6px;animation:latido 2s ease-in-out infinite}
 .ej-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}@media(min-width:720px){.ej-grid{grid-template-columns:repeat(4,1fr)}}
 .ej-k{border:1px solid var(--line);border-radius:8px;background:var(--bg2);padding:10px;position:relative;overflow:hidden}
-.ej-k small{display:block;color:var(--mut);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
-.ej-k b{display:block;font:700 26px var(--mono);color:var(--acc);margin:2px 0}
-.ej-k i{font-style:normal;font-size:12px}.ej-k i.up{color:var(--ok)}.ej-k i.dn{color:var(--bad)}.ej-k i.eq{color:var(--mut)}
-.ej-k.bad{border-color:var(--bad)}.ej-k.warn{border-color:var(--warn)}.ej-k.ok{border-color:var(--ok)}
-.ej-bars{display:flex;align-items:flex-end;gap:2px;height:110px;margin-top:8px}
-.ej-bars span{flex:1;background:linear-gradient(180deg,var(--acc),transparent);border-radius:2px 2px 0 0;min-height:2px;position:relative}
-.ej-ax{display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin-top:2px}
+.ej-k::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--acc);box-shadow:0 0 12px var(--acc)}
+.ej-k small{display:block;color:var(--mut);font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.ej-k b{display:block;font:700 25px var(--mono);color:var(--tx);margin:3px 0;text-shadow:var(--glow)}
+.ej-k i{font-style:normal;font-size:11px}.ej-k i.up{color:var(--ok)}.ej-k i.dn{color:var(--bad)}.ej-k i.eq{color:var(--mut)}
+.ej-k.bad::before{background:var(--bad);box-shadow:0 0 12px var(--bad)}.ej-k.warn::before{background:var(--warn);box-shadow:0 0 12px var(--warn)}.ej-k.ok::before{background:var(--ok);box-shadow:0 0 12px var(--ok)}
+.ej-split{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.ej-ring{width:132px;height:132px;flex:none}.ej-ring text{font-family:var(--mono);fill:var(--tx)}
+.ej-leg{flex:1;min-width:170px}.ej-leg div{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
+.ej-leg div:last-child{border:0}.ej-leg b{font:700 20px var(--mono)}.ej-leg .dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px}
+.ej-chart{width:100%;height:auto;display:block;margin-top:6px}
+.ej-chart .ln{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.ej-chart .draw{stroke-dasharray:1;stroke-dashoffset:1;animation:ejdraw 1.6s ease-out forwards}
+@keyframes ejdraw{to{stroke-dashoffset:0}}
+.ej-chart .ejbar{transform-origin:bottom;transform-box:fill-box;animation:ejgrow .8s ease-out both}
+@keyframes ejgrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.ej-lg{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--mut);margin-top:6px}.ej-lg span::before{content:"";display:inline-block;width:14px;height:3px;margin-right:5px;vertical-align:middle;background:var(--c);border-radius:2px}
+.ej-lg span.d::before{background:none;border-top:2px dashed var(--c);height:0}
 </style>
 </head>
 <body>
@@ -660,25 +676,50 @@ const barraSem=(v,t)=>barra(v,t);
 const VISTAS={
 async ejecutivo(){
   const d=await api('ejecutivo');A.data.ej=d;
-  const a=d.act,b=d.ant,pesos=n=>'$'+Math.round(+n||0).toLocaleString('es-CO');
-  const dl=(x,y,fmt,inv)=>{x=+x||0;y=+y||0;if(!y&&!x)return'<i class="eq">—</i>';const df=x-y,pc=y?Math.round(df/y*100):null,bueno=inv?df<=0:df>=0;
-    return`<i class="${df===0?'eq':bueno?'up':'dn'}">${df>0?'▲':df<0?'▼':'='} ${fmt?fmt(Math.abs(df)):f1(Math.abs(df))}${pc!==null?' ('+(df>0?'+':df<0?'-':'')+Math.abs(pc)+'%)':''} vs mes ant.</i>`};
+  const a=d.act,b=d.ant,pesos=n=>'$'+Math.round(+n||0).toLocaleString('es-CO'),ent=n=>Math.round(+n||0).toLocaleString('es-CO');
+  const dl=(x,y,fmt,inv)=>{x=+x||0;y=+y||0;if(!y)return'<i class="eq">sin dato del mes ant.</i>';const df=x-y,pc=Math.round(df/y*100),bueno=inv?df<=0:df>=0;
+    return`<i class="${df===0?'eq':bueno?'up':'dn'}">${df>0?'▲':df<0?'▼':'='} ${fmt?fmt(Math.abs(df)):f1(Math.abs(df))} (${df>0?'+':df<0?'-':''}${Math.abs(pc)}%) vs mes ant.</i>`};
   const K=(t,v,sub,cls)=>`<div class="ej-k ${cls||''}"><small>${t}</small><b>${v}</b>${sub||''}</div>`;
   const pu=a.punt.pct,pua=b.punt.pct,puc=pu===null?'':pu>=95?'ok':pu>=85?'warn':'bad';
-  const mx=Math.max(1,...d.serie.map(x=>x.h));
-  let h=`<div class="card"><h2>Resumen del mes · ${fecha(d.mes.desde)} al ${fecha(d.mes.hasta)}</h2><p class="mut" style="margin:0 0 10px;font-size:12px">Comparado con ${fecha(d.previo.desde)} al ${fecha(d.previo.hasta)}. Actualizado ${esc(d.ahora.slice(11,16))}.</p>
-  <div class="ej-grid">
-  ${K('Servicios',a.servicios,dl(a.servicios,b.servicios,x=>x))}
+  /* anillo REPCO / Prosegur */
+  const tot=a.servicios||0,pr=tot?a.servRepco/tot:0,C=2*Math.PI*46;
+  const ring=`<svg class="ej-ring" viewBox="0 0 120 120"><circle cx="60" cy="60" r="46" fill="none" stroke="var(--line)" stroke-width="12"/>
+    <circle cx="60" cy="60" r="46" fill="none" stroke="var(--warn)" stroke-width="12" opacity=".85"/>
+    <circle cx="60" cy="60" r="46" fill="none" stroke="var(--acc)" stroke-width="12" stroke-linecap="butt" stroke-dasharray="${(pr*C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 60 60)" style="filter:drop-shadow(0 0 5px var(--acc))"/>
+    <text x="60" y="58" text-anchor="middle" font-size="26" font-weight="700">${tot}</text><text x="60" y="74" text-anchor="middle" font-size="9" style="fill:var(--mut)">SERVICIOS</text></svg>`;
+  /* gráfico: barras del mes + línea del mes anterior + promedio móvil 7 días */
+  const W=640,H=200,P=34,N=Math.max(d.serie.length,d.serieAnt.length,1),mx=Math.max(1,...d.serie.map(x=>x.h),...d.serieAnt.map(x=>x.h)),bw=(W-2*P)/N,
+    X=i=>P+i*bw+bw/2,Y=v=>H-P-(v/mx)*(H-2*P-6);
+  const prom=d.serie.map((_,i)=>{const s=d.serie.slice(Math.max(0,i-6),i+1);return s.reduce((t,x)=>t+x.h,0)/s.length});
+  const pol=(arr)=>arr.map((v,i)=>`${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+  const pk=d.serie.reduce((m,x,i)=>x.h>m.h?{h:x.h,i}:m,{h:0,i:-1});
+  const grid=[0,.25,.5,.75,1].map(t=>{const y=Y(mx*t);return`<line x1="${P}" x2="${W-P}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width=".6" stroke-dasharray="2 4"/><text x="${P-4}" y="${y+3}" text-anchor="end" font-size="13" style="fill:var(--mut);font-family:var(--mono)">${Math.round(mx*t)}</text>`}).join('');
+  const bars=d.serie.map((x,i)=>`<rect class="ejbar" style="animation-delay:${i*18}ms" x="${(X(i)-bw*.36).toFixed(1)}" y="${Y(x.h).toFixed(1)}" width="${(bw*.72).toFixed(1)}" height="${Math.max(1.5,H-P-Y(x.h)).toFixed(1)}" rx="1.5" fill="url(#ejg)"><title>${fecha(x.f)}: ${f1(x.h)} h · ${x.n} servicios</title></rect>`).join('');
+  const ejes=[1,Math.ceil(N/2),N].map(k=>`<text x="${X(k-1)}" y="${H-8}" text-anchor="middle" font-size="13" style="fill:var(--mut);font-family:var(--mono)">${String(k).padStart(2,'0')}</text>`).join('');
+  const chart=`<svg class="ej-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Horas por día del mes"><defs><linearGradient id="ejg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--acc)"/><stop offset="1" stop-color="var(--acc)" stop-opacity=".08"/></linearGradient><filter id="ejb"><feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+    ${grid}${bars}
+    <polyline class="ln draw" pathLength="1" points="${pol(d.serieAnt.map(x=>x.h))}" stroke="var(--warn)" stroke-width="1.6" stroke-dasharray="1" opacity=".9"/>
+    <polyline class="ln draw" pathLength="1" points="${pol(prom)}" stroke="var(--ok)" stroke-width="2.2" filter="url(#ejb)"/>
+    ${pk.i>=0&&pk.h>0?`<circle cx="${X(pk.i)}" cy="${Y(pk.h)}" r="3.5" fill="var(--bad)" filter="url(#ejb)"/><text x="${Math.min(W-P-24,Math.max(P+6,X(pk.i)))}" y="${Y(pk.h)-8}" text-anchor="middle" font-size="13" style="fill:var(--bad);font-family:var(--mono)">${f1(pk.h)} h</text>`:''}${ejes}</svg>`;
+  let h=`<div class="ej-hero"><h2><span class="ej-live"></span>Centro de mando · ${esc(d.mes.desde.slice(0,7))}</h2><div class="big">${a.servicios} servicios · ${ent(a.horas)} h</div><div class="sub">Del ${fecha(d.mes.desde)} al ${fecha(d.mes.hasta)} · vs ${fecha(d.previo.desde)} – ${fecha(d.previo.hasta)} · actualizado ${esc(d.ahora.slice(11,16))}</div><div class="sub">Fuente: ${esc(d.fuente)}</div></div>`;
+  h+=`<div class="card"><h2>Totalidad de servicios</h2><div class="ej-split">${ring}<div class="ej-leg">
+    <div><span><span class="dot" style="background:var(--acc)"></span>Servicios REPCO</span><b>${a.servRepco}</b></div>
+    <div><span><span class="dot" style="background:var(--warn)"></span>Servicios Prosegur</span><b>${a.servProsegur}</b></div>
+    <div><span>Total de servicios</span><b>${a.servicios}</b></div>
+    <div><span class="mut">TAT ${a.tat} · Refuerzos Prosegur ${a.refuerzos} · Caravanas ${a.caravanas}</span></div></div></div>
+    <p class="mut" style="margin:8px 0 0;font-size:12px">Mes anterior (mismo tramo): ${b.servRepco} REPCO + ${b.servProsegur} Prosegur = ${b.servicios} servicios. Los refuerzos Prosegur van dentro de los servicios REPCO.</p></div>`;
+  h+=`<div class="ej-grid">
   ${K('Horas totales',f1(a.horas),dl(a.horas,b.horas))}
+  ${K('Horas REPCO',f1(a.horasRepco),dl(a.horasRepco,b.horasRepco))}
   ${K('Refuerzos Prosegur',a.refuerzos,dl(a.refuerzos,b.refuerzos,x=>x))}
   ${K('Caravanas',a.caravanas,dl(a.caravanas,b.caravanas,x=>x))}
   ${K('Servicios con extras',a.nExt,'<i class="eq">'+f1(a.hExt)+' h sobre 12 h</i>',a.nExt?'warn':'')}
   ${K('Puntualidad',pu===null?'—':pu+'%','<i class="eq">'+a.punt.tarde+' tarde · '+a.punt.noinicio+' no iniciaron'+(pua!==null&&pu!==null?' · mes ant. '+pua+'%':'')+'</i>',puc)}
-  ${K('Peso movido',Math.round(a.peso.kg/1000*10)/10+' t',dl(a.peso.kg/1000,b.peso.kg/1000,x=>f1(x)+' t'))}
+  ${K('Peso movido',f1(a.peso.kg/1000)+' t',dl(a.peso.kg/1000,b.peso.kg/1000,x=>f1(x)+' t'))}
   ${K('Facturación estimada',pesos(a.facturacion),dl(a.facturacion,b.facturacion,pesos))}
-  </div></div>`;
+  </div>`;
+  h+=`<div class="card" style="margin-top:10px"><h2>Horas por día · mes en curso vs mes anterior</h2>${chart}<div class="ej-lg"><span style="--c:var(--acc)">Horas del día</span><span style="--c:var(--ok)">Promedio 7 días</span><span class="d" style="--c:var(--warn)">Mes anterior</span><span style="--c:var(--bad)">Pico</span></div></div>`;
   h+=`<div class="card"><h2>Hoy</h2><div class="grid3"><div class="kpi"><b>${d.hoyOp.enTurno}</b><span>En turno</span></div><div class="kpi"><b>${d.hoyOp.programados}</b><span>Programados</span></div><div class="kpi"><b style="${d.hoyOp.sinIniciar?'color:var(--warn)':''}">${d.hoyOp.sinIniciar}</b><span>Sin iniciar</span></div></div></div>`;
-  h+=`<div class="card"><h2>Horas por día del mes</h2><div class="ej-bars">${d.serie.map(x=>`<span title="${fecha(x.f)}: ${f1(x.h)} h · ${x.n} turnos" style="height:${Math.max(2,Math.round(x.h/mx*100))}%"></span>`).join('')}</div><div class="ej-ax"><span>${d.serie[0]?d.serie[0].f.slice(8):''}</span><span>${d.serie.length?d.serie[d.serie.length-1].f.slice(8):''}</span></div></div>`;
   const al=[];
   if(d.semana.excedidos)al.push(`<div class="banner bad">${d.semana.excedidos} escolta(s) pasaron el tope de ${d.semana.tope} h esta semana: ${d.semana.lista.map(x=>esc(nombreCorto(x.nombre))+' +'+x.extra+' h').join(', ')}</div>`);
   if(d.semana.cerca)al.push(`<div class="banner warn">${d.semana.cerca} escolta(s) cerca del tope semanal</div>`);
@@ -686,7 +727,8 @@ async ejecutivo(){
   if(a.sinUbic)al.push(`<div class="banner warn">${a.sinUbic} turno(s) sin ubicación al iniciar</div>`);
   if(a.sinSenal)al.push(`<div class="banner warn">${a.sinSenal} turno(s) registrados sin señal (diferidos)</div>`);
   h+=`<div class="card"><h2>Alertas de control</h2>${al.join('')||'<div class="banner ok">Sin alertas relevantes este mes</div>'}</div>`;
-  h+=`<div class="card"><h2>Horas por escolta (mes)</h2>${d.top.map(e=>`<div class="item"><div class="row"><b class="grow">${esc(nombreCorto(e.nombre))}</b><span class="mut">${e.turnos} turnos</span><span class="hh">${f1(e.horas)}<small>H</small></span></div></div>`).join('')||'<p class="mut" style="margin:0">Sin turnos cerrados.</p>'}</div>`;
+  const tmx=Math.max(1,...d.top.map(e=>e.horas));
+  h+=`<div class="card"><h2>Horas por escolta (mes)</h2>${d.top.map(e=>`<div class="item"><div class="row"><b class="grow">${esc(nombreCorto(e.nombre))}</b><span class="mut">${e.turnos} turnos</span><span class="hh">${f1(e.horas)}<small>H</small></span></div><div class="meter" style="--w:${Math.round(e.horas/tmx*100)}%"><i style="width:${Math.round(e.horas/tmx*100)}%"></i></div></div>`).join('')||'<p class="mut" style="margin:0">Sin datos.</p>'}</div>`;
   h+=`<p class="mut" style="font-size:11px">${esc(d.nota)}</p>`;
   $('vista').innerHTML=h;
 },
