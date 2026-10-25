@@ -207,7 +207,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.10.24-f';
+const APP_VERSION='2026.10.24-g';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -738,6 +738,12 @@ async ajustes(){
   <div><label>Ubicación (GPS) al iniciar turno</label><select id="c_exigir_gps"><option value="SI">Obligatoria: sin GPS no inicia</option><option value="NO" ${k.exigir_gps==='NO'?'selected':''}>Opcional (solo avisar)</option></select></div>
   <div><label>Fuera de geocerca</label><select id="c_bloquear_fuera_geocerca"><option value="NO">Solo avisar</option><option value="SI" ${k.bloquear_fuera_geocerca==='SI'?'selected':''}>Bloquear inicio</option></select></div>
   <div><label>Entradas y salidas de geocercas</label><select id="c_geo_eventos"><option value="SI">Registrar automáticamente</option><option value="NO" ${k.geo_eventos==='NO'?'selected':''}>No registrar</option></select></div>
+  <h3 style="margin:14px 0 4px">🔔 Alertas escalonadas</h3>
+  <div><label>2.º aviso urgente si sigue sin iniciar (min)</label><input id="c_min_escalar2" type="number" value="${esc(k.min_escalar2||'40')}"></div>
+  <div><label>Avisar al llegar a este % del tope semanal</label><input id="c_alerta_horas_pct" type="number" min="50" max="99" value="${esc(k.alerta_horas_pct||'85')}"></div>
+  <div><label>Caravana sin señal GPS: avisar al escolta tras (min)</label><input id="c_alerta_gps_min" type="number" value="${esc(k.alerta_gps_min||'20')}"></div>
+  <div><label>Descanso mínimo entre turnos (horas)</label><input id="c_min_descanso_h" type="number" value="${esc(k.min_descanso_h||'8')}"></div>
+  <div><label>Canal externo (Teams u otro): dirección del webhook</label><input id="c_webhook_alertas" type="url" placeholder="https://…" value="${esc(k.webhook_alertas||'')}"></div>
   <div><label>Rastrear con GPS</label><select id="c_geo_todos_turnos"><option value="NO">Solo caravanas</option><option value="SI" ${k.geo_todos_turnos==='SI'?'selected':''}>Todos los turnos (más batería)</option></select></div>
   <div><label>Avisarme cuando una caravana entra o sale</label><select id="c_avisar_geo"><option value="SI">Sí</option><option value="NO" ${k.avisar_geo==='NO'?'selected':''}>No</option></select></div>
   <div><label>Celular administrador</label><input id="c_tel_admin" inputmode="tel" value="${esc(k.tel_admin)}"></div><div><label>Celular Central</label><input id="c_tel_central" inputmode="tel" value="${esc(k.tel_central)}"></div></div>
@@ -1132,7 +1138,7 @@ async exp(d){
     descargar(`turnos_${d.k.toLowerCase()}_${f.desde}_${f.hasta}.csv`,n);toast('Archivo descargado')}catch(e){toast(e.message,true)}
 },
 /* ajustes */
-async guardarCfg(){const c={};['operacion','tope_semanal','horas_caravana','punt_dias','hora_inicio_min','hora_inicio_max','bloquear_fuera_horario','bloquear_fuera_geocerca','geo_eventos','geo_todos_turnos','avisar_geo','exigir_gps','exigir_programacion','min_aviso_previo','min_antes','min_despues','bloquear_temprano','min_tarde','min_escalar','tel_admin','tel_central','email_avisos'].forEach(k=>c[k]=val('c_'+k));try{const r=await api('guardarConfig',{config:c});A.cfg=r.config;S.cfg.operacion=c.operacion;S.cfg.tel_central=c.tel_central;S.cfg.tel_admin=c.tel_admin;saveS();toast('Reglas guardadas')}catch(e){toast(e.message,true)}},
+async guardarCfg(){const c={};['operacion','tope_semanal','horas_caravana','punt_dias','hora_inicio_min','hora_inicio_max','bloquear_fuera_horario','bloquear_fuera_geocerca','min_escalar2','alerta_horas_pct','alerta_gps_min','min_descanso_h','webhook_alertas','geo_eventos','geo_todos_turnos','avisar_geo','exigir_gps','exigir_programacion','min_aviso_previo','min_antes','min_despues','bloquear_temprano','min_tarde','min_escalar','tel_admin','tel_central','email_avisos'].forEach(k=>c[k]=val('c_'+k));try{const r=await api('guardarConfig',{config:c});A.cfg=r.config;S.cfg.operacion=c.operacion;S.cfg.tel_central=c.tel_central;S.cfg.tel_admin=c.tel_admin;saveS();toast('Reglas guardadas')}catch(e){toast(e.message,true)}},
 nuevaGeo(){formGeo({})},
 editGeo(d){formGeo(A.data.geo.find(x=>x.ID===d.id))},
 async usarMiUbicacion(){toast('Tomando ubicación…');const p=await getPos(12000);if(!p.lat)return toast('No se pudo obtener la ubicación',true);$('g_lat').value=p.lat.toFixed(6);$('g_lng').value=p.lng.toFixed(6)},
