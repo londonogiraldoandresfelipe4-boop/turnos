@@ -237,7 +237,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.10.24-k';
+const APP_VERSION='2026.10.25-a';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -364,7 +364,7 @@ async function pintaSalud(){
   try{if(!SALUD||Date.now()-SALUD.t>120000)SALUD={t:Date.now(),d:await api('saludSistema')};const d=SALUD.d;const b=$('saludBox');if(!b)return;
     const prob=[];if(d.disparadoresFaltan.length)prob.push('Faltan disparadores: '+d.disparadoresFaltan.join(', '));if(d.espejo.activo&&d.espejo.sucio)prob.push('La base de datos espejo tiene cambios pendientes de copiar');if(d.espejo.enCola>5)prob.push('Cola del espejo larga ('+d.espejo.enCola+')');
     const sg=d.turnosAbiertos.filter(t=>t.sinGpsMin!=null&&t.sinGpsMin>20),larg=d.turnosAbiertos.filter(t=>t.horas>14);
-    if(sg.length)prob.push('Sin señal GPS: '+sg.map(t=>nombreCorto(t.escolta)+' ('+t.sinGpsMin+' min)').join(', '));if(larg.length)prob.push('Turnos abiertos hace más de 14 h: '+larg.map(t=>nombreCorto(t.escolta)).join(', '));
+    if(sg.length)prob.push('GPS sin puntos válidos: '+sg.map(t=>nombreCorto(t.escolta)+' ('+t.sinGpsMin+' min · '+(t.impreciso?'celular conectado pero GPS impreciso '+t.prec+' m':'el celular no está enviando')+')').join(', '));if(larg.length)prob.push('Turnos abiertos hace más de 14 h: '+larg.map(t=>nombreCorto(t.escolta)).join(', '));
     b.innerHTML=`<div class="card" style="border-color:${prob.length?'var(--warn)':'var(--ok)'}"><h2>🩺 Salud del sistema</h2>${prob.length?prob.map(x=>`<div class="banner warn">${esc(x)}</div>`).join(''):'<div class="banner ok">Todo en orden</div>'}
     <p class="mut" style="margin:6px 0 0">Versión servidor ${esc(d.version)} · Escoltas activos ${d.escoltasActivos} · Sin celular registrado ${d.sinCelularRegistrado} · Alertas hoy ${d.alertasHoy} · Espejo ${d.espejo.activo?'activo':'apagado'}<br>Filas: turnos ${d.filas.Turnos} · rastro ${d.filas.Rastro} · registro ${d.filas.Registro}${d.nuncaConectaron.length?'<br>Aún no han ingresado: '+esc(d.nuncaConectaron.join(', ')):''}</p></div>`}catch(e){}
 }
