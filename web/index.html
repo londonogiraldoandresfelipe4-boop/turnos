@@ -207,7 +207,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.10.24-g';
+const APP_VERSION='2026.10.24-h';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -394,7 +394,8 @@ function pintaLogin(){
   $('rolTabs').innerHTML=[['E','Escolta'],['A','Administrador'],['C','Central']].map(([k,n])=>`<button class="${LOGIN.rol===k?'on':''}" data-act="rolLogin" data-r="${k}">${n}</button>`).join('');
   const b=$('loginBox');if(!LOGIN.lista){b.innerHTML='<p class="mut">Cargando…</p>';return}
   if(LOGIN.rol==='E')b.innerHTML=`<label>Tu nombre</label><select id="lg_id"><option value="">Elige…</option>${LOGIN.lista.map(e=>`<option value="${esc(e.id)}">${esc(e.nombre)}</option>`).join('')}</select>
-   <label>PIN</label><input id="lg_pin" class="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8"><br><button class="btn big" data-act="entrarE">Entrar</button>`;
+   <label>PIN</label><input id="lg_pin" class="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8"><br><button class="btn big" data-act="entrarE">Entrar</button>
+   <p style="text-align:center;margin:12px 0 0"><button class="btn ghost sm" data-act="crearClaveVista">Primera vez / crear mi clave</button></p>`;
   else if(LOGIN.rol==='A')b.innerHTML=`${LOGIN.adminCreado?'':'<div class="banner warn">Primera vez: la clave que escribas ahora será la clave de administrador (mínimo 6 caracteres).</div>'}
    <label>${LOGIN.adminCreado?'Clave de administrador':'Crea la clave de administrador'}</label><input id="lg_clave" type="password" autocomplete="current-password"><br><button class="btn big" data-act="entrarA">${LOGIN.adminCreado?'Entrar':'Crear y entrar'}</button>`;
   else b.innerHTML=`<label>Clave de la Central</label><input id="lg_clave" type="password"><br><button class="btn big" data-act="entrarC">Entrar</button>`;
@@ -701,7 +702,7 @@ async solic(){
 },
 async escoltas(){
   const d=await api('listarEscoltas');A.data.escoltas=d.escoltas;
-  $('vista').innerHTML=`<div class="card"><h2>Agregar escoltas</h2><div class="grid2"><div><label>Nombre completo (apellidos y nombres)</label><input id="en_n"></div><div><label>Celular (WhatsApp)</label><input id="en_t" inputmode="tel"></div></div><br><div class="row"><button class="btn ok sm" data-act="addEscolta">Agregar</button><button class="btn ghost sm" data-act="pegarLista">Pegar lista de nombres</button><button class="btn ghost sm" data-act="cargarFijos">Cargar los 16 fijos</button></div></div>
+  $('vista').innerHTML=`<div class="card"><h2>Agregar escoltas</h2><div class="grid2"><div><label>Nombre completo (apellidos y nombres)</label><input id="en_n"></div><div><label>Celular (WhatsApp)</label><input id="en_t" inputmode="tel"></div></div><br><div class="row"><button class="btn ok sm" data-act="addEscolta">Agregar</button><button class="btn ghost sm" data-act="pegarLista">Pegar lista de nombres</button><button class="btn ghost sm" data-act="cargarFijos">Cargar los 16 fijos</button><button class="btn ghost sm" data-act="pedirClaveTodos">Pedir clave nueva a todos</button></div></div>
   <div class="card"><h2>Escoltas (${d.escoltas.filter(e=>e.Activo!=='NO').length} activos)</h2>${d.escoltas.map(e=>`<div class="item"><div class="row"><div class="grow"><b>${esc(e.Nombre)}</b> ${e.Activo==='NO'?'<span class="badge bad">inactivo</span>':''}<br><span class="mut">${esc(e.Telefono||'sin celular')}</span></div><button class="btn ghost sm" data-act="editEscolta" data-id="${esc(e.ID)}">Editar</button><button class="btn ghost sm" data-act="resetPin" data-id="${esc(e.ID)}">PIN</button></div></div>`).join('')||'<p class="mut" style="margin:0">Aún no hay escoltas. Usa "Cargar los 16 fijos" o pega tu lista.</p>'}</div>`;
 },
 async punt(){
@@ -795,6 +796,9 @@ guardarApi2(){ACT.guardarApi();closeModal()},
 reintentarLogin(){vistaLogin()},
 
 rolLogin(d){LOGIN.rol=d.r;pintaLogin()},
+crearClaveVista(){const id=val('lg_id');if(!id)return toast('Primero elige tu nombre',true);const e=(LOGIN.lista||[]).find(x=>x.id===id);modal(`<h2 style="margin-top:0">Crear mi clave</h2><p class="mut">${esc(e?e.nombre:'')}</p>${e&&e.nueva?'':'<div class="banner warn">El administrador aún no habilitó la creación de tu clave.</div>'}<label>Últimos 4 dígitos de tu cédula</label><input id="cc_ced" class="pin" inputmode="numeric" maxlength="4" autocomplete="off"><label>Clave nueva (de 6 a 8 números)</label><input id="cc_n1" class="pin" type="password" inputmode="numeric" maxlength="8" autocomplete="off"><label>Repite la clave</label><input id="cc_n2" class="pin" type="password" inputmode="numeric" maxlength="8" autocomplete="off"><br><br><button class="btn big" data-act="crearClaveEnviar" data-id="${esc(id)}">Guardar y entrar</button>`)},
+crearClaveEnviar(d){const ced4=val('cc_ced'),n1=val('cc_n1'),n2=val('cc_n2');if(!/^\d{4}$/.test(ced4))return toast('Escribe los últimos 4 dígitos de tu cédula',true);if(!/^\d{6,8}$/.test(n1))return toast('La clave debe tener de 6 a 8 números',true);if(n1!==n2)return toast('Las claves no coinciden',true);closeModal();entrar('crearClave',{id:d.id,ced4,nuevo:n1})},
+async pedirClaveTodos(){if(!confirm('Todos los escoltas activos podrán crear su propia clave al ingresar (con los últimos 4 dígitos de su cédula). ¿Continuar?'))return;try{await api('pedirClaveNueva',{todos:true});toast('Listo: los escoltas ya pueden crear su clave')}catch(e){toast(e.message,true)}},
 entrarE(){const id=val('lg_id'),pin=val('lg_pin');if(!id||!pin)return toast('Elige tu nombre y escribe el PIN',true);entrar('loginEscolta',{id,pin})},
 entrarA(){entrar('loginAdmin',{clave:$('lg_clave').value})},
 entrarC(){entrar('loginCentral',{clave:$('lg_clave').value})},
