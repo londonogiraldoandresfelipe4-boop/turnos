@@ -207,7 +207,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.10.24-h';
+const APP_VERSION='2026.10.24-i';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -329,6 +329,15 @@ function gpsError(e){
   GPS.msg=e.code===1?'⛔ El celular no deja usar la ubicación. Actívala para esta app (Ubicación: «Permitir»).':'📡 Buscando señal GPS… (sal a un lugar abierto si tarda).';
   gpsPintar();
 }
+let SALUD=null;
+async function pintaSalud(){
+  try{if(!SALUD||Date.now()-SALUD.t>120000)SALUD={t:Date.now(),d:await api('saludSistema')};const d=SALUD.d;const b=$('saludBox');if(!b)return;
+    const prob=[];if(d.disparadoresFaltan.length)prob.push('Faltan disparadores: '+d.disparadoresFaltan.join(', '));if(d.espejo.activo&&d.espejo.sucio)prob.push('La base de datos espejo tiene cambios pendientes de copiar');if(d.espejo.enCola>5)prob.push('Cola del espejo larga ('+d.espejo.enCola+')');
+    const sg=d.turnosAbiertos.filter(t=>t.sinGpsMin!=null&&t.sinGpsMin>20),larg=d.turnosAbiertos.filter(t=>t.horas>14);
+    if(sg.length)prob.push('Sin señal GPS: '+sg.map(t=>nombreCorto(t.escolta)+' ('+t.sinGpsMin+' min)').join(', '));if(larg.length)prob.push('Turnos abiertos hace más de 14 h: '+larg.map(t=>nombreCorto(t.escolta)).join(', '));
+    b.innerHTML=`<div class="card" style="border-color:${prob.length?'var(--warn)':'var(--ok)'}"><h2>🩺 Salud del sistema</h2>${prob.length?prob.map(x=>`<div class="banner warn">${esc(x)}</div>`).join(''):'<div class="banner ok">Todo en orden</div>'}
+    <p class="mut" style="margin:6px 0 0">Versión servidor ${esc(d.version)} · Escoltas activos ${d.escoltasActivos} · Sin celular registrado ${d.sinCelularRegistrado} · Alertas hoy ${d.alertasHoy} · Espejo ${d.espejo.activo?'activo':'apagado'}<br>Filas: turnos ${d.filas.Turnos} · rastro ${d.filas.Rastro} · registro ${d.filas.Registro}${d.nuncaConectaron.length?'<br>Aún no han ingresado: '+esc(d.nuncaConectaron.join(', ')):''}</p></div>`}catch(e){}
+}
 async function gpsEnviar(){
   if(GPS.env||!S.token||S.rol!=='E'||!GPS.activo&&!GPS.q.length)return;
   const mios=GPS.q.filter(x=>x.uid===S.id);if(!mios.length)return;
@@ -410,7 +419,7 @@ async function entrar(action,payload){
 /* ================= ESCOLTA ================= */
 let EST=jp(LS('rt_est'),null);
 function vistaEscolta(){
-  $('root').innerHTML=`<header><h1>${esc(nombreCorto(S.nombre))}<small>${esc(S.cfg.operacion||'')}</small></h1><button data-act="salir">Salir</button></header><main><div id="estado"></div><div id="esc"></div></main>`;
+  $('root').innerHTML=`<header><h1>${esc(nombreCorto(S.nombre))}<small>${esc(S.cfg.operacion||'')}</small></h1><button data-act="chequeo">Revisar celular</button><button data-act="salir">Salir</button></header><main><div id="estado"></div><div id="esc"></div></main>`;
   pintaEstado();pintaEsc();cargaEsc(false);flush();
   clearInterval(T.pulso);T.pulso=setInterval(pulsoEsc,30000);
   clearInterval(T.tic);T.tic=setInterval(tic,1000);
@@ -615,7 +624,7 @@ async tablero(){
   if(S.rol==='C')h+=cajaNtfy(d.ntfy,'Así te llegan las respuestas a tus solicitudes aunque la app esté cerrada.');
   if(S.rol==='A'&&(d.actividad||[]).length)h+=`<div class="card"><h2>Actividad reciente</h2>${d.actividad.map(e=>{const [m,q,a,dt]=e.split('|');const [t]=titEvento(e);return `<div class="item" style="padding:6px 0"><span class="mut">${esc(m.slice(5,16))}</span> · <b>${esc(t)}</b> <span class="mut">${esc(dt)}</span></div>`}).join('')}</div>`;
   h+=`<div class="card"><h2>Horas de la semana (tope ${d.tope} h)</h2>${d.semana.map(e=>`<div class="item"><div class="row"><b class="grow">${esc(nombreCorto(e.nombre))} ${e.enTurno?'<span class="badge ok">en turno</span>':''}</b><span>${f1(e.total)} h</span></div>${barra(e.total,d.tope)}<div class="mut">REPCO ${f1(e.repco)} · Prosegur ${f1(e.prosegur)}</div></div>`).join('')}</div>`;
-  $('vista').innerHTML=h;
+  $('vista').innerHTML=h+(S.rol==='A'?'<div id="saludBox"></div>':'');if(S.rol==='A')pintaSalud();
 },
 async turnos(){
   if(!A.data.tf)A.data.tf={desde:addD(hoyL(),-6),hasta:hoyL(),escoltaId:''};
@@ -703,7 +712,7 @@ async solic(){
 async escoltas(){
   const d=await api('listarEscoltas');A.data.escoltas=d.escoltas;
   $('vista').innerHTML=`<div class="card"><h2>Agregar escoltas</h2><div class="grid2"><div><label>Nombre completo (apellidos y nombres)</label><input id="en_n"></div><div><label>Celular (WhatsApp)</label><input id="en_t" inputmode="tel"></div></div><br><div class="row"><button class="btn ok sm" data-act="addEscolta">Agregar</button><button class="btn ghost sm" data-act="pegarLista">Pegar lista de nombres</button><button class="btn ghost sm" data-act="cargarFijos">Cargar los 16 fijos</button><button class="btn ghost sm" data-act="pedirClaveTodos">Pedir clave nueva a todos</button></div></div>
-  <div class="card"><h2>Escoltas (${d.escoltas.filter(e=>e.Activo!=='NO').length} activos)</h2>${d.escoltas.map(e=>`<div class="item"><div class="row"><div class="grow"><b>${esc(e.Nombre)}</b> ${e.Activo==='NO'?'<span class="badge bad">inactivo</span>':''}<br><span class="mut">${esc(e.Telefono||'sin celular')}</span></div><button class="btn ghost sm" data-act="editEscolta" data-id="${esc(e.ID)}">Editar</button><button class="btn ghost sm" data-act="resetPin" data-id="${esc(e.ID)}">PIN</button></div></div>`).join('')||'<p class="mut" style="margin:0">Aún no hay escoltas. Usa "Cargar los 16 fijos" o pega tu lista.</p>'}</div>`;
+  <div class="card"><h2>Escoltas (${d.escoltas.filter(e=>e.Activo!=='NO').length} activos)</h2>${d.escoltas.map(e=>`<div class="item"><div class="row"><div class="grow"><b>${esc(e.Nombre)}</b> ${e.Activo==='NO'?'<span class="badge bad">inactivo</span>':''}<br><span class="mut">${esc(e.Telefono||'sin celular')}</span> ${e.Cel==='SI'?`<span class="badge ok">📱 celular registrado</span> <button class="btn ghost sm" data-act="liberarCel" data-id="${esc(e.ID)}">Liberar</button>`:'<span class="badge">sin celular registrado</span>'}</div><button class="btn ghost sm" data-act="editEscolta" data-id="${esc(e.ID)}">Editar</button><button class="btn ghost sm" data-act="resetPin" data-id="${esc(e.ID)}">PIN</button></div></div>`).join('')||'<p class="mut" style="margin:0">Aún no hay escoltas. Usa "Cargar los 16 fijos" o pega tu lista.</p>'}</div>`;
 },
 async punt(){
   if(!A.data.ptf)A.data.ptf={desde:hoyL().slice(0,8)+'01',hasta:hoyL()};
@@ -743,6 +752,9 @@ async ajustes(){
   <div><label>2.º aviso urgente si sigue sin iniciar (min)</label><input id="c_min_escalar2" type="number" value="${esc(k.min_escalar2||'40')}"></div>
   <div><label>Avisar al llegar a este % del tope semanal</label><input id="c_alerta_horas_pct" type="number" min="50" max="99" value="${esc(k.alerta_horas_pct||'85')}"></div>
   <div><label>Caravana sin señal GPS: avisar al escolta tras (min)</label><input id="c_alerta_gps_min" type="number" value="${esc(k.alerta_gps_min||'20')}"></div>
+  <div><label>Ingreso desde otro celular</label><select id="c_bloquear_otro_celular"><option value="NO">Solo avisar al administrador</option><option value="SI" ${k.bloquear_otro_celular==='SI'?'selected':''}>Bloquear (solo su celular registrado)</option></select></div>
+  <div><label>GPS: avisar si la exactitud es peor que (metros)</label><input id="c_gps_prec_max_m" type="number" value="${esc(k.gps_prec_max_m||'150')}"></div>
+  <div><label>Resumen diario al administrador (hora, 0-23)</label><input id="c_cierre_diario_hora" type="number" min="0" max="23" value="${esc(k.cierre_diario_hora||'21')}"></div>
   <div><label>Descanso mínimo entre turnos (horas)</label><input id="c_min_descanso_h" type="number" value="${esc(k.min_descanso_h||'8')}"></div>
   <div><label>Canal externo (Teams u otro): dirección del webhook</label><input id="c_webhook_alertas" type="url" placeholder="https://…" value="${esc(k.webhook_alertas||'')}"></div>
   <div><label>Rastrear con GPS</label><select id="c_geo_todos_turnos"><option value="NO">Solo caravanas</option><option value="SI" ${k.geo_todos_turnos==='SI'?'selected':''}>Todos los turnos (más batería)</option></select></div>
@@ -795,6 +807,21 @@ cambiarApi(){modal(`<h2 style="margin-top:0">Enlace del sistema</h2><input id="a
 guardarApi2(){ACT.guardarApi();closeModal()},
 reintentarLogin(){vistaLogin()},
 
+async liberarCel(d){if(!confirm('¿Liberar el celular registrado de este escolta? Se registrará el próximo celular desde el que ingrese.'))return;try{await api('liberarCelular',{id:d.id});toast('Celular liberado');irTab('escoltas')}catch(e){toast(e.message,true)}},
+async chequeo(){
+  modal(`<h2 style="margin-top:0">Revisión del celular</h2><div id="chq"><p class="mut">Revisando…</p></div>`);
+  const L=[];const ok=(t,b,x)=>L.push(`<div class="item"><b>${b?'✅':'⚠️'} ${t}</b>${x?`<br><span class="mut">${esc(x)}</span>`:''}</div>`);
+  const pintar=()=>{const e=$('chq');if(e)e.innerHTML=L.join('')+`<br><button class="btn big" data-act="cerrarModal">Cerrar</button>`};
+  try{const t0=Date.now();const r=await api('ping',{},true);const ms=Date.now()-t0;ok('Conexión con el sistema',ms<4000,ms+' ms'+(ms>=4000?' (lenta: busca mejor señal)':''));
+    const dif=Math.abs(msN0(r.hora)-Date.now());ok('Hora del celular',dif<120000,dif<120000?'Correcta':'Desajustada '+Math.round(dif/60000)+' min: activa la hora automática')}catch(e){ok('Conexión con el sistema',false,'Sin conexión')}
+  try{if(navigator.permissions){const p=await navigator.permissions.query({name:'geolocation'});ok('Permiso de ubicación',p.state==='granted',p.state==='granted'?'Concedido':p.state==='prompt'?'Aún no concedido: se pedirá al iniciar':'Bloqueado: actívalo en ajustes del celular')}}catch(e){}
+  const pos=await getPos(12000);
+  if(pos&&isFinite(pos.lat)){const a=Math.round(pos.prec||0),lim=+S.cfg.gps_prec_max_m||150;ok('Exactitud del GPS',a>0&&a<=lim,a?a+' m'+(a>lim?' (baja: sal a cielo abierto y activa ubicación de alta precisión)':''):'sin dato')}
+  else ok('GPS',false,'No se obtuvo ubicación. Activa el GPS y da permiso.');
+  try{if(navigator.getBattery){const b=await navigator.getBattery();const n=Math.round(b.level*100);ok('Batería',n>=30||b.charging,n+'%'+(b.charging?' (cargando)':n<30?' (carga el celular antes de salir)':''))}}catch(e){}
+  ok('Modo sin conexión guardado',Q.length===0&&QE.length===0,Q.length||QE.length?'Hay '+(Q.length+QE.length)+' registro(s) pendientes por enviar':'Nada pendiente');
+  pintar();
+},
 rolLogin(d){LOGIN.rol=d.r;pintaLogin()},
 crearClaveVista(){const id=val('lg_id');if(!id)return toast('Primero elige tu nombre',true);const e=(LOGIN.lista||[]).find(x=>x.id===id);modal(`<h2 style="margin-top:0">Crear mi clave</h2><p class="mut">${esc(e?e.nombre:'')}</p>${e&&e.nueva?'':'<div class="banner warn">El administrador aún no habilitó la creación de tu clave.</div>'}<label>Últimos 4 dígitos de tu cédula</label><input id="cc_ced" class="pin" inputmode="numeric" maxlength="4" autocomplete="off"><label>Clave nueva (de 6 a 8 números)</label><input id="cc_n1" class="pin" type="password" inputmode="numeric" maxlength="8" autocomplete="off"><label>Repite la clave</label><input id="cc_n2" class="pin" type="password" inputmode="numeric" maxlength="8" autocomplete="off"><br><br><button class="btn big" data-act="crearClaveEnviar" data-id="${esc(id)}">Guardar y entrar</button>`)},
 crearClaveEnviar(d){const ced4=val('cc_ced'),n1=val('cc_n1'),n2=val('cc_n2');if(!/^\d{4}$/.test(ced4))return toast('Escribe los últimos 4 dígitos de tu cédula',true);if(!/^\d{6,8}$/.test(n1))return toast('La clave debe tener de 6 a 8 números',true);if(n1!==n2)return toast('Las claves no coinciden',true);closeModal();entrar('crearClave',{id:d.id,ced4,nuevo:n1})},
@@ -1142,7 +1169,7 @@ async exp(d){
     descargar(`turnos_${d.k.toLowerCase()}_${f.desde}_${f.hasta}.csv`,n);toast('Archivo descargado')}catch(e){toast(e.message,true)}
 },
 /* ajustes */
-async guardarCfg(){const c={};['operacion','tope_semanal','horas_caravana','punt_dias','hora_inicio_min','hora_inicio_max','bloquear_fuera_horario','bloquear_fuera_geocerca','min_escalar2','alerta_horas_pct','alerta_gps_min','min_descanso_h','webhook_alertas','geo_eventos','geo_todos_turnos','avisar_geo','exigir_gps','exigir_programacion','min_aviso_previo','min_antes','min_despues','bloquear_temprano','min_tarde','min_escalar','tel_admin','tel_central','email_avisos'].forEach(k=>c[k]=val('c_'+k));try{const r=await api('guardarConfig',{config:c});A.cfg=r.config;S.cfg.operacion=c.operacion;S.cfg.tel_central=c.tel_central;S.cfg.tel_admin=c.tel_admin;saveS();toast('Reglas guardadas')}catch(e){toast(e.message,true)}},
+async guardarCfg(){const c={};['operacion','tope_semanal','horas_caravana','punt_dias','hora_inicio_min','hora_inicio_max','bloquear_fuera_horario','bloquear_fuera_geocerca','min_escalar2','alerta_horas_pct','alerta_gps_min','min_descanso_h','bloquear_otro_celular','gps_prec_max_m','cierre_diario_hora','webhook_alertas','geo_eventos','geo_todos_turnos','avisar_geo','exigir_gps','exigir_programacion','min_aviso_previo','min_antes','min_despues','bloquear_temprano','min_tarde','min_escalar','tel_admin','tel_central','email_avisos'].forEach(k=>c[k]=val('c_'+k));try{const r=await api('guardarConfig',{config:c});A.cfg=r.config;S.cfg.operacion=c.operacion;S.cfg.tel_central=c.tel_central;S.cfg.tel_admin=c.tel_admin;saveS();toast('Reglas guardadas')}catch(e){toast(e.message,true)}},
 nuevaGeo(){formGeo({})},
 editGeo(d){formGeo(A.data.geo.find(x=>x.ID===d.id))},
 async usarMiUbicacion(){toast('Tomando ubicación…');const p=await getPos(12000);if(!p.lat)return toast('No se pudo obtener la ubicación',true);$('g_lat').value=p.lat.toFixed(6);$('g_lng').value=p.lng.toFixed(6)},
