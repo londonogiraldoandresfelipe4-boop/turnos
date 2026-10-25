@@ -187,6 +187,17 @@ html[data-tema=dia] body::before{display:none}
 .kpi::after{content:"";position:absolute;inset:auto 0 0 0;height:2px;background:linear-gradient(90deg,transparent,var(--acc),transparent);opacity:.7}
 .badge.ok{box-shadow:0 0 10px color-mix(in srgb,var(--ok) 35%,transparent)}
 @media (prefers-reduced-motion:reduce){.meter>i,.meter>i.b{animation:none}}
+
+/* ---- Tablero ejecutivo ---- */
+.ej-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}@media(min-width:720px){.ej-grid{grid-template-columns:repeat(4,1fr)}}
+.ej-k{border:1px solid var(--line);border-radius:8px;background:var(--bg2);padding:10px;position:relative;overflow:hidden}
+.ej-k small{display:block;color:var(--mut);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.ej-k b{display:block;font:700 26px var(--mono);color:var(--acc);margin:2px 0}
+.ej-k i{font-style:normal;font-size:12px}.ej-k i.up{color:var(--ok)}.ej-k i.dn{color:var(--bad)}.ej-k i.eq{color:var(--mut)}
+.ej-k.bad{border-color:var(--bad)}.ej-k.warn{border-color:var(--warn)}.ej-k.ok{border-color:var(--ok)}
+.ej-bars{display:flex;align-items:flex-end;gap:2px;height:110px;margin-top:8px}
+.ej-bars span{flex:1;background:linear-gradient(180deg,var(--acc),transparent);border-radius:2px 2px 0 0;min-height:2px;position:relative}
+.ej-ax{display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin-top:2px}
 </style>
 </head>
 <body>
@@ -237,7 +248,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.10.25-c';
+const APP_VERSION='2026.10.25-d';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -549,8 +560,8 @@ function formTipos(){return Object.entries(TIPOS).map(([k,n])=>`<option value="$
 
 /* ================= ADMIN / CENTRAL ================= */
 const A={tab:'tablero',data:{},cfg:null};
-const TABS_A=[['tablero','Tablero'],['turnos','Turnos'],['prog','Programación'],['horas','Horas'],['peso','Peso movido'],['punt','Puntualidad'],['solic','Solicitudes'],['escoltas','Escoltas'],['export','Exportar'],['ajustes','Ajustes']];
-const TABS_C=[['tablero','Tablero'],['peso','Peso movido'],['prog','Programación'],['solic','Solicitar personal']];
+const TABS_A=[['ejecutivo','Ejecutivo'],['tablero','Tablero'],['turnos','Turnos'],['prog','Programación'],['horas','Horas'],['peso','Peso movido'],['punt','Puntualidad'],['solic','Solicitudes'],['escoltas','Escoltas'],['export','Exportar'],['ajustes','Ajustes']];
+const TABS_C=[['ejecutivo','Ejecutivo'],['tablero','Tablero'],['peso','Peso movido'],['prog','Programación'],['solic','Solicitar personal']];
 function vistaAdmin(){
   A.tab='tablero';
   $('root').innerHTML=`<header><h1>${S.rol==='A'?'Administrador':'Central'}<small>${esc(S.cfg.operacion||'')}</small></h1><button data-act="salir">Salir</button></header><main><div id="estado"></div><div class="tabs" id="tabs"></div><div id="vista"></div></main>`;
@@ -647,6 +658,38 @@ async function refrescaEstadosProg(){
 }
 const barraSem=(v,t)=>barra(v,t);
 const VISTAS={
+async ejecutivo(){
+  const d=await api('ejecutivo');A.data.ej=d;
+  const a=d.act,b=d.ant,pesos=n=>'$'+Math.round(+n||0).toLocaleString('es-CO');
+  const dl=(x,y,fmt,inv)=>{x=+x||0;y=+y||0;if(!y&&!x)return'<i class="eq">—</i>';const df=x-y,pc=y?Math.round(df/y*100):null,bueno=inv?df<=0:df>=0;
+    return`<i class="${df===0?'eq':bueno?'up':'dn'}">${df>0?'▲':df<0?'▼':'='} ${fmt?fmt(Math.abs(df)):f1(Math.abs(df))}${pc!==null?' ('+(df>0?'+':df<0?'-':'')+Math.abs(pc)+'%)':''} vs mes ant.</i>`};
+  const K=(t,v,sub,cls)=>`<div class="ej-k ${cls||''}"><small>${t}</small><b>${v}</b>${sub||''}</div>`;
+  const pu=a.punt.pct,pua=b.punt.pct,puc=pu===null?'':pu>=95?'ok':pu>=85?'warn':'bad';
+  const mx=Math.max(1,...d.serie.map(x=>x.h));
+  let h=`<div class="card"><h2>Resumen del mes · ${fecha(d.mes.desde)} al ${fecha(d.mes.hasta)}</h2><p class="mut" style="margin:0 0 10px;font-size:12px">Comparado con ${fecha(d.previo.desde)} al ${fecha(d.previo.hasta)}. Actualizado ${esc(d.ahora.slice(11,16))}.</p>
+  <div class="ej-grid">
+  ${K('Servicios',a.servicios,dl(a.servicios,b.servicios,x=>x))}
+  ${K('Horas totales',f1(a.horas),dl(a.horas,b.horas))}
+  ${K('Refuerzos Prosegur',a.refuerzos,dl(a.refuerzos,b.refuerzos,x=>x))}
+  ${K('Caravanas',a.caravanas,dl(a.caravanas,b.caravanas,x=>x))}
+  ${K('Servicios con extras',a.nExt,'<i class="eq">'+f1(a.hExt)+' h sobre 12 h</i>',a.nExt?'warn':'')}
+  ${K('Puntualidad',pu===null?'—':pu+'%','<i class="eq">'+a.punt.tarde+' tarde · '+a.punt.noinicio+' no iniciaron'+(pua!==null&&pu!==null?' · mes ant. '+pua+'%':'')+'</i>',puc)}
+  ${K('Peso movido',Math.round(a.peso.kg/1000*10)/10+' t',dl(a.peso.kg/1000,b.peso.kg/1000,x=>f1(x)+' t'))}
+  ${K('Facturación estimada',pesos(a.facturacion),dl(a.facturacion,b.facturacion,pesos))}
+  </div></div>`;
+  h+=`<div class="card"><h2>Hoy</h2><div class="grid3"><div class="kpi"><b>${d.hoyOp.enTurno}</b><span>En turno</span></div><div class="kpi"><b>${d.hoyOp.programados}</b><span>Programados</span></div><div class="kpi"><b style="${d.hoyOp.sinIniciar?'color:var(--warn)':''}">${d.hoyOp.sinIniciar}</b><span>Sin iniciar</span></div></div></div>`;
+  h+=`<div class="card"><h2>Horas por día del mes</h2><div class="ej-bars">${d.serie.map(x=>`<span title="${fecha(x.f)}: ${f1(x.h)} h · ${x.n} turnos" style="height:${Math.max(2,Math.round(x.h/mx*100))}%"></span>`).join('')}</div><div class="ej-ax"><span>${d.serie[0]?d.serie[0].f.slice(8):''}</span><span>${d.serie.length?d.serie[d.serie.length-1].f.slice(8):''}</span></div></div>`;
+  const al=[];
+  if(d.semana.excedidos)al.push(`<div class="banner bad">${d.semana.excedidos} escolta(s) pasaron el tope de ${d.semana.tope} h esta semana: ${d.semana.lista.map(x=>esc(nombreCorto(x.nombre))+' +'+x.extra+' h').join(', ')}</div>`);
+  if(d.semana.cerca)al.push(`<div class="banner warn">${d.semana.cerca} escolta(s) cerca del tope semanal</div>`);
+  if(a.alertGeo)al.push(`<div class="banner warn">${a.alertGeo} turno(s) iniciados fuera de geocerca este mes</div>`);
+  if(a.sinUbic)al.push(`<div class="banner warn">${a.sinUbic} turno(s) sin ubicación al iniciar</div>`);
+  if(a.sinSenal)al.push(`<div class="banner warn">${a.sinSenal} turno(s) registrados sin señal (diferidos)</div>`);
+  h+=`<div class="card"><h2>Alertas de control</h2>${al.join('')||'<div class="banner ok">Sin alertas relevantes este mes</div>'}</div>`;
+  h+=`<div class="card"><h2>Horas por escolta (mes)</h2>${d.top.map(e=>`<div class="item"><div class="row"><b class="grow">${esc(nombreCorto(e.nombre))}</b><span class="mut">${e.turnos} turnos</span><span class="hh">${f1(e.horas)}<small>H</small></span></div></div>`).join('')||'<p class="mut" style="margin:0">Sin turnos cerrados.</p>'}</div>`;
+  h+=`<p class="mut" style="font-size:11px">${esc(d.nota)}</p>`;
+  $('vista').innerHTML=h;
+},
 async tablero(){
   const d=await api(S.rol==='A'?'tablero':'tableroLectura');A.data.tab=d;
   const ab=d.abiertos;
