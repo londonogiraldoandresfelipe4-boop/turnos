@@ -217,6 +217,11 @@ const nombreCorto=n=>{const p=String(n||'').split(' ').filter(Boolean);return p.
 function toast(t,err){const d=document.createElement('div');d.textContent=t;if(err)d.className='err';$('toast').appendChild(d);setTimeout(()=>d.remove(),err?6000:3200)}
 function modal(html){closeModal();const m=document.createElement('div');m.className='modal';m.id='modal';m.innerHTML='<div>'+html+'</div>';m.addEventListener('click',e=>{if(e.target===m)closeModal()});document.body.appendChild(m)}
 function closeModal(){const m=$('modal');if(m)m.remove()}
+function compBloque(total,tope){
+  const c=EST&&EST.comp;
+  if(c){const ok=c.Estado==='ACEPTADA',no=c.Estado==='NEGADA';return `<div class="banner ${ok?'ok':no?'bad':'warn'}" style="margin-top:10px">🛌 Día compensatorio ${esc(fecha(c.Fecha))}: <b>${ok?'APROBADO':no?'NEGADO':'pendiente de respuesta'}</b>${c.Respuesta?'<br>'+esc(c.Respuesta):''}</div>`+(no?`<button class="btn ghost sm" style="margin-top:8px" data-act="abrirComp">Pedir otra fecha</button>`:'')}
+  if(total>tope)return `<div class="banner warn" style="margin-top:10px">Llevas <b>${f1(total-tope)} h extra</b> esta semana. Puedes pedir un día compensatorio a cambio.</div><button class="btn big" style="margin-top:8px" data-act="abrirComp">🛌 Pedir día compensatorio</button>`;
+  return ''}
 function barra(v,tope){const p=Math.min(100,v/tope*100);const c=v>tope?'b':v>tope*0.85?'w':'';return `<div class="meter"><i class="${c}" style="width:${p}%"></i></div>`}
 const hcls=(v,tope)=>v>tope?'b':v>tope*0.85?'w':''
 function descargar(nombre,texto,tipo){const b=new Blob([texto],{type:tipo||'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nombre;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
@@ -232,7 +237,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.10.24-j';
+const APP_VERSION='2026.10.24-k';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -494,7 +499,7 @@ function pintaEsc(){
   const t=EST.turno,sem=EST.semana||{repco:0,prosegur:0,total:0},tope=EST.tope||60;
   const extra=t?transcurrido():0;const totalVivo=sem.total; // el servidor ya cuenta el turno abierto
   let h='';
-  h+=`<div class="card"><h2>Mis horas de la semana</h2><div class="row"><b style="font-size:24px">${f1(totalVivo)}</b><span class="mut">de ${tope} h</span><span class="grow"></span>${totalVivo>tope?'<span class="badge bad">Superaste el tope</span>':totalVivo>tope*0.85?'<span class="badge warn">Cerca del tope</span>':'<span class="badge ok">En rango</span>'}</div>${barra(totalVivo,tope)}<div class="mut" style="margin-top:6px">REPCO ${f1(sem.repco)} h · Prosegur ${f1(sem.prosegur)} h</div></div>`;
+  h+=`<div class="card"><h2>Mis horas de la semana</h2><div class="row"><b style="font-size:24px">${f1(totalVivo)}</b><span class="mut">de ${tope} h</span><span class="grow"></span>${totalVivo>tope?'<span class="badge bad">Superaste el tope</span>':totalVivo>tope*0.85?'<span class="badge warn">Cerca del tope</span>':'<span class="badge ok">En rango</span>'}</div>${barra(totalVivo,tope)}<div class="mut" style="margin-top:6px">REPCO ${f1(sem.repco)} h · Prosegur ${f1(sem.prosegur)} h</div>${compBloque(totalVivo,tope)}</div>`;
   if(!t){
     const hoy=hoyL(),asig=(EST.programacion||[]).filter(x=>x.Fecha===hoy);
     const cam=(EST.cambios||[]).map(x=>x.Estado==='PENDIENTE'?`<div class="banner warn">⏳ Cambio solicitado (${esc(TIPOS[x.TipoTurno]||'')} · ${esc(x.Lugar)}): esperando respuesta del administrador.</div>`:x.Estado==='NEGADA'?`<div class="banner" style="background:var(--badbg);color:var(--bad)">⛔ Cambio negado${x.Respuesta?': '+esc(x.Respuesta):''}</div>`:'').join('');
@@ -727,10 +732,10 @@ async solic(){
     <label>Lugar</label><input id="sl_l" placeholder="Ej: Bodega Funza"><div class="grid2"><div><label>Cantidad de escoltas</label><input type="number" id="sl_c" value="1" min="1"></div></div><label>Nota</label><textarea id="sl_n"></textarea><br><button class="btn big" data-act="enviarSol">Enviar solicitud</button></div>`;
   }
   const telAdm=(S.cfg&&S.cfg.tel_admin)||'';
-  h+=`<div class="card"><h2>Solicitudes</h2>${d.solicitudes.map(x=>{const cam=x.Clase==='CAMBIO';const est=`<span class="badge ${x.Estado==='ACEPTADA'?'ok':x.Estado==='NEGADA'?'bad':'warn'}">${esc(x.Estado)}</span>`;
-    const ti=cam?`<span class="tp-CAMBIO"><span class="badge tb">🔄 CAMBIO DE ÁREA</span></span> <b>${esc(nombreCorto(x.Por))}</b> → ${tbd(x.TipoTurno)} · ${esc(x.Lugar)}`:`<b>${esc(x.Lugar)}</b> · ${esc(x.Cantidad)} escolta(s)`;
-    return `<div class="item"><div class="row"><div class="grow">${ti}<br><span class="mut">${fecha(x.Fecha)} ${esc(x.Hora)} · pidió ${esc(x.Por)}${x.Nota?'<br>'+esc(x.Nota):''}</span>${x.Respuesta?`<br><b>Respuesta: ${esc(x.Respuesta)}</b>`:''}</div>${est}</div>
-  ${S.rol==='A'&&x.Estado==='PENDIENTE'?`<div class="row" style="margin-top:8px"><button class="btn ok sm" data-act="respSol" data-id="${esc(x.ID)}" data-ok="1">Aceptar</button><button class="btn bad sm" data-act="respSol" data-id="${esc(x.ID)}" data-ok="0">Negar</button>${cam?waBtn(x.EscoltaID,x.Por):''}</div>`:''}
+  h+=`<div class="card"><h2>Solicitudes</h2>${d.solicitudes.map(x=>{const cam=x.Clase==='CAMBIO',cmp=x.Clase==='COMPENSATORIO';const est=`<span class="badge ${x.Estado==='ACEPTADA'?'ok':x.Estado==='NEGADA'?'bad':'warn'}">${esc(x.Estado)}</span>`;
+    const ti=cmp?`<span class="tp-CAMBIO"><span class="badge tb">🛌 COMPENSATORIO</span></span> <b>${esc(nombreCorto(x.Por))}</b> · ${fecha(x.Fecha)} · ${esc(x.Cantidad)} h extra`:cam?`<span class="tp-CAMBIO"><span class="badge tb">🔄 CAMBIO DE ÁREA</span></span> <b>${esc(nombreCorto(x.Por))}</b> → ${tbd(x.TipoTurno)} · ${esc(x.Lugar)}`:`<b>${esc(x.Lugar)}</b> · ${esc(x.Cantidad)} escolta(s)`;
+    return `<div class="item"><div class="row"><div class="grow">${ti}<br><span class="mut">${cmp?'Pidió el '+esc(x.Creado.slice(0,16)):fecha(x.Fecha)+' '+esc(x.Hora)} · ${esc(x.Por)}${x.Nota?'<br>'+esc(x.Nota):''}</span>${x.Respuesta?`<br><b>Respuesta: ${esc(x.Respuesta)}</b>`:''}</div>${est}</div>
+  ${S.rol==='A'&&x.Estado==='PENDIENTE'?`<div class="row" style="margin-top:8px"><button class="btn ok sm" data-act="respSol" data-id="${esc(x.ID)}" data-ok="1">Aceptar</button><button class="btn bad sm" data-act="respSol" data-id="${esc(x.ID)}" data-ok="0">Negar</button>${cam||cmp?waBtn(x.EscoltaID,x.Por):''}</div>`:''}
   ${S.rol==='C'&&telAdm?`<div style="margin-top:8px"><a class="btn ghost sm" target="_blank" rel="noopener" href="${esc(wa(telAdm,`Hola, sobre mi solicitud de personal (${x.Lugar}, ${fecha(x.Fecha)} ${x.Hora}) [${x.Estado}]: `))}">💬 Escribir al administrador</a></div>`:''}</div>`}).join('')||'<p class="mut" style="margin:0">Sin solicitudes.</p>'}</div>`;
   $('vista').innerHTML=h;
 },
@@ -898,6 +903,8 @@ async abrirPunt(){
     <p class="mut" style="font-size:12px;margin:0 0 12px">${esc(AVISO_TARDE)}</p><button class="btn ghost big" data-act="cerrarModal">Cerrar</button>`);
   }catch(e){closeModal();toast(e.message,true)}
 },
+abrirComp(){const t=EST&&EST.tope||60,tot=EST&&EST.semana?EST.semana.total:0,m=new Date(Date.now()+864e5-5*36e5).toISOString().slice(0,10);modal(`<h2 style="margin-top:0">Día compensatorio</h2><p class="mut" style="margin-top:0">Pides un día de descanso a cambio de las horas extra de esta semana (≈ ${f1(Math.max(0,tot-t))} h). El administrador lo aprueba o lo niega.</p><label>Fecha que quieres descansar</label><input type="date" id="cp_f" min="${m}"><label>Nota (opcional)</label><textarea id="cp_n" placeholder="Ej: prefiero un día entre semana"></textarea><br><button class="btn big" id="cp_go" data-act="enviarComp">Enviar solicitud</button><button class="btn ghost big" style="margin-top:8px" data-act="cerrarModal">Cancelar</button>`)},
+async enviarComp(){const f=val('cp_f');if(!f)return toast('Elige la fecha',true);const b=$('cp_go');b.disabled=true;try{await api('pedirCompensatorio',{fecha:f,nota:val('cp_n')});closeModal();toast('Solicitud enviada al administrador');cargaEsc(true)}catch(e){toast(e.message,true);b.disabled=false}},
 abrirCambio(){
   modal(`<h2 style="margin-top:0">Solicitar cambio / otra área</h2><p class="mut" style="margin-top:0">El administrador recibe tu solicitud. Cuando la apruebe podrás iniciar el turno en esa área.</p><label>Área a la que pasas</label><select id="cb_tipo">${formTipos()}</select><label>Lugar / ruta</label><input id="cb_lugar" placeholder="Ej: Bodega Funza"><label>Motivo (opcional)</label><textarea id="cb_nota"></textarea><br><button class="btn big" id="cb_go" data-act="enviarCambio">Enviar solicitud</button>`);
 },
@@ -1167,13 +1174,13 @@ pesoCsv(){const r=A.data.pw;if(!r){return}const q=v=>'"'+String(v==null?'':v).re
 async enviarSol(){try{await api('crearSolicitud',{fecha:val('sl_f'),hora:val('sl_h'),lugar:val('sl_l'),cantidad:val('sl_c'),nota:val('sl_n')});toast('Solicitud enviada al administrador');irTab('solic')}catch(e){toast(e.message,true)}},
 respSol(d){
   const s=A.data.sol.find(x=>x.ID===d.id),ok=d.ok==='1';
-  modal(`<h2 style="margin-top:0">${ok?'Aceptar':'Negar'} solicitud</h2><p>${s.Clase==='CAMBIO'?`<b>${esc(nombreCorto(s.Por))}</b> pide pasar a ${esc(TIPOS[s.TipoTurno]||'')} · ${esc(s.Lugar)}`:`<b>${esc(s.Lugar)}</b> · ${esc(s.Cantidad)} escolta(s) · ${fecha(s.Fecha)} ${esc(s.Hora)}`}</p><label>${s.Clase==='CAMBIO'?'Mensaje para el escolta (opcional)':'Respuesta / escoltas asignados'}</label><textarea id="rs_t"></textarea><br><button class="btn big ${ok?'ok':'bad'}" data-act="respSol2" data-id="${esc(d.id)}" data-ok="${d.ok}">Confirmar</button>`);
+  modal(`<h2 style="margin-top:0">${ok?'Aceptar':'Negar'} solicitud</h2><p>${s.Clase==='COMPENSATORIO'?`<b>${esc(nombreCorto(s.Por))}</b> pide descansar el ${fecha(s.Fecha)} por ${esc(s.Cantidad)} h extra`:s.Clase==='CAMBIO'?`<b>${esc(nombreCorto(s.Por))}</b> pide pasar a ${esc(TIPOS[s.TipoTurno]||'')} · ${esc(s.Lugar)}`:`<b>${esc(s.Lugar)}</b> · ${esc(s.Cantidad)} escolta(s) · ${fecha(s.Fecha)} ${esc(s.Hora)}`}</p><label>${s.Clase==='CAMBIO'||s.Clase==='COMPENSATORIO'?'Mensaje para el escolta (opcional)':'Respuesta / escoltas asignados'}</label><textarea id="rs_t"></textarea><br><button class="btn big ${ok?'ok':'bad'}" data-act="respSol2" data-id="${esc(d.id)}" data-ok="${d.ok}">Confirmar</button>`);
 },
 async respSol2(d){
   const s=A.data.sol.find(x=>x.ID===d.id),ok=d.ok==='1',resp=val('rs_t');
   try{await api('responderSolicitud',{id:d.id,aceptar:ok,respuesta:resp});
-    const cam=s.Clase==='CAMBIO';
-    const txt=cam?`Tu solicitud de cambio a ${TIPOS[s.TipoTurno]||''} (${s.Lugar}) fue ${ok?'APROBADA. Ya puedes iniciar tu turno.':'NEGADA.'}${resp?' '+resp:''}`:`Solicitud de personal (${s.Lugar}, ${fecha(s.Fecha)} ${s.Hora}): ${ok?'ACEPTADA':'NEGADA'}${resp?'. '+resp:''}`;
+    const cmp=s.Clase==='COMPENSATORIO',cam=s.Clase==='CAMBIO'||cmp;
+    const txt=cmp?`Tu día compensatorio del ${fecha(s.Fecha)} fue ${ok?'APROBADO.':'NEGADO.'}${resp?' '+resp:''}`:cam?`Tu solicitud de cambio a ${TIPOS[s.TipoTurno]||''} (${s.Lugar}) fue ${ok?'APROBADA. Ya puedes iniciar tu turno.':'NEGADA.'}${resp?' '+resp:''}`:`Solicitud de personal (${s.Lugar}, ${fecha(s.Fecha)} ${s.Hora}): ${ok?'ACEPTADA':'NEGADA'}${resp?'. '+resp:''}`;
     const tel=cam?(A.data.tel||{})[s.EscoltaID]:((A.cfg&&A.cfg.tel_central)||S.cfg.tel_central);
     modal(`<h2 style="margin-top:0">Respuesta registrada</h2><p>${cam?'Avisa al escolta por WhatsApp (también le llega aviso a su celular si activó ntfy):':'Avisa a la Central por WhatsApp (también le llega aviso a su celular si activó ntfy):'}</p><a class="btn ok big" target="_blank" rel="noopener" href="${esc(wa(tel,txt))}">Abrir WhatsApp</a><br><br><button class="btn ghost big" data-act="cerrarYSol">Listo</button>`);
   }catch(e){toast(e.message,true)}
