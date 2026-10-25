@@ -237,17 +237,18 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.10.25-a';
+const APP_VERSION='2026.10.25-b';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
 const NOM_ACC={iniciarTurno:'Inicio de turno',cerrarTurno:'Cierre de turno',registrarParada:'Parada / novedad',registrarMovimiento:'Movimiento de bodega',sos:'SOS',solicitarCambio:'Solicitud de cambio',confirmarProgramacion:'Confirmación de turno'};
 
+const ES_APK=(()=>{try{const C=window.Capacitor;return !!(C&&C.isNativePlatform&&C.isNativePlatform())}catch(e){return false}})();
 async function api(action,payload,publico){
   if(!S.api)throw Object.assign(new Error('Falta el enlace del sistema'),{server:true});
   let r;
   try{
-    const resp=await fetch(S.api,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,token:publico?'':S.token,payload:{...(payload||{}),cl:Date.now(),dev:DEV}})});
+    const resp=await fetch(S.api,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,token:publico?'':S.token,payload:{...(payload||{}),cl:Date.now(),dev:DEV,app:ES_APK?'apk':'web'}})});
     r=await resp.json();
   }catch(e){online=false;pintaEstado();throw Object.assign(new Error('Sin conexión'),{offline:true})}
   online=true;pintaEstado();
@@ -313,7 +314,7 @@ const gpsNativo=()=>{try{const C=window.Capacitor;return C&&C.isNativePlatform&&
 function gpsIniciar(t){
   const bg=gpsNativo();
   if(!bg&&!navigator.geolocation){GPS.msg='Este celular no permite GPS.';return}
-  GPS.activo=true;GPS.kmSrv=parseFloat(t.Km)||0;GPS.mPend=0;GPS.ref=null;GPS.ult=null;GPS.msg='';GPS.hueco=0;GPS.lastEnv=Date.now();
+  GPS.activo=true;GPS.t0=Date.now();GPS.kmSrv=parseFloat(t.Km)||0;GPS.mPend=0;GPS.ref=null;GPS.ult=null;GPS.msg='';GPS.hueco=0;GPS.lastEnv=Date.now();
   if(bg){
     GPS.native=true;
     bg.addWatcher({backgroundTitle:'Turno en curso',backgroundMessage:'Rastreando el recorrido (no cierres esta app)',requestPermissions:true,stale:false,distanceFilter:15},(l,err)=>{
@@ -359,12 +360,25 @@ function gpsError(e){
   GPS.msg=e.code===1?'⛔ El celular no deja usar la ubicación. Actívala para esta app (Ubicación: «Permitir»).':'📡 Buscando señal GPS… (sal a un lugar abierto si tarda).';
   gpsPintar();
 }
+/* Guardia del GPS: si durante un turno rastreado no entra un punto válido en 4 min, se muestra una alarma roja que no se quita hasta que el GPS vuelva */
+function gpsGuardia(){
+  const t=S.rol==='E'&&S.token?gpsCaravana():null;let b=$('gpsGuard');
+  if(!t||!GPS.activo){if(b)b.remove();return}
+  const ref=GPS.ult?GPS.ult.ts*1000:(GPS.t0||Date.now()),min=Math.floor((Date.now()-ref)/60000);
+  if(min<4){if(b)b.remove();return}
+  if(!b){b=document.createElement('div');b.id='gpsGuard';b.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99;background:#b00020;color:#fff;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;font-weight:700;text-align:center;box-shadow:0 4px 24px rgba(255,0,60,.6)';document.body.appendChild(b)}
+  const causa=GPS.prec>100?`GPS impreciso (${GPS.prec} m): sal a cielo abierto y activa ubicación de alta precisión.`:ES_APK?'Revisa que la ubicación esté en «Permitir todo el tiempo» y el GPS encendido.':'Mantén esta app abierta y la pantalla encendida, o usa el APK.';
+  b.innerHTML=`⚠️ SIN GPS HACE ${min} MIN<br><span style="font-weight:400;font-size:13px">${esc(causa)}</span>`;
+  try{navigator.vibrate&&navigator.vibrate([400,200,400])}catch(e){}
+  if(Date.now()-(GPS.beep||0)>60000){GPS.beep=Date.now();try{sonido()}catch(e){}}
+}
+setInterval(gpsGuardia,20000);
 let SALUD=null;
 async function pintaSalud(){
   try{if(!SALUD||Date.now()-SALUD.t>120000)SALUD={t:Date.now(),d:await api('saludSistema')};const d=SALUD.d;const b=$('saludBox');if(!b)return;
     const prob=[];if(d.disparadoresFaltan.length)prob.push('Faltan disparadores: '+d.disparadoresFaltan.join(', '));if(d.espejo.activo&&d.espejo.sucio)prob.push('La base de datos espejo tiene cambios pendientes de copiar');if(d.espejo.enCola>5)prob.push('Cola del espejo larga ('+d.espejo.enCola+')');
     const sg=d.turnosAbiertos.filter(t=>t.sinGpsMin!=null&&t.sinGpsMin>20),larg=d.turnosAbiertos.filter(t=>t.horas>14);
-    if(sg.length)prob.push('GPS sin puntos válidos: '+sg.map(t=>nombreCorto(t.escolta)+' ('+t.sinGpsMin+' min · '+(t.impreciso?'celular conectado pero GPS impreciso '+t.prec+' m':'el celular no está enviando')+')').join(', '));if(larg.length)prob.push('Turnos abiertos hace más de 14 h: '+larg.map(t=>nombreCorto(t.escolta)).join(', '));
+    if(sg.length)prob.push('GPS sin puntos válidos: '+sg.map(t=>nombreCorto(t.escolta)+' ('+t.sinGpsMin+' min · '+(t.impreciso?'celular conectado pero GPS impreciso '+t.prec+' m':'el celular no está enviando')+(t.app?' · '+(t.app==='apk'?'APK':'navegador'):'')+')').join(', '));if(larg.length)prob.push('Turnos abiertos hace más de 14 h: '+larg.map(t=>nombreCorto(t.escolta)).join(', '));
     b.innerHTML=`<div class="card" style="border-color:${prob.length?'var(--warn)':'var(--ok)'}"><h2>🩺 Salud del sistema</h2>${prob.length?prob.map(x=>`<div class="banner warn">${esc(x)}</div>`).join(''):'<div class="banner ok">Todo en orden</div>'}
     <p class="mut" style="margin:6px 0 0">Versión servidor ${esc(d.version)} · Escoltas activos ${d.escoltasActivos} · Sin celular registrado ${d.sinCelularRegistrado} · Alertas hoy ${d.alertasHoy} · Espejo ${d.espejo.activo?'activo':'apagado'}<br>Filas: turnos ${d.filas.Turnos} · rastro ${d.filas.Rastro} · registro ${d.filas.Registro}${d.nuncaConectaron.length?'<br>Aún no han ingresado: '+esc(d.nuncaConectaron.join(', ')):''}</p></div>`}catch(e){}
 }
@@ -782,6 +796,7 @@ async ajustes(){
   <div><label>2.º aviso urgente si sigue sin iniciar (min)</label><input id="c_min_escalar2" type="number" value="${esc(k.min_escalar2||'40')}"></div>
   <div><label>Avisar al llegar a este % del tope semanal</label><input id="c_alerta_horas_pct" type="number" min="50" max="99" value="${esc(k.alerta_horas_pct||'85')}"></div>
   <div><label>Caravana sin señal GPS: avisar al escolta tras (min)</label><input id="c_alerta_gps_min" type="number" value="${esc(k.alerta_gps_min||'20')}"></div>
+  <div><label>Caravanas: exigir la app instalada (APK)</label><select id="c_exigir_apk"><option value="NO">No (permite navegador)</option><option value="SI" ${k.exigir_apk==='SI'?'selected':''}>Sí: sin APK no inicia (GPS con pantalla apagada)</option></select></div>
   <div><label>Ingreso desde otro celular</label><select id="c_bloquear_otro_celular"><option value="NO">Solo avisar al administrador</option><option value="SI" ${k.bloquear_otro_celular==='SI'?'selected':''}>Bloquear (solo su celular registrado)</option></select></div>
   <div><label>GPS: avisar si la exactitud es peor que (metros)</label><input id="c_gps_prec_max_m" type="number" value="${esc(k.gps_prec_max_m||'150')}"></div>
   <div><label>Resumen diario al administrador (hora, 0-23)</label><input id="c_cierre_diario_hora" type="number" min="0" max="23" value="${esc(k.cierre_diario_hora||'21')}"></div>
@@ -840,15 +855,17 @@ reintentarLogin(){vistaLogin()},
 async liberarCel(d){if(!confirm('¿Liberar el celular registrado de este escolta? Se registrará el próximo celular desde el que ingrese.'))return;try{await api('liberarCelular',{id:d.id});toast('Celular liberado');irTab('escoltas')}catch(e){toast(e.message,true)}},
 async chequeo(){
   modal(`<h2 style="margin-top:0">Revisión del celular</h2><div id="chq"><p class="mut">Revisando…</p></div>`);
-  const L=[];const ok=(t,b,x)=>L.push(`<div class="item"><b>${b?'✅':'⚠️'} ${t}</b>${x?`<br><span class="mut">${esc(x)}</span>`:''}</div>`);
+  const L=[];const ok=(t,b,x)=>L.push(`<div class="item"><b>${b===null?'ℹ️':b?'✅':'⚠️'} ${t}</b>${x?`<br><span class="mut">${esc(x)}</span>`:''}</div>`);
   const pintar=()=>{const e=$('chq');if(e)e.innerHTML=L.join('')+`<br><button class="btn big" data-act="cerrarModal">Cerrar</button>`};
   try{const t0=Date.now();const r=await api('ping',{},true);const ms=Date.now()-t0;ok('Conexión con el sistema',ms<4000,ms+' ms'+(ms>=4000?' (lenta: busca mejor señal)':''));
     const dif=Math.abs(msN0(r.hora)-Date.now());ok('Hora del celular',dif<120000,dif<120000?'Correcta':'Desajustada '+Math.round(dif/60000)+' min: activa la hora automática')}catch(e){ok('Conexión con el sistema',false,'Sin conexión')}
+  ok('Tipo de app',ES_APK,ES_APK?'APK instalada: el GPS sigue con la pantalla apagada':'Navegador: el GPS se detiene al bloquear el celular. Instala el APK.');
   try{if(navigator.permissions){const p=await navigator.permissions.query({name:'geolocation'});ok('Permiso de ubicación',p.state==='granted',p.state==='granted'?'Concedido':p.state==='prompt'?'Aún no concedido: se pedirá al iniciar':'Bloqueado: actívalo en ajustes del celular')}}catch(e){}
   const pos=await getPos(12000);
   if(pos&&isFinite(pos.lat)){const a=Math.round(pos.prec||0),lim=+S.cfg.gps_prec_max_m||150;ok('Exactitud del GPS',a>0&&a<=lim,a?a+' m'+(a>lim?' (baja: sal a cielo abierto y activa ubicación de alta precisión)':''):'sin dato')}
   else ok('GPS',false,'No se obtuvo ubicación. Activa el GPS y da permiso.');
   try{if(navigator.getBattery){const b=await navigator.getBattery();const n=Math.round(b.level*100);ok('Batería',n>=30||b.charging,n+'%'+(b.charging?' (cargando)':n<30?' (carga el celular antes de salir)':''))}}catch(e){}
+  ok('Batería sin restricciones',null,'Ajustes ▸ Apps ▸ Turnos Escoltas ▸ Batería ▸ «Sin restricciones», y ubicación «Permitir todo el tiempo». El celular no me deja verificarlo: revísalo a mano.');
   ok('Modo sin conexión guardado',Q.length===0&&QE.length===0,Q.length||QE.length?'Hay '+(Q.length+QE.length)+' registro(s) pendientes por enviar':'Nada pendiente');
   pintar();
 },
@@ -1201,7 +1218,7 @@ async exp(d){
     descargar(`turnos_${d.k.toLowerCase()}_${f.desde}_${f.hasta}.csv`,n);toast('Archivo descargado')}catch(e){toast(e.message,true)}
 },
 /* ajustes */
-async guardarCfg(){const c={};['operacion','tope_semanal','horas_caravana','punt_dias','hora_inicio_min','hora_inicio_max','bloquear_fuera_horario','bloquear_fuera_geocerca','min_escalar2','alerta_horas_pct','alerta_gps_min','min_descanso_h','bloquear_otro_celular','gps_prec_max_m','cierre_diario_hora','webhook_alertas','geo_eventos','geo_todos_turnos','avisar_geo','exigir_gps','exigir_programacion','min_aviso_previo','min_antes','min_despues','bloquear_temprano','min_tarde','min_escalar','tel_admin','tel_central','email_avisos'].forEach(k=>c[k]=val('c_'+k));try{const r=await api('guardarConfig',{config:c});A.cfg=r.config;S.cfg.operacion=c.operacion;S.cfg.tel_central=c.tel_central;S.cfg.tel_admin=c.tel_admin;saveS();toast('Reglas guardadas')}catch(e){toast(e.message,true)}},
+async guardarCfg(){const c={};['operacion','tope_semanal','horas_caravana','punt_dias','hora_inicio_min','hora_inicio_max','bloquear_fuera_horario','bloquear_fuera_geocerca','min_escalar2','alerta_horas_pct','alerta_gps_min','min_descanso_h','exigir_apk','bloquear_otro_celular','gps_prec_max_m','cierre_diario_hora','webhook_alertas','geo_eventos','geo_todos_turnos','avisar_geo','exigir_gps','exigir_programacion','min_aviso_previo','min_antes','min_despues','bloquear_temprano','min_tarde','min_escalar','tel_admin','tel_central','email_avisos'].forEach(k=>c[k]=val('c_'+k));try{const r=await api('guardarConfig',{config:c});A.cfg=r.config;S.cfg.operacion=c.operacion;S.cfg.tel_central=c.tel_central;S.cfg.tel_admin=c.tel_admin;saveS();toast('Reglas guardadas')}catch(e){toast(e.message,true)}},
 nuevaGeo(){formGeo({})},
 editGeo(d){formGeo(A.data.geo.find(x=>x.ID===d.id))},
 async usarMiUbicacion(){toast('Tomando ubicación…');const p=await getPos(12000);if(!p.lat)return toast('No se pudo obtener la ubicación',true);$('g_lat').value=p.lat.toFixed(6);$('g_lng').value=p.lng.toFixed(6)},
