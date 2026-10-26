@@ -108,6 +108,11 @@ details.card>summary::after{content:'▾';margin-left:auto;color:var(--mut)}deta
 :root[data-theme=light] .stamp.s-pend{color:#8a5a00}
 header{flex-wrap:wrap}header h1{flex:1 1 130px;min-width:0}header h1 small{text-transform:none;letter-spacing:0}
 @media (max-width:480px){header{gap:6px;padding-left:12px;padding-right:12px}header>svg{display:none}header h1{font-size:17px;letter-spacing:.4px}header button{padding:7px 10px;font-size:13px}.clk{font-size:18px}}
+.t-dark{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.88) saturate(.7)}
+.ptip{background:#ffc400;color:#111;border:1.5px solid #111;border-radius:5px;padding:0 6px;font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.8px;box-shadow:none}
+.ptip::before{display:none}.sin-tips .ptip{display:none}
+.leyenda{font-size:13px;color:var(--mut);margin:0 0 10px}
+.leaflet-container{background:var(--bg2);font-family:'Barlow',sans-serif}
 .lg-h h2{font:700 28px/1.05 'Barlow Condensed',sans-serif;margin:0 0 4px}.lg-h{margin:2px 0 14px}
 </style>
 </head>
@@ -206,6 +211,8 @@ function partes(x){
   const get=re=>{const i=h.findIndex(t=>re.test(norm(t)));if(i>=0)u.add(i);return i>=0&&!vacio(c[i])?c[i]:''};
   u.add(a.pi>=0?a.pi:0);
   const p={placa:a.placa||c[0]||'—',loc:a.loc,peso:get(/peso/),pedidos:get(/pedido|factura/),conductor:get(/conductor/),auxiliar:get(/auxiliar/),escolta:get(/escolta/),barrios:[]};
+  get(/^latitud$/);get(/^longitud$/);const ps=get(/^paradas$/);
+  p.stops=ps?ps.split(';').map(s=>s.split(',').map(Number)).filter(a=>a.length===2&&a.every(n=>isFinite(n))):[];
   h.forEach((t,i)=>{if(/barrio/.test(norm(t))){u.add(i);if(!vacio(c[i]))p.barrios.push(c[i])}else if(a.loc&&/^localidad$/.test(norm(t)))u.add(i)});
   p.otros=c.map((v,i)=>u.has(i)||vacio(v)?'':`<div><small>${esc(h[i]||'')}</small><span>${esc(v)}</span></div>`).join('');
   return x._p=p;
@@ -262,20 +269,40 @@ function resumenHtml(d){
   <div class="card"><h2>Por localidad</h2>${Object.keys(pl).sort((a,b)=>(pl[b].t-pl[b].h)-(pl[a].t-pl[a].h)||a.localeCompare(b)).map(k=>`<div class="lin"><span>${esc(k)}</span><div class="bar"><i style="width:${Math.round(pl[k].h*100/pl[k].t)}%;background:var(--ok)"></i></div><span class="num">${pl[k].h}/${pl[k].t}</span></div>`).join('')}</div></div>`;
 }
 /* ---- mapa ---- */
-let MAP=null,CAPA=null,AJUSTADO=false;
-function popup(x){return `<div>${tarjeta(x,true)}</div>`}
+let MAP=null,CAPA=null,AJUSTADO='';
+function popup(x){const a=A(x);return `<div>${tarjeta(x,true)}${a.ll?'':'<div class="mut" style="margin-top:6px">Ubicación aproximada: centro de la localidad.</div>'}</div>`}
+function capasBase(){
+  const osm='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const imagen=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Imágenes © Esri'});
+  const nombres=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19});
+  return {'Calles':L.tileLayer(osm,{maxZoom:19,attribution:'© OpenStreetMap'}),'Oscuro':L.tileLayer(osm,{maxZoom:19,className:'t-dark',attribution:'© OpenStreetMap'}),'Satélite':L.layerGroup([imagen,nombres])};
+}
+const tip=x=>({permanent:true,direction:'right',offset:[10,0],className:'ptip'});
 function pintaMapa(){
   const w=$('mapa');if(!w)return;
   if(typeof L==='undefined'){w.innerHTML='<p class="mut" style="padding:14px">No se pudo cargar el mapa (se necesita internet). La lista sigue funcionando.</p>';return}
-  if(!MAP){MAP=L.map(w).setView([4.65,-74.12],11);L.tileLayer('https://{s}.basemaps.cartocdn.com/'+(document.documentElement.dataset.theme==='light'?'light_all':'dark_all')+'/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:'© OpenStreetMap © CARTO'}).addTo(MAP);CAPA=L.layerGroup().addTo(MAP);AJUSTADO=false}
-  CAPA.clearLayers();const grupos={},sin=[],pts=[];
-  filtrados().forEach(x=>{const a=A(x);if(a.ll)(grupos['~'+x.ID]=[{x,a}]);else if(a.loc)(grupos[a.loc]=grupos[a.loc]||[]).push({x,a});else sin.push(x)});
-  Object.keys(grupos).forEach(k=>{const g=grupos[k],c=k[0]==='~'?g[0].a.ll:LOC[k];
-    g.forEach((o,i)=>{let p=c;if(k[0]!=='~'){const r=i===0?0:0.007*Math.sqrt(i),an=i*2.4;p=[c[0]+r*Math.sin(an),c[1]+r*Math.cos(an)]}
-      const st=stOf(o.x);L.circleMarker(p,{radius:9,color:'#111',weight:2,fillColor:COL[st],fillOpacity:.95}).bindPopup(()=>popup(o.x),{maxWidth:300}).addTo(CAPA);pts.push(p)});
-    if(k[0]!=='~'){const t=g.length,ok=g.filter(o=>stOf(o.x)!=='pend').length;L.marker([c[0]-0.02,c[1]],{icon:L.divIcon({className:'',html:`<div class="lbl">${esc(k)} · ${ok}/${t}</div>`,iconSize:[0,0]}),interactive:false,keyboard:false}).addTo(CAPA)}});
-  if(!AJUSTADO&&pts.length&&EM.v==='mapa'){MAP.fitBounds(L.latLngBounds(pts).pad(.2),{maxZoom:13});AJUSTADO=true}
-  $('sinub').innerHTML=sin.length?`<div class="card"><h2>Sin ubicar en el mapa (${sin.length})</h2><p class="mut" style="margin-top:0">No se encontró la localidad en estas filas.</p>${sin.map(x=>tarjeta(x)).join('')}</div>`:'';
+  if(!MAP){
+    MAP=L.map(w).setView([4.65,-74.12],11);
+    const B=capasBase(),pref=LS('em_mapa'),nom=B[pref]?pref:(document.documentElement.dataset.theme==='light'?'Calles':'Oscuro');
+    B[nom].addTo(MAP);L.control.layers(B,null,{collapsed:true}).addTo(MAP);
+    MAP.on('baselayerchange',e=>LS('em_mapa',e.name));
+    MAP.on('zoomend',()=>w.classList.toggle('sin-tips',MAP.getZoom()<12));
+    CAPA=L.layerGroup().addTo(MAP);AJUSTADO='';
+  }
+  CAPA.clearLayers();const aprox={},sin=[],pts=[];let exactos=0,naprox=0;
+  filtrados().forEach(x=>{
+    const a=A(x),p=partes(x),st=stOf(x);
+    if(a.ll){exactos++;
+      p.stops.forEach(s=>{L.circleMarker(s,{radius:3,weight:1,color:'#111',fillColor:COL[st],fillOpacity:.85,interactive:false}).addTo(CAPA);pts.push(s)});
+      L.circleMarker(a.ll,{radius:11,color:'#111',weight:2.5,fillColor:COL[st],fillOpacity:1}).bindPopup(()=>popup(x),{maxWidth:300}).bindTooltip(esc(p.placa),tip()).addTo(CAPA);pts.push(a.ll);
+    }else if(a.loc){(aprox[a.loc]=aprox[a.loc]||[]).push(x)}else sin.push(x)});
+  Object.keys(aprox).forEach(k=>{const c=LOC[k];
+    aprox[k].forEach((x,i)=>{naprox++;const r=i===0?0:0.007*Math.sqrt(i),an=i*2.4,q=[c[0]+r*Math.sin(an),c[1]+r*Math.cos(an)],st=stOf(x);
+      L.circleMarker(q,{radius:10,color:COL[st],weight:3,dashArray:'3 3',fillColor:COL[st],fillOpacity:.25}).bindPopup(()=>popup(x),{maxWidth:300}).bindTooltip(esc(partes(x).placa),tip()).addTo(CAPA);pts.push(q)})});
+  const key=EM.f+'|'+EM.l+'|'+EM.q;
+  if(pts.length&&AJUSTADO!==key){MAP.fitBounds(L.latLngBounds(pts).pad(.15),{maxZoom:15});AJUSTADO=key;w.classList.toggle('sin-tips',MAP.getZoom()<12)}
+  const ley=`<p class="leyenda">${exactos?`<b>${exactos}</b> con la ubicación real de sus entregas (puntos pequeños = paradas). `:''}${naprox?`<b>${naprox}</b> con ubicación aproximada por localidad (círculo punteado).`:''}${!exactos&&naprox?' Para ubicar cada vehículo con precisión, el Excel debe traer la hoja de pedidos con coordenadas (CX y CY).':''}</p>`;
+  $('sinub').innerHTML=ley+(sin.length?`<div class="card"><h2>Sin ubicar en el mapa (${sin.length})</h2><p class="mut" style="margin-top:0">No se encontró la localidad en estas filas.</p>${sin.map(x=>tarjeta(x)).join('')}</div>`:'');
 }
 function pinta(){
   const d=EM.d,n=$('res');if(!d||!n)return;
@@ -354,8 +381,47 @@ function mejorHoja(){
     if(s>bs){bs=s;best=n}}catch(e){}});
   return best||PF.wb.SheetNames.find(n=>/proyect/i.test(n))||PF.wb.SheetNames[0];
 }
+/* coordenadas de las entregas (hoja de pedidos con CX/CY) -> ubicación de cada vehículo */
+const cn=v=>{if(typeof v==='number')return isFinite(v)?v:null;const s=String(v==null?'':v).trim().replace(',','.');if(!/^-?\d+(\.\d+)?$/.test(s))return null;return parseFloat(s)};
+function coordsExtra(nombre,p){
+  const head=p.head.slice(),rows=p.rows.map(r=>r.slice());
+  if(p.pi<0||head.some(c=>/^paradas$/.test(norm(c))))return{head,rows};
+  const pts={};
+  PF.wb.SheetNames.forEach(n=>{if(n===nombre)return;
+    const m=XLSX.utils.sheet_to_json(PF.wb.Sheets[n],{header:1,raw:true,defval:''});
+    for(let hi=0;hi<Math.min(m.length,15);hi++){
+      const row=m[hi].map(c=>norm(String(c)));
+      const ip=row.findIndex(c=>/^placa/.test(c)||c==='vehiculo');if(ip<0)continue;
+      let ia=row.findIndex(c=>/^(cy|y|lat|latitud|coordenada y)$/.test(c)),io=row.findIndex(c=>/^(cx|x|lon|lng|long|longitud|coordenada x)$/.test(c));
+      if(ia<0||io<0){
+        const body=m.slice(hi+1,hi+80);
+        const rango=(j,lo,hi2)=>{const v=body.map(r=>cn(r[j])).filter(x=>x!==null);return v.length>=3&&v.filter(x=>x>lo&&x<hi2&&x!==Math.round(x)).length/v.length>.8};
+        for(let j=0;j<row.length;j++){if(ia<0&&rango(j,-4.5,13.5))ia=j;else if(io<0&&rango(j,-82,-66))io=j}
+      }
+      if(ia<0||io<0)continue;
+      m.slice(hi+1).forEach(r=>{let la=cn(r[ia]),lo=cn(r[io]);if(la===null||lo===null)return;
+        if(la<-60&&lo>-6){const t=la;la=lo;lo=t}
+        if(!(la>-5&&la<14&&lo<-60&&lo>-82))return;
+        const pl=String(r[ip]||'').replace(/[\s-]/g,'');
+        (pl.match(/[A-Za-z]{3}\d{2,3}[A-Za-z]?/g)||[]).forEach(t=>{t=t.toUpperCase();(pts[t]=pts[t]||[]).push([la,lo])});
+      });
+      break;
+    }
+  });
+  const n0=head.length;let hay=false;
+  rows.forEach(r=>{
+    const toks=(String(r[p.pi]||'').replace(/[\s-]/g,'').match(/[A-Za-z]{3}\d{2,3}[A-Za-z]?/g)||[]).map(t=>t.toUpperCase());
+    let q=[];toks.forEach(t=>{q=q.concat(pts[t]||[])});if(!q.length)return;hay=true;
+    const la=q.reduce((s,a)=>s+a[0],0)/q.length,lo=q.reduce((s,a)=>s+a[1],0)/q.length;
+    const seen={},u=[];q.forEach(a=>{const k=a[0].toFixed(4)+','+a[1].toFixed(4);if(!seen[k]){seen[k]=1;u.push(k)}});
+    const paso=Math.max(1,Math.ceil(u.length/80));
+    r[n0]=la.toFixed(5);r[n0+1]=lo.toFixed(5);r[n0+2]=u.filter((_,i)=>i%paso===0).join(';');
+  });
+  if(hay)head.push('Latitud','Longitud','Paradas');
+  return{head,rows,pi:p.pi};
+}
 function hoja(nombre){
-  PF.hoja=nombre;const p=parseHoja(nombre);PF.head=p.head;PF.rows=p.rows;PF.sel={};
+  PF.hoja=nombre;const p=parseHoja(nombre);try{const e=coordsExtra(nombre,p);p.head=e.head;p.rows=e.rows}catch(err){}PF.head=p.head;PF.rows=p.rows;PF.sel={};
   const oc=S.ocultas||[];
   p.head.forEach((c,i)=>{if(p.rows.some(r=>r[i]))PF.sel[i]=!oc.includes(norm(c))});
   pintaPF();
@@ -366,7 +432,7 @@ function pintaPF(){
   if(!PF.rows.length){w.innerHTML=`<div class="banner" style="margin-top:10px">No encontré vehículos en la hoja “${esc(PF.hoja)}”. Revisa que tenga una columna de placas${PF.wb&&PF.wb.SheetNames.length>1?' o elige otra hoja':''}.</div>${selHoja()}`;return}
   const on=cols.filter(i=>PF.sel[i]);
   w.innerHTML=`<div class="mut" style="margin-top:10px">📎 ${esc(PF.nombre)}</div>${selHoja()}
-   <p style="margin:8px 0 2px"><b>${PF.rows.length} vehículos</b> listos para cargar. Marca las columnas que quieres que vean los coordinadores:</p>
+   <p style="margin:8px 0 2px"><b>${PF.rows.length} vehículos</b> listos para cargar.${PF.head.includes('Paradas')?' Con la ubicación de sus entregas para el mapa.':''} Marca las columnas que quieres que vean los coordinadores:</p>
    <div class="cols">${cols.map(i=>`<label><input type="checkbox" data-col="${i}" ${PF.sel[i]?'checked':''}>${esc(PF.head[i]||'Dato '+(i+1))}</label>`).join('')}</div>
    <div class="pv"><table><tr>${on.map(i=>`<th>${esc(PF.head[i]||'Dato '+(i+1))}</th>`).join('')}</tr>${PF.rows.slice(0,4).map(r=>`<tr>${on.map(i=>`<td>${esc(r[i]||'')}</td>`).join('')}</tr>`).join('')}</table></div>
    <div class="row" style="margin-top:12px"><button class="btn ok grow" data-act="cargarPF" data-rep="0">➕ Agregar al día</button><button class="btn ghost grow" data-act="cargarPF" data-rep="1">♻ Reemplazar el día</button></div>
