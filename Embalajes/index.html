@@ -117,6 +117,13 @@ header{flex-wrap:wrap}header h1{flex:1 1 130px;min-width:0}header h1 small{text-
 .kv{margin:4px 0 0;gap:2px 10px;grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}
 .quien{font-size:12px;margin-top:5px}
 .acts{gap:6px;margin-top:7px}.acts .btn{min-height:36px;padding:6px 10px;font-size:14px;border-radius:9px}.acts .main{min-width:100px}
+/* camión */
+.truck{position:relative;flex:0 1 330px;min-width:250px;color:var(--tx)}.truck svg{display:block;width:100%;height:auto;filter:drop-shadow(0 3px 3px rgba(0,0,0,.35))}
+.tinfo{position:absolute;left:38.5%;right:3.5%;top:10%;height:48%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;pointer-events:none}
+.tinfo .plate{font-size:clamp(13px,4.6vw,18px);line-height:1.2;white-space:nowrap;max-width:100%;padding:0 6px}.trow{display:flex;gap:4px;align-items:center;justify-content:center;max-width:100%}.tloc{background:rgba(255,255,255,.88);color:#111;border-radius:999px;font-size:10.5px;font-weight:700;padding:1px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%}
+.tinfo .stamp{background:rgba(10,14,20,.78);color:#fff!important;border:0;font-size:11px;padding:1px 8px;letter-spacing:.3px}
+.vc-top{align-items:center;justify-content:space-between}
+.vc-top .chip{margin-left:0;align-self:flex-start}
 @media (max-width:480px){header{gap:6px;padding-left:12px;padding-right:12px}header>svg{display:none}header h1{font-size:17px;letter-spacing:.4px}header button{padding:7px 10px;font-size:13px}.clk{font-size:18px}}
 .t-dark{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.88) saturate(.7)}
 .ptip{background:#ffc400;color:#111;border:1.5px solid #111;border-radius:5px;padding:0 6px;font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.8px;box-shadow:none}
@@ -148,7 +155,7 @@ function modal(h){closeModal();const m=document.createElement('div');m.className
 function closeModal(){const m=$('modal');if(m)m.remove()}
 function descargar(n,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download=n;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
 
-const VERSION='2026-10-26 · destinos v5 compacta';
+const VERSION='2026-10-26 · destinos v6 tracto';
 const LOGO=`<svg width="34" height="34" style="flex:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b2545"/><path d="M256 92c-66 0-118 51-118 114 0 84 118 214 118 214s118-130 118-214c0-63-52-114-118-114z" fill="#fff"/><circle cx="256" cy="206" r="78" fill="#188a4b"/><path d="M222 208l26 27 46-54" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><circle cx="392" cy="392" r="38" fill="#e8a317"/><circle cx="392" cy="392" r="16" fill="#0b2545"/></svg>`;
 /* ---- estado y conexión ---- */
 let S=(()=>{try{return JSON.parse(LS('em_s'))||{}}catch(e){return{}}})();
@@ -238,10 +245,39 @@ function botones(x){
     ?`<button class="btn ghost main" data-act="des" data-id="${esc(x.ID)}">↩ Deshacer</button>`
     :`<button class="btn ok main" data-act="marca" data-id="${esc(x.ID)}">✓ Llamado</button><button class="btn ghost badc main" data-act="marca" data-id="${esc(x.ID)}" data-r="No contestó">✗ No contestó</button>`}${a.tel?`<a class="btn ghost" href="tel:${esc(a.tel)}">📞 Llamar</a>`:''}<button class="btn ghost" data-act="nota" data-id="${esc(x.ID)}">📝 Nota</button></div>`;
 }
+/* tractocamión: cabina convencional + remolque; el remolque toma el color del estado */
+function camion(st,placa,txt,loc){
+  const c=COL[st],R=(x,y,h)=>`<rect x="${x}" y="${y}" width="1.2" height="${h}" fill="#000" opacity=".16"/>`;
+  let ribs='';for(let x=102;x<250;x+=12)ribs+=R(x,12,32);
+  const rueda=cx=>`<circle cx="${cx}" cy="58" r="9.5" fill="#15171a"/><circle cx="${cx}" cy="58" r="6" fill="#2a2e33"/><circle cx="${cx}" cy="58" r="4" fill="url(#cr)"/><circle cx="${cx}" cy="58" r="1.4" fill="#333"/>`;
+  return `<div class="truck"><svg viewBox="0 0 262 70" role="img" aria-label="Vehículo ${esc(placa)}"><defs>
+  <linearGradient id="tr-${st}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c}"/><stop offset="1" stop-color="${c}" stop-opacity=".62"/></linearGradient>
+  <linearGradient id="cb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f6f8"/><stop offset=".55" stop-color="#d5dbe1"/><stop offset="1" stop-color="#9aa4ae"/></linearGradient>
+  <linearGradient id="gl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9fd3f2"/><stop offset="1" stop-color="#35586f"/></linearGradient>
+  <linearGradient id="cr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#7d8790"/></linearGradient></defs>
+  <rect x="0" y="66.5" width="262" height="1.6" fill="currentColor" opacity=".22"/>
+  <rect x="94" y="49" width="166" height="5" rx="1.5" fill="#23272c"/>
+  <rect x="96" y="6" width="162" height="43" rx="3" fill="url(#tr-${st})" stroke="#000" stroke-opacity=".35" stroke-width="1"/>${ribs}
+  <rect x="96" y="6" width="162" height="4" rx="2" fill="#fff" opacity=".28"/>
+  <rect x="255" y="40" width="5" height="9" rx="1" fill="#c8302b"/>
+  <path d="M5 52V33q0-4 4-4h31v23z" fill="url(#cb)" stroke="#000" stroke-opacity=".4"/>
+  <path d="M40 52V17q0-5 5-5h20l12-8h6v8h6q4 0 4 4v36z" fill="url(#cb)" stroke="#000" stroke-opacity=".4"/>
+  <path d="M43 16l1 15h18V16z" fill="url(#gl)" stroke="#222" stroke-width=".8"/><path d="M66 16v15h17V18q0-2-2-2z" fill="url(#gl)" stroke="#222" stroke-width=".8"/>
+  <rect x="40" y="35" width="48" height="3" fill="#0f2a44"/><rect x="40" y="39" width="48" height="1.4" fill="${c}"/>
+  <rect x="3.5" y="31" width="5.5" height="19" rx="1.2" fill="url(#cr)" stroke="#333" stroke-width=".6"/><path d="M5 34h3M5 37h3M5 40h3M5 43h3M5 46h3" stroke="#555" stroke-width=".6"/>
+  <rect x="9" y="30" width="16" height="2" fill="#222" opacity=".25"/><rect x="2" y="32" width="3" height="5" rx="1" fill="#fff6c8" stroke="#555" stroke-width=".5"/>
+  <rect x="2" y="48" width="12" height="4" rx="1.5" fill="#2b2f34"/>
+  <rect x="88" y="3" width="2.6" height="34" rx="1" fill="url(#cr)"/><rect x="92" y="9" width="2.6" height="28" rx="1" fill="url(#cr)"/>
+  <rect x="48" y="52" width="26" height="7" rx="3.5" fill="url(#cr)" stroke="#555" stroke-width=".6"/>
+  <rect x="74" y="49" width="22" height="4" fill="#23272c"/><circle cx="91" cy="49" r="3.2" fill="#555"/>
+  ${rueda(21)}${rueda(66)}${rueda(82)}${rueda(214)}${rueda(231)}${rueda(247)}
+  <path d="M10 62h22" stroke="none"/></svg>
+  <div class="tinfo"><span class="plate">${esc(placa)}</span><div class="trow"><span class="stamp s-${st}">${txt}</span>${loc?`<span class="tloc">${esc(loc)}</span>`:''}</div></div></div>`;
+}
 function tarjeta(x,mapa){
   const st=stOf(x),a=A(x),p=partes(x);
   const gente=[['Conductor',p.conductor],['Auxiliar',p.auxiliar],['Escolta',p.escolta]].filter(g=>g[1]);
-  return `<article class="vc ${st}" ${mapa?'':`id="v-${esc(x.ID)}"`}><div class="vc-top"><span class="plate">${esc(p.placa)}</span><span class="stamp s-${st}">${TXT[st]}</span>${a.loc?`<span class="chip">${esc(a.loc)}</span>`:''}</div>`
+  return `<article class="vc ${st}" ${mapa?'':`id="v-${esc(x.ID)}"`}><div class="vc-top">${camion(st,p.placa,TXT[st],a.loc)}</div>`
    +(p.barrios.length?`<div class="ruta">${p.barrios.map(b=>`<span>${esc(b)}</span>`).join('<i></i>')}</div>`:'')
    +((p.peso||p.pedidos)?`<div class="mets">${p.peso?`<div><b>${esc(p.peso)}</b><small>Peso</small></div>`:''}${p.pedidos?`<div><b>${esc(p.pedidos)}</b><small>${esc(p.pedL)}</small></div>`:''}</div>`:'')
    +(gente.length?`<div class="gente">${gente.map(([t,v])=>`<div><small>${t}</small><span>${esc(v)}</span></div>`).join('')}</div>`:'')
