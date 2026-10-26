@@ -121,6 +121,16 @@ header{flex-wrap:wrap}header h1{flex:1 1 130px;min-width:0}header h1 small{text-
 .truck{position:relative;flex:0 1 330px;min-width:250px;color:var(--tx)}.truck svg{display:block;width:100%;height:auto;filter:drop-shadow(0 3px 3px rgba(0,0,0,.35))}
 .tinfo{position:absolute;left:38.5%;right:3.5%;top:10%;height:48%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;pointer-events:none}
 .tinfo .plate{font-size:clamp(13px,4.6vw,18px);line-height:1.2;white-space:nowrap;max-width:100%;padding:0 6px}.trow{display:flex;gap:4px;align-items:center;justify-content:center;max-width:100%}.tloc{background:rgba(255,255,255,.88);color:#111;border-radius:999px;font-size:10.5px;font-weight:700;padding:1px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%}
+.sena,.burbuja{transform-box:fill-box;transform-origin:center}
+.pop.burbuja{animation:bur .55s cubic-bezier(.2,1.6,.4,1) both}.pop.sena{animation:sena .9s ease-out both}
+.ok .sena:not(.pop){animation:none}
+@keyframes bur{from{transform:scale(.2);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes sena{0%{transform:translateX(10px) rotate(-18deg);opacity:0}40%{opacity:1}60%{transform:rotate(10deg)}100%{transform:none}}
+.truck.con-nota .tinfo{top:9%;height:auto;flex-direction:row;flex-wrap:nowrap;gap:4px;justify-content:center}
+.truck.con-nota .tinfo .plate{font-size:clamp(11px,3.7vw,15px);flex:0 0 auto}.truck.con-nota .trow{flex:0 1 auto;min-width:0}.truck.con-nota .tloc{display:none}
+.tnota{position:absolute;left:38.5%;right:3.5%;top:38%;height:30%;box-sizing:border-box;background:#fff3b0;color:#3a2e00;border:1px solid rgba(0,0,0,.35);border-radius:3px;padding:1px 5px;font-size:clamp(8.5px,2.8vw,10.5px);line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;cursor:pointer;transform:rotate(-.6deg);box-shadow:0 1px 2px rgba(0,0,0,.35)}
+.tnota b{color:#8a5a00;font-weight:800}
+@media (prefers-reduced-motion:reduce){.pop{animation:none!important}}
 .tinfo .stamp{background:rgba(10,14,20,.78);color:#fff!important;border:0;font-size:11px;padding:1px 8px;letter-spacing:.3px}
 .vc-top{align-items:center;justify-content:space-between}
 .vc-top .chip{margin-left:0;align-self:flex-start}
@@ -246,11 +256,22 @@ function botones(x){
     :`<button class="btn ok main" data-act="marca" data-id="${esc(x.ID)}">✓ Llamado</button><button class="btn ghost badc main" data-act="marca" data-id="${esc(x.ID)}" data-r="No contestó">✗ No contestó</button>`}${a.tel?`<a class="btn ghost" href="tel:${esc(a.tel)}">📞 Llamar</a>`:''}<button class="btn ghost" data-act="nota" data-id="${esc(x.ID)}">📝 Nota</button></div>`;
 }
 /* tractocamión: cabina convencional + remolque; el remolque toma el color del estado */
-function camion(st,placa,txt,loc){
+const ICO_UP='M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z';
+const ICO_TEL='M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z';
+/* conductor en la ventana + seña según el resultado de la llamada */
+function conductor(st,nuevo){
+  const pop=nuevo?' pop':'';
+  let o=`<clipPath id="vent"><path d="M66 16v15h17V18q0-2-2-2z"/></clipPath><g clip-path="url(#vent)"><path d="M67 32q1-6 7.5-6t7.5 6z" fill="#1f3f66"/><rect x="73" y="24" width="3" height="3" fill="#d49b74"/><circle cx="74.5" cy="22" r="3.7" fill="#e2ae88"/><path d="M70.7 21.2q.3-4.2 3.8-4.2t3.8 4.2z" fill="#16314f"/><path d="M69.6 21.4h9.8" stroke="#16314f" stroke-width="1.2"/></g><path d="M67 16l5 15h-5z" fill="#fff" opacity=".16"/>`;
+  if(st==='ok')o+=`<g class="sena${pop}"><rect x="66" y="27.5" width="10" height="4.4" rx="2" fill="#1f3f66"/><g transform="translate(51.5 15.5) scale(.62)"><path d="${ICO_UP}" fill="#e2ae88" stroke="#7a4a2a" stroke-width="1"/></g></g>
+   <g class="burbuja${pop}"><rect x="5" y="1.5" width="31" height="22" rx="7" fill="#1fb85f" stroke="#0b5a2c" stroke-width="1"/><path d="M26 23l4 5 1-5z" fill="#1fb85f" stroke="#0b5a2c" stroke-width="1"/><path d="M26.4 22.6h4" stroke="#1fb85f" stroke-width="1.6"/><g transform="translate(14.5 5) scale(.66)"><path d="${ICO_UP}" fill="#fff"/></g></g>`;
+  else if(st==='nc')o+=`<g class="burbuja${pop}"><rect x="5" y="1.5" width="31" height="22" rx="7" fill="#e5483d" stroke="#6b130d" stroke-width="1"/><path d="M26 23l4 5 1-5z" fill="#e5483d" stroke="#6b130d" stroke-width="1"/><path d="M26.4 22.6h4" stroke="#e5483d" stroke-width="1.6"/><g transform="translate(14.5 5) scale(.66)"><path d="${ICO_TEL}" fill="#fff"/></g><path d="M13 20L28 5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M13 20L28 5" stroke="#6b130d" stroke-width=".8" stroke-linecap="round" opacity=".6"/></g>`;
+  return o;
+}
+function camion(st,placa,txt,loc,nota,id,nuevo){
   const c=COL[st],R=(x,y,h)=>`<rect x="${x}" y="${y}" width="1.2" height="${h}" fill="#000" opacity=".16"/>`;
   let ribs='';for(let x=102;x<250;x+=12)ribs+=R(x,12,32);
   const rueda=cx=>`<circle cx="${cx}" cy="58" r="9.5" fill="#15171a"/><circle cx="${cx}" cy="58" r="6" fill="#2a2e33"/><circle cx="${cx}" cy="58" r="4" fill="url(#cr)"/><circle cx="${cx}" cy="58" r="1.4" fill="#333"/>`;
-  return `<div class="truck"><svg viewBox="0 0 262 70" role="img" aria-label="Vehículo ${esc(placa)}"><defs>
+  return `<div class="truck${nota?' con-nota':''}"><svg viewBox="0 0 262 70" role="img" aria-label="Vehículo ${esc(placa)}"><defs>
   <linearGradient id="tr-${st}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c}"/><stop offset="1" stop-color="${c}" stop-opacity=".62"/></linearGradient>
   <linearGradient id="cb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f6f8"/><stop offset=".55" stop-color="#d5dbe1"/><stop offset="1" stop-color="#9aa4ae"/></linearGradient>
   <linearGradient id="gl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9fd3f2"/><stop offset="1" stop-color="#35586f"/></linearGradient>
@@ -263,6 +284,7 @@ function camion(st,placa,txt,loc){
   <path d="M5 52V33q0-4 4-4h31v23z" fill="url(#cb)" stroke="#000" stroke-opacity=".4"/>
   <path d="M40 52V17q0-5 5-5h20l12-8h6v8h6q4 0 4 4v36z" fill="url(#cb)" stroke="#000" stroke-opacity=".4"/>
   <path d="M43 16l1 15h18V16z" fill="url(#gl)" stroke="#222" stroke-width=".8"/><path d="M66 16v15h17V18q0-2-2-2z" fill="url(#gl)" stroke="#222" stroke-width=".8"/>
+  ${conductor(st,nuevo)}
   <rect x="40" y="35" width="48" height="3" fill="#0f2a44"/><rect x="40" y="39" width="48" height="1.4" fill="${c}"/>
   <rect x="3.5" y="31" width="5.5" height="19" rx="1.2" fill="url(#cr)" stroke="#333" stroke-width=".6"/><path d="M5 34h3M5 37h3M5 40h3M5 43h3M5 46h3" stroke="#555" stroke-width=".6"/>
   <rect x="9" y="30" width="16" height="2" fill="#222" opacity=".25"/><rect x="2" y="32" width="3" height="5" rx="1" fill="#fff6c8" stroke="#555" stroke-width=".5"/>
@@ -272,18 +294,18 @@ function camion(st,placa,txt,loc){
   <rect x="74" y="49" width="22" height="4" fill="#23272c"/><circle cx="91" cy="49" r="3.2" fill="#555"/>
   ${rueda(21)}${rueda(66)}${rueda(82)}${rueda(214)}${rueda(231)}${rueda(247)}
   <path d="M10 62h22" stroke="none"/></svg>
-  <div class="tinfo"><span class="plate">${esc(placa)}</span><div class="trow"><span class="stamp s-${st}">${txt}</span>${loc?`<span class="tloc">${esc(loc)}</span>`:''}</div></div></div>`;
+  <div class="tinfo"><span class="plate">${esc(placa)}</span><div class="trow"><span class="stamp s-${st}">${txt}</span>${loc?`<span class="tloc">${esc(loc)}</span>`:''}</div></div>${nota?`<div class="tnota" data-act="nota" data-id="${esc(id)}" title="${esc(nota)}"><b>Obs.</b> ${esc(nota)}</div>`:''}</div>`;
 }
 function tarjeta(x,mapa){
   const st=stOf(x),a=A(x),p=partes(x);
   const gente=[['Conductor',p.conductor],['Auxiliar',p.auxiliar],['Escolta',p.escolta]].filter(g=>g[1]);
-  return `<article class="vc ${st}" ${mapa?'':`id="v-${esc(x.ID)}"`}><div class="vc-top">${camion(st,p.placa,TXT[st],a.loc)}</div>`
+  return `<article class="vc ${st}" ${mapa?'':`id="v-${esc(x.ID)}"`}><div class="vc-top">${camion(st,p.placa,TXT[st],a.loc,x.Nota,x.ID,EM.pop===x.ID)}</div>`
    +(p.barrios.length?`<div class="ruta">${p.barrios.map(b=>`<span>${esc(b)}</span>`).join('<i></i>')}</div>`:'')
    +((p.peso||p.pedidos)?`<div class="mets">${p.peso?`<div><b>${esc(p.peso)}</b><small>Peso</small></div>`:''}${p.pedidos?`<div><b>${esc(p.pedidos)}</b><small>${esc(p.pedL)}</small></div>`:''}</div>`:'')
    +(gente.length?`<div class="gente">${gente.map(([t,v])=>`<div><small>${t}</small><span>${esc(v)}</span></div>`).join('')}</div>`:'')
    +(p.otros?`<div class="kv">${p.otros}</div>`:'')
    +(st!=='pend'?`<div class="quien">${esc(x.Resultado||'Llamado')} por ${esc(corto(x.LlamadoPor))} a las ${hm(x.LlamadoEn)}</div>`:'')
-   +(x.Nota?`<div class="nota">📝 ${esc(x.Nota)}</div>`:'')+botones(x)+`</article>`;
+   +botones(x)+`</article>`;
 }
 const ORD={pend:0,nc:1,ok:2};
 function filtrados(){const d=EM.d,q=EM.q.toLowerCase();
@@ -539,7 +561,7 @@ const enlace=()=>location.href.split('#')[0].split('?')[0]+'#api='+encodeURIComp
 async function carga(){if(!S.token)return;try{EM.d=await api('listar',{fecha:S.rol==='A'?S.fecha:undefined});EM.sync=new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});pinta();if(S.rol==='A'&&S.puente&&EM.d.total===0&&Date.now()-EM.autoT>300000)traerCorreo(true)}catch(e){if(!EM.d&&$('res'))$('res').innerHTML=`<div class="banner">${esc(e.offline?'Sin conexión. Reintentando…':e.message)}</div>`}}
 async function accion(p){
   const x=p.id&&EM.d?EM.d.items.find(i=>i.ID===p.id):null;
-  if(x){if(p.deshacer){x.Llamado='';x.Resultado='';x.LlamadoPor='';x.LlamadoEn=''}else if(p.resultado){x.Llamado='SI';x.Resultado=p.resultado;x.LlamadoPor=S.nombre||'';x.LlamadoEn=ahora()}if(p.nota!==undefined)x.Nota=p.nota;pinta()}
+  if(x){if(p.deshacer){x.Llamado='';x.Resultado='';x.LlamadoPor='';x.LlamadoEn=''}else if(p.resultado){x.Llamado='SI';x.Resultado=p.resultado;x.LlamadoPor=S.nombre||'';x.LlamadoEn=ahora()}if(p.nota!==undefined)x.Nota=p.nota;EM.pop=x.ID;pinta();EM.pop=''}
   try{EM.d=await api('marcar',Object.assign({fecha:S.rol==='A'?S.fecha:undefined},p));pinta()}catch(e){toast(e.message,true);carga()}
 }
 function inicio(){
