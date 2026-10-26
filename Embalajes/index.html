@@ -157,9 +157,9 @@ async function login(){
   try{const p=await api('ping',{},true);LG.adminCreado=p.adminCreado;pintaLogin()}catch(e){}
 }
 function pintaLogin(){
-  $('rt').innerHTML=[['S','Sargento'],['A','Administrador']].map(([k,n])=>`<button class="${LG.rol===k?'on':''}" data-act="rol" data-r="${k}">${n}</button>`).join('');
+  $('rt').innerHTML=[['S','Coordinador REPCO'],['A','Administrador']].map(([k,n])=>`<button class="${LG.rol===k?'on':''}" data-act="rol" data-r="${k}">${n}</button>`).join('');
   $('lb').innerHTML=LG.rol==='S'
-   ?`<label>Tu nombre</label><input id="ln" value="${esc(LS('em_n')||'')}" placeholder="Ej: Sgto. Pérez" autocomplete="name"><label>Clave</label><input id="lc" type="password"><br><br><button class="btn big" data-act="entrar">Entrar</button>`
+   ?`<label>Tu nombre</label><input id="ln" value="${esc(LS('em_n')||'')}" placeholder="Ej: Juan Pérez" autocomplete="name"><label>Clave</label><input id="lc" type="password"><br><br><button class="btn big" data-act="entrar">Entrar</button>`
    :`${LG.adminCreado?'':'<div class="banner" style="background:var(--warnbg);color:#8a5a00;margin-top:12px">Primera vez: la clave que escribas será la clave de administrador (mínimo 6).</div>'}<label>${LG.adminCreado?'Clave de administrador':'Crea la clave de administrador'}</label><input id="lc" type="password"><br><br><button class="btn big" data-act="entrar">${LG.adminCreado?'Entrar':'Crear y entrar'}</button>`;
 }
 async function entrar(){
@@ -258,7 +258,7 @@ function resumenHtml(d){
   return `<div class="grid2">
   <div class="card"><h2>Llamadas por hora</h2>${hk.length?`<div class="hrs">${hk.map(k=>`<div><b>${hrs[k]}</b><i style="height:${Math.round(hrs[k]*80/mx)}px"></i>${k}h</div>`).join('')}</div>`:vacioMsg}${ts.length?`<p class="mut" style="margin:10px 0 0">Primera llamada a las ${hm(ts[0])}, última a las ${hm(ts[ts.length-1])}.</p>`:''}</div>
   <div class="card"><h2>Últimas llamadas</h2>${ult.length?ult.map(x=>`<div class="lin"><span class="hora">${hm(x.LlamadoEn)}</span><span><b>${esc(partes(x).placa)}</b> <span class="mut">${esc(corto(x.LlamadoPor))}</span></span><span class="stamp s-${stOf(x)}">${TXT[stOf(x)]}</span></div>`).join(''):vacioMsg}</div>
-  <div class="card"><h2>Por sargento</h2>${Object.keys(ps).length?Object.keys(ps).sort((a,b)=>(ps[b].ok+ps[b].nc)-(ps[a].ok+ps[a].nc)).map(k=>{const t=ps[k].ok+ps[k].nc;return `<div class="lin"><span>${esc(k)}</span><span class="mut">${ps[k].nc?ps[k].nc+' sin respuesta':''}</span><span class="num">${t}</span></div>`}).join(''):vacioMsg}</div>
+  <div class="card"><h2>Por coordinador REPCO</h2>${Object.keys(ps).length?Object.keys(ps).sort((a,b)=>(ps[b].ok+ps[b].nc)-(ps[a].ok+ps[a].nc)).map(k=>{const t=ps[k].ok+ps[k].nc;return `<div class="lin"><span>${esc(k)}</span><span class="mut">${ps[k].nc?ps[k].nc+' sin respuesta':''}</span><span class="num">${t}</span></div>`}).join(''):vacioMsg}</div>
   <div class="card"><h2>Por localidad</h2>${Object.keys(pl).sort((a,b)=>(pl[b].t-pl[b].h)-(pl[a].t-pl[a].h)||a.localeCompare(b)).map(k=>`<div class="lin"><span>${esc(k)}</span><div class="bar"><i style="width:${Math.round(pl[k].h*100/pl[k].t)}%;background:var(--ok)"></i></div><span class="num">${pl[k].h}/${pl[k].t}</span></div>`).join('')}</div></div>`;
 }
 /* ---- mapa ---- */
@@ -309,7 +309,7 @@ function soporte(){
     return [i+1,d.fecha,a.placa,a.loc,ll?ll[0]:'',ll?ll[1]:'',ll?`https://www.google.com/maps?q=${ll[0]},${ll[1]}`:'',...orig.map((_,k)=>c[k]||''),TXT[stOf(x)],x.Llamado==='SI'?x.Resultado:'',x.LlamadoPor,x.LlamadoEn,x.Nota]});
   const cnt=a=>{const o={ok:0,nc:0,pend:0};a.forEach(x=>o[stOf(x)]++);return o};
   const T=cnt(d.items),ll=d.items.filter(x=>x.LlamadoEn).map(x=>x.LlamadoEn).sort();
-  const res=[['SOPORTE DE SEGUIMIENTO DE LLAMADAS — EMBALAJES'],['Fecha',d.fecha],['Generado',new Date().toLocaleString('es-CO')],[],['Total embalajes',d.total],['Llamados (contestaron)',T.ok],['No contestaron',T.nc],['Pendientes',T.pend],['% gestionado',d.total?Math.round((T.ok+T.nc)*100/d.total)+'%':''],['Primera llamada',ll[0]||''],['Última llamada',ll[ll.length-1]||''],[],['POR SARGENTO','Llamados','No contestó']];
+  const res=[['SOPORTE DE SEGUIMIENTO DE LLAMADAS — EMBALAJES'],['Fecha',d.fecha],['Generado',new Date().toLocaleString('es-CO')],[],['Total embalajes',d.total],['Llamados (contestaron)',T.ok],['No contestaron',T.nc],['Pendientes',T.pend],['% gestionado',d.total?Math.round((T.ok+T.nc)*100/d.total)+'%':''],['Primera llamada',ll[0]||''],['Última llamada',ll[ll.length-1]||''],[],['POR COORDINADOR REPCO','Llamados','No contestó']];
   const ps={};d.items.filter(x=>x.Llamado==='SI').forEach(x=>{const p=ps[x.LlamadoPor]=ps[x.LlamadoPor]||[0,0];stOf(x)==='nc'?p[1]++:p[0]++});Object.keys(ps).forEach(k=>res.push([k,ps[k][0],ps[k][1]]));
   res.push([],['POR LOCALIDAD','Total','Llamados','No contestó','Pendientes']);
   const pl={};d.items.forEach((x,i)=>{const k=an[i].loc||'Sin ubicar';(pl[k]=pl[k]||[]).push(x)});Object.keys(pl).sort().forEach(k=>{const c=cnt(pl[k]);res.push([k,pl[k].length,c.ok,c.nc,c.pend])});
@@ -366,7 +366,7 @@ function pintaPF(){
   if(!PF.rows.length){w.innerHTML=`<div class="banner" style="margin-top:10px">No encontré vehículos en la hoja “${esc(PF.hoja)}”. Revisa que tenga una columna de placas${PF.wb&&PF.wb.SheetNames.length>1?' o elige otra hoja':''}.</div>${selHoja()}`;return}
   const on=cols.filter(i=>PF.sel[i]);
   w.innerHTML=`<div class="mut" style="margin-top:10px">📎 ${esc(PF.nombre)}</div>${selHoja()}
-   <p style="margin:8px 0 2px"><b>${PF.rows.length} vehículos</b> listos para cargar. Marca las columnas que quieres que vean los sargentos:</p>
+   <p style="margin:8px 0 2px"><b>${PF.rows.length} vehículos</b> listos para cargar. Marca las columnas que quieres que vean los coordinadores:</p>
    <div class="cols">${cols.map(i=>`<label><input type="checkbox" data-col="${i}" ${PF.sel[i]?'checked':''}>${esc(PF.head[i]||'Dato '+(i+1))}</label>`).join('')}</div>
    <div class="pv"><table><tr>${on.map(i=>`<th>${esc(PF.head[i]||'Dato '+(i+1))}</th>`).join('')}</tr>${PF.rows.slice(0,4).map(r=>`<tr>${on.map(i=>`<td>${esc(r[i]||'')}</td>`).join('')}</tr>`).join('')}</table></div>
    <div class="row" style="margin-top:12px"><button class="btn ok grow" data-act="cargarPF" data-rep="0">➕ Agregar al día</button><button class="btn ghost grow" data-act="cargarPF" data-rep="1">♻ Reemplazar el día</button></div>
@@ -429,12 +429,12 @@ function panelAdmin(){return `<details class="card" id="adm" open><summary>📥 
  <div class="row" style="margin-top:8px"><button class="btn ghost sm" data-act="irdia" data-d="0">Hoy</button><button class="btn ghost sm" data-act="irdia" data-d="1">Mañana</button><span class="mut">La Proyectada se hace el día anterior: carga “Mañana”.</span></div>
  <div class="seg" style="margin-top:14px"><button class="on" id="m1" data-act="modo" data-m="1">📎 Subir Excel</button><button id="m2" data-act="modo" data-m="2">📋 Pegar</button></div>
  <div id="modo1" style="margin-top:12px"><button class="btn ghost big" data-act="correo" style="margin-bottom:10px">📧 Traer del correo (Centro Control)</button><button class="drop" data-act="elegir">📎 Elegir la Proyectada (Excel)</button><input type="file" id="pf" accept=".xlsx,.xls,.xlsm,.csv" style="display:none"><div id="pv"></div></div>
- <div id="modo2" style="display:none;margin-top:12px"><p class="mut" style="margin:0 0 8px">Copia las filas desde Excel y pégalas aquí. Los sargentos las ven al instante.</p>
+ <div id="modo2" style="display:none;margin-top:12px"><p class="mut" style="margin:0 0 8px">Copia las filas desde Excel y pégalas aquí. Los coordinadores las ven al instante.</p>
  <textarea id="tx" rows="6" placeholder="Pega aquí la lista…"></textarea>
  <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="enc" style="width:auto"> La primera línea son los títulos de las columnas</label>
  <div class="row" style="margin-top:10px"><button class="btn ok grow" data-act="cargar" data-rep="0">➕ Agregar al día</button><button class="btn ghost grow" data-act="cargar" data-rep="1">♻ Reemplazar el día</button></div></div>
  <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
- <div class="row"><button class="btn ghost sm" data-act="copiar">🔗 Copiar enlace para sargentos</button><button class="btn ghost sm" data-act="wa">💬 WhatsApp</button><button class="btn ghost sm badc" data-act="borrar" style="margin-left:auto">🗑 Borrar el día</button></div></details>`}
+ <div class="row"><button class="btn ghost sm" data-act="copiar">🔗 Copiar enlace para coordinadores</button><button class="btn ghost sm" data-act="wa">💬 WhatsApp</button><button class="btn ghost sm badc" data-act="borrar" style="margin-left:auto">🗑 Borrar el día</button></div></details>`}
 
 const ACT={
 rol(d){LG.rol=d.r;pintaLogin()},entrar,salir(){salir()},
@@ -464,10 +464,10 @@ async cargar(d){const t=$('tx').value;if(!t.trim())return toast('Pega primero la
  if(d.rep==='1'&&!confirm('Se borra la lista de ese día (con sus marcas) y se carga la nueva. ¿Continuar?'))return;
  if(await enviaCarga(t,$('enc').checked,d.rep==='1'))$('tx').value=''},
 async borrar(){if(!confirm('¿Borrar toda la lista de este día?'))return;try{EM.d=await api('borrar',{fecha:S.fecha});pinta();toast('Día borrado')}catch(e){toast(e.message,true)}},
-copiar(){const l=enlace();if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(l).then(()=>toast('Enlace copiado. Envíaselo a los sargentos'),()=>prompt('Copia este enlace:',l));else prompt('Copia este enlace:',l)},
+copiar(){const l=enlace();if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(l).then(()=>toast('Enlace copiado. Envíaselo a los coordinadores'),()=>prompt('Copia este enlace:',l));else prompt('Copia este enlace:',l)},
 wa(){window.open('https://wa.me/?text='+encodeURIComponent('Seguimiento de llamadas de embalajes: '+enlace()),'_blank')},
-claves(){modal(`<h2 style="margin-top:0">Ajustes</h2><label>Clave de los sargentos (la usan todos; mínimo 4)</label><input id="cs"><br><br><button class="btn big" data-act="gcs">Guardar clave de sargentos</button><label style="margin-top:16px">Cambiar mi clave de administrador (mínimo 6)</label><input id="ca"><br><br><button class="btn ghost big" data-act="gca">Guardar mi clave</button><label style="margin-top:16px">Puente de correo: enlace del script “PUENTE CORREO EMBALAJES” (termina en /exec)</label><input id="pu" value="${esc(S.puente&&S.puente.url||'')}" placeholder="https://script.google.com/macros/s/…/exec"><label>Clave del puente (la que está en el script)</label><input id="pk" type="password" value="${esc(S.puente&&S.puente.k||'')}"><br><br><button class="btn ghost big" data-act="gpu">Guardar puente</button><p class="mut">Se guarda solo en este dispositivo.</p>`)},
-async gcs(){try{await api('ponerClaveSargentos',{clave:val('cs')});closeModal();toast('Clave de sargentos guardada')}catch(e){toast(e.message,true)}},
+claves(){modal(`<h2 style="margin-top:0">Ajustes</h2><label>Clave de los coordinadores REPCO (la usan todos; mínimo 4)</label><input id="cs"><br><br><button class="btn big" data-act="gcs">Guardar clave de coordinadores</button><label style="margin-top:16px">Cambiar mi clave de administrador (mínimo 6)</label><input id="ca"><br><br><button class="btn ghost big" data-act="gca">Guardar mi clave</button><label style="margin-top:16px">Puente de correo: enlace del script “PUENTE CORREO EMBALAJES” (termina en /exec)</label><input id="pu" value="${esc(S.puente&&S.puente.url||'')}" placeholder="https://script.google.com/macros/s/…/exec"><label>Clave del puente (la que está en el script)</label><input id="pk" type="password" value="${esc(S.puente&&S.puente.k||'')}"><br><br><button class="btn ghost big" data-act="gpu">Guardar puente</button><p class="mut">Se guarda solo en este dispositivo.</p>`)},
+async gcs(){try{await api('ponerClaveSargentos',{clave:val('cs')});closeModal();toast('Clave de coordinadores guardada')}catch(e){toast(e.message,true)}},
 async gca(){try{if(val('ca').length<6)throw new Error('Mínimo 6 caracteres');await api('cambiarClaveAdmin',{clave:val('ca')});closeModal();toast('Clave guardada')}catch(e){toast(e.message,true)}}
 };
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;const f=ACT[b.dataset.act];if(f){e.preventDefault();f(b.dataset)}});
