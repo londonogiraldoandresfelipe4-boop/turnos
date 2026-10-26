@@ -138,7 +138,7 @@ function modal(h){closeModal();const m=document.createElement('div');m.className
 function closeModal(){const m=$('modal');if(m)m.remove()}
 function descargar(n,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download=n;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
 
-const VERSION='2026-10-26 · mapa v3';
+const VERSION='2026-10-26 · destinos v4';
 const LOGO=`<svg width="34" height="34" style="flex:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b2545"/><path d="M256 92c-66 0-118 51-118 114 0 84 118 214 118 214s118-130 118-214c0-63-52-114-118-114z" fill="#fff"/><circle cx="256" cy="206" r="78" fill="#188a4b"/><path d="M222 208l26 27 46-54" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><circle cx="392" cy="392" r="38" fill="#e8a317"/><circle cx="392" cy="392" r="16" fill="#0b2545"/></svg>`;
 /* ---- estado y conexión ---- */
 let S=(()=>{try{return JSON.parse(LS('em_s'))||{}}catch(e){return{}}})();
@@ -177,15 +177,19 @@ async function entrar(){
 /* ---- ubicación por localidad (centros aproximados) ---- */
 const norm=t=>String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
 const LOC={'Usaquén':[4.7500,-74.0310],'Chapinero':[4.6500,-74.0560],'Santa Fe':[4.6050,-74.0650],'San Cristóbal':[4.5650,-74.0850],'Usme':[4.4700,-74.1200],'Tunjuelito':[4.5800,-74.1330],'Bosa':[4.6050,-74.1900],'Kennedy':[4.6300,-74.1500],'Fontibón':[4.6700,-74.1450],'Engativá':[4.7000,-74.1100],'Suba':[4.7400,-74.0900],'Barrios Unidos':[4.6700,-74.0800],'Teusaquillo':[4.6350,-74.0900],'Los Mártires':[4.6050,-74.0850],'Antonio Nariño':[4.5900,-74.1000],'Puente Aranda':[4.6150,-74.1100],'La Candelaria':[4.5950,-74.0730],'Rafael Uribe Uribe':[4.5600,-74.1100],'Ciudad Bolívar':[4.5400,-74.1600],'Sumapaz':[4.30,-74.25],
- 'Soacha':[4.5790,-74.2160],'Funza':[4.7160,-74.2120],'Mosquera':[4.7060,-74.2300],'Madrid':[4.7320,-74.2650],'Cota':[4.8110,-74.1000],'Chía':[4.8620,-74.0580],'Cajicá':[4.9180,-74.0280],'Zipaquirá':[5.0220,-74.0050],'Facatativá':[4.8140,-74.3550],'Tocancipá':[4.9650,-73.9120],'Sopó':[4.9060,-73.9410],'La Calera':[4.7200,-73.9690],'Bogotá':[4.6097,-74.0817]};
+ 'Soacha':[4.5790,-74.2160],'Funza':[4.7160,-74.2120],'Mosquera':[4.7060,-74.2300],'Madrid':[4.7320,-74.2650],'Cota':[4.8110,-74.1000],'Chía':[4.8620,-74.0580],'Cajicá':[4.9180,-74.0280],'Zipaquirá':[5.0220,-74.0050],'Facatativá':[4.8140,-74.3550],'Tocancipá':[4.9650,-73.9120],'Sopó':[4.9060,-73.9410],'La Calera':[4.7200,-73.9690],'Bogotá':[4.6097,-74.0817],
+ 'Sibaté':[4.4900,-74.2600],'Guasca':[4.8660,-73.8770],'Cogua':[5.0600,-73.9790],'El Colegio':[4.5830,-74.4400],'Útica':[5.1870,-74.4900],'Villagómez':[5.2780,-74.1740],'El Rosal':[4.8500,-74.2650],'San Juan de Rioseco':[4.8453,-74.6258],'Madelena':[4.5750,-74.1450],'Montevideo':[4.6400,-74.1280]};
+const ALIAS={'madelena':'Madelena','la madelena':'Madelena','madalena':'Madelena','tocancipa':'Tocancipá','sibate':'Sibaté','utica':'Útica','villa gomez':'Villagómez','rioseco':'San Juan de Rioseco','san juan rioseco':'San Juan de Rioseco','san juan de rio seco':'San Juan de Rioseco','ciudad bolivar':'Ciudad Bolívar','cd bolivar':'Ciudad Bolívar'};
+const titulo=t=>String(t).toLowerCase().replace(/(^|\s)([a-zñáéíóú])/g,(m,a,b)=>a+b.toUpperCase()).replace(/\b(De|Del|La|Las|El|Los)\b(?!^)/g,(m,w,i)=>i?m.toLowerCase():m);
 const LOCN=Object.keys(LOC).map(n=>[norm(n),n]).sort((a,b)=>b[0].length-a[0].length);
-function buscaLoc(txt){const t=' '+norm(txt)+' ';for(const [k,n] of LOCN){if(k!=='bogota'&&t.includes(' '+k+' '))return n}return t.includes(' bogota ')?'Bogotá':''}
+function buscaLoc(txt){const t=' '+norm(txt)+' ';for(const k in ALIAS){if(t.includes(' '+k+' '))return ALIAS[k]}for(const [k,n] of LOCN){if(k!=='bogota'&&t.includes(' '+k+' '))return n}return t.includes(' bogota ')?'Bogotá':''}
 const PLACA_RE=/[A-Za-z]{3}\s?-?\s?\d{3}/;
 function analiza(det,enc){
   const c=det.split(' | '),h=enc?enc.split(' | '):[];
   const hi=re=>h.findIndex(x=>re.test(norm(x)));
   const col=re=>{const i=hi(re);return i>=0?c[i]||'':''};
-  let loc=buscaLoc(col(/localidad|municipio|ciudad/));if(!loc)loc=buscaLoc(c.join(' '));
+  const dest=col(/^(destinos?|localidad|municipio|ciudad|zona)$/)||col(/destino|localidad|municipio|ciudad/);
+  let loc=buscaLoc(dest);if(!loc&&!vacio(dest)&&!/^[\d\s.,-]+$/.test(dest))loc=titulo(dest.replace(/\s+/g,' ').trim());if(!loc)loc=buscaLoc(c.join(' '));
   let pi=hi(/placa|vehiculo/),placa=pi>=0?(c[pi]||''):'';
   if(!PLACA_RE.test(placa)){const m=det.match(/\b[A-Za-z]{3}\s?-?\s?\d{3}\b/);if(m){placa=m[0].toUpperCase().replace(/[\s-]/g,'');pi=c.findIndex(v=>v.includes(m[0]))}else{pi=-1}}
   let ll=null;const g=det.match(/(-?\d{1,2}\.\d{3,})\s*[,;|\s]\s*(-?\d{2,3}\.\d{3,})/);if(g){const a=+g[1],b=+g[2];if(a>-5&&a<14&&b<-60&&b>-82)ll=[a,b]}
@@ -211,10 +215,10 @@ function partes(x){
   const a=A(x),c=a.cells,h=a.h,u=new Set();
   const get=re=>{const i=h.findIndex(t=>re.test(norm(t)));if(i>=0)u.add(i);return i>=0&&!vacio(c[i])?c[i]:''};
   u.add(a.pi>=0?a.pi:0);
-  const p={placa:a.placa||c[0]||'—',loc:a.loc,peso:get(/peso/),pedidos:get(/pedido|factura/),conductor:get(/conductor/),auxiliar:get(/auxiliar/),escolta:get(/escolta/),barrios:[]};
+  const p={placa:a.placa||c[0]||'—',loc:a.loc,peso:get(/peso/),pedidos:get(/pedido|factura/),pedL:(h.map(norm).find(t=>/pedido|factura/.test(t))||'pedidos').replace(/^./,m=>m.toUpperCase()),conductor:get(/conductor/),auxiliar:get(/auxiliar/),escolta:get(/escolta/),barrios:[]};
   get(/^latitud$/);get(/^longitud$/);const ps=get(/^paradas$/);
   p.stops=ps?ps.split(';').map(s=>s.split(',').map(Number)).filter(a=>a.length===2&&a.every(n=>isFinite(n))):[];
-  h.forEach((t,i)=>{if(/barrio/.test(norm(t))){u.add(i);if(!vacio(c[i]))p.barrios.push(c[i])}else if(a.loc&&/^localidad$/.test(norm(t)))u.add(i)});
+  h.forEach((t,i)=>{if(/barrio/.test(norm(t))){u.add(i);if(!vacio(c[i]))p.barrios.push(c[i])}else if(a.loc&&/^(localidad|destinos?|municipio|ciudad)$/.test(norm(t)))u.add(i)});
   p.otros=c.map((v,i)=>u.has(i)||vacio(v)?'':`<div><small>${esc(h[i]||'')}</small><span>${esc(v)}</span></div>`).join('');
   return x._p=p;
 }
@@ -229,7 +233,7 @@ function tarjeta(x,mapa){
   const gente=[['Conductor',p.conductor],['Auxiliar',p.auxiliar],['Escolta',p.escolta]].filter(g=>g[1]);
   return `<article class="vc ${st}" ${mapa?'':`id="v-${esc(x.ID)}"`}><div class="vc-top"><span class="plate">${esc(p.placa)}</span><span class="stamp s-${st}">${TXT[st]}</span>${a.loc?`<span class="chip">${esc(a.loc)}</span>`:''}</div>`
    +(p.barrios.length?`<div class="ruta">${p.barrios.map(b=>`<span>${esc(b)}</span>`).join('<i></i>')}</div>`:'')
-   +((p.peso||p.pedidos)?`<div class="mets">${p.peso?`<div><b>${esc(p.peso)}</b><small>Peso</small></div>`:''}${p.pedidos?`<div><b>${esc(p.pedidos)}</b><small>Pedidos</small></div>`:''}</div>`:'')
+   +((p.peso||p.pedidos)?`<div class="mets">${p.peso?`<div><b>${esc(p.peso)}</b><small>Peso</small></div>`:''}${p.pedidos?`<div><b>${esc(p.pedidos)}</b><small>${esc(p.pedL)}</small></div>`:''}</div>`:'')
    +(gente.length?`<div class="gente">${gente.map(([t,v])=>`<div><small>${t}</small><span>${esc(v)}</span></div>`).join('')}</div>`:'')
    +(p.otros?`<div class="kv">${p.otros}</div>`:'')
    +(st!=='pend'?`<div class="quien">${esc(x.Resultado||'Llamado')} por ${esc(corto(x.LlamadoPor))} a las ${hm(x.LlamadoEn)}</div>`:'')
@@ -306,14 +310,14 @@ function pintaMapa(){
     if(a.ll){exactos++;
       p.stops.forEach(s=>{L.circleMarker(s,{radius:3,weight:1,color:'#111',fillColor:COL[st],fillOpacity:.85,interactive:false}).addTo(CAPA);pts.push(s)});
       L.circleMarker(a.ll,{radius:11,color:'#111',weight:2.5,fillColor:COL[st],fillOpacity:1}).bindPopup(()=>popup(x),{maxWidth:300}).bindTooltip(esc(p.placa),tip()).addTo(CAPA);pts.push(a.ll);
-    }else if(a.loc){(aprox[a.loc]=aprox[a.loc]||[]).push(x)}else sin.push(x)});
+    }else if(a.loc&&LOC[a.loc]){(aprox[a.loc]=aprox[a.loc]||[]).push(x)}else sin.push(x)});
   Object.keys(aprox).forEach(k=>{const c=LOC[k];
     aprox[k].forEach((x,i)=>{naprox++;const r=i===0?0:0.007*Math.sqrt(i),an=i*2.4,q=[c[0]+r*Math.sin(an),c[1]+r*Math.cos(an)],st=stOf(x);
       L.circleMarker(q,{radius:10,color:COL[st],weight:3,dashArray:'3 3',fillColor:COL[st],fillOpacity:.25}).bindPopup(()=>popup(x),{maxWidth:300}).bindTooltip(esc(partes(x).placa),tip()).addTo(CAPA);pts.push(q)})});
   const key=EM.f+'|'+EM.l+'|'+EM.q;
   if(pts.length&&AJUSTADO!==key){MAP.fitBounds(L.latLngBounds(pts).pad(.15),{maxZoom:15});AJUSTADO=key;w.classList.toggle('sin-tips',MAP.getZoom()<12)}
   const ley=`<p class="leyenda">${exactos?`<b>${exactos}</b> con la ubicación real de sus entregas (puntos pequeños = paradas). `:''}${naprox?`<b>${naprox}</b> con ubicación aproximada por localidad (círculo punteado).`:''}${!exactos&&naprox?' Para ubicar cada vehículo con precisión, el Excel debe traer la hoja de pedidos con coordenadas (CX y CY).':''}</p>`;
-  $('sinub').innerHTML=ley+(sin.length?`<div class="card"><h2>Sin ubicar en el mapa (${sin.length})</h2><p class="mut" style="margin-top:0">No se encontró la localidad en estas filas.</p>${sin.map(x=>tarjeta(x)).join('')}</div>`:'');
+  $('sinub').innerHTML=ley+(sin.length?`<div class="card"><h2>Sin ubicar en el mapa (${sin.length})</h2><p class="mut" style="margin-top:0">Estos destinos no tienen coordenadas conocidas; se ven en la lista.</p>${sin.map(x=>tarjeta(x)).join('')}</div>`:'');
 }
 function pinta(){
   const d=EM.d,n=$('res');if(!d||!n)return;
