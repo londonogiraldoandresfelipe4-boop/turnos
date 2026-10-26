@@ -107,6 +107,16 @@ details.card>summary::after{content:'▾';margin-left:auto;color:var(--mut)}deta
 :root[data-theme=light] .clk,:root[data-theme=light] .pct,:root[data-theme=light] .hora{color:#9a6700}
 :root[data-theme=light] .stamp.s-pend{color:#8a5a00}
 header{flex-wrap:wrap}header h1{flex:1 1 130px;min-width:0}header h1 small{text-transform:none;letter-spacing:0}
+/* tarjetas compactas */
+.vc{padding:8px 10px;margin:0 0 6px;border-left-width:5px;border-radius:10px}
+.vc-top{gap:6px}.plate{font-size:19px;padding:0 8px}.stamp{font-size:12px;padding:1px 7px}.chip{font-size:12px;padding:1px 8px}
+.ruta{margin:6px 0 0;gap:4px}.ruta span{font-size:12.5px;padding:1px 7px}
+.mets{margin:5px 0 0;gap:14px}.mets b{font-size:20px}.mets small{font-size:12px}
+.gente{margin:5px 0 0;padding-top:5px;gap:2px 10px;grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}.gente small,.kv small{font-size:11px;display:inline;margin-right:4px}.gente span,.kv span{font-size:13.5px}
+.gente>div,.kv>div{display:block}
+.kv{margin:4px 0 0;gap:2px 10px;grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}
+.quien{font-size:12px;margin-top:5px}
+.acts{gap:6px;margin-top:7px}.acts .btn{min-height:36px;padding:6px 10px;font-size:14px;border-radius:9px}.acts .main{min-width:100px}
 @media (max-width:480px){header{gap:6px;padding-left:12px;padding-right:12px}header>svg{display:none}header h1{font-size:17px;letter-spacing:.4px}header button{padding:7px 10px;font-size:13px}.clk{font-size:18px}}
 .t-dark{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.88) saturate(.7)}
 .ptip{background:#ffc400;color:#111;border:1.5px solid #111;border-radius:5px;padding:0 6px;font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.8px;box-shadow:none}
@@ -138,7 +148,7 @@ function modal(h){closeModal();const m=document.createElement('div');m.className
 function closeModal(){const m=$('modal');if(m)m.remove()}
 function descargar(n,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download=n;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
 
-const VERSION='2026-10-26 · destinos v4';
+const VERSION='2026-10-26 · destinos v5 compacta';
 const LOGO=`<svg width="34" height="34" style="flex:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b2545"/><path d="M256 92c-66 0-118 51-118 114 0 84 118 214 118 214s118-130 118-214c0-63-52-114-118-114z" fill="#fff"/><circle cx="256" cy="206" r="78" fill="#188a4b"/><path d="M222 208l26 27 46-54" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><circle cx="392" cy="392" r="38" fill="#e8a317"/><circle cx="392" cy="392" r="16" fill="#0b2545"/></svg>`;
 /* ---- estado y conexión ---- */
 let S=(()=>{try{return JSON.parse(LS('em_s'))||{}}catch(e){return{}}})();
