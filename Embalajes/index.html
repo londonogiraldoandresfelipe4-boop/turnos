@@ -138,6 +138,7 @@ function modal(h){closeModal();const m=document.createElement('div');m.className
 function closeModal(){const m=$('modal');if(m)m.remove()}
 function descargar(n,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download=n;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
 
+const VERSION='2026-10-26 · mapa v3';
 const LOGO=`<svg width="34" height="34" style="flex:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b2545"/><path d="M256 92c-66 0-118 51-118 114 0 84 118 214 118 214s118-130 118-214c0-63-52-114-118-114z" fill="#fff"/><circle cx="256" cy="206" r="78" fill="#188a4b"/><path d="M222 208l26 27 46-54" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><circle cx="392" cy="392" r="38" fill="#e8a317"/><circle cx="392" cy="392" r="16" fill="#0b2545"/></svg>`;
 /* ---- estado y conexión ---- */
 let S=(()=>{try{return JSON.parse(LS('em_s'))||{}}catch(e){return{}}})();
@@ -272,10 +273,20 @@ function resumenHtml(d){
 let MAP=null,CAPA=null,AJUSTADO='';
 function popup(x){const a=A(x);return `<div>${tarjeta(x,true)}${a.ll?'':'<div class="mut" style="margin-top:6px">Ubicación aproximada: centro de la localidad.</div>'}</div>`}
 function capasBase(){
-  const osm='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const calles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
   const imagen=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Imágenes © Esri'});
   const nombres=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19});
-  return {'Calles':L.tileLayer(osm,{maxZoom:19,attribution:'© OpenStreetMap'}),'Oscuro':L.tileLayer(osm,{maxZoom:19,className:'t-dark',attribution:'© OpenStreetMap'}),'Satélite':L.layerGroup([imagen,nombres])};
+  return {'Calles':L.tileLayer(calles,{maxZoom:19,attribution:'Mapa © Esri, OpenStreetMap'}),'Oscuro':L.tileLayer(calles,{maxZoom:19,className:'t-dark',attribution:'Mapa © Esri, OpenStreetMap'}),'OpenStreetMap':L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}),'Satélite':L.layerGroup([imagen,nombres])};
+}
+/* si un proveedor de mapas no carga, pasa solo al siguiente */
+function vigilaMapa(B){
+  const orden=['Calles','OpenStreetMap','Satélite'],E={Calles:{ok:0,err:0},OpenStreetMap:{ok:0,err:0}};
+  const g=k=>k==='Oscuro'?'Calles':k,caido=n=>E[n]&&E[n].err>=4&&!E[n].ok;
+  Object.keys(B).forEach(k=>{const l=B[k];if(!l.on||k==='Satélite')return;const e=E[g(k)];
+    l.on('tileload',()=>{e.ok++});
+    l.on('tileerror',()=>{e.err++;
+      if(caido(g(k))&&MAP&&MAP.hasLayer(l)){const sig=orden.find(n=>!caido(n)&&!MAP.hasLayer(B[n]));
+        if(sig){MAP.removeLayer(l);B[sig].addTo(MAP);toast('El mapa anterior no cargó. Cambié a '+sig,true)}}})});
 }
 const tip=x=>({permanent:true,direction:'right',offset:[10,0],className:'ptip'});
 function pintaMapa(){
@@ -284,7 +295,7 @@ function pintaMapa(){
   if(!MAP){
     MAP=L.map(w).setView([4.65,-74.12],11);
     const B=capasBase(),pref=LS('em_mapa'),nom=B[pref]?pref:(document.documentElement.dataset.theme==='light'?'Calles':'Oscuro');
-    B[nom].addTo(MAP);L.control.layers(B,null,{collapsed:true}).addTo(MAP);
+    B[nom].addTo(MAP);L.control.layers(B,null,{collapsed:true}).addTo(MAP);vigilaMapa(B);
     MAP.on('baselayerchange',e=>LS('em_mapa',e.name));
     MAP.on('zoomend',()=>w.classList.toggle('sin-tips',MAP.getZoom()<12));
     CAPA=L.layerGroup().addTo(MAP);AJUSTADO='';
@@ -486,7 +497,7 @@ function inicio(){
   if(MAP){MAP.remove();MAP=null}EM.d=null;EM.f='todos';EM.q='';EM.v='lista';EM.vio=false;EM.autoT=0;EM.nota='';
   if(!S.fecha||S.fechaSet!==hoyL()){S.fecha=hoyL();S.fechaSet=hoyL();save()}
   const adm=S.rol==='A';
-  $('root').innerHTML=`<header>${LOGO}<h1>Seguimiento operación destinos<small>${esc(S.nombre||'')}</small></h1><span class="clk" id="clk"></span><button data-act="tema" aria-label="Cambiar entre tema claro y oscuro">Tema</button>${adm?'<button data-act="claves">Ajustes</button>':''}<button data-act="salir">Salir</button></header><main>${adm?panelAdmin():''}<div id="res"><div class="card mut">Cargando…</div></div></main>`;
+  $('root').innerHTML=`<header>${LOGO}<h1>Seguimiento operación destinos<small>${esc(S.nombre||'')}</small></h1><span class="clk" id="clk"></span><button data-act="tema" aria-label="Cambiar entre tema claro y oscuro">Tema</button>${adm?'<button data-act="claves">Ajustes</button>':''}<button data-act="salir">Salir</button></header><main>${adm?panelAdmin():''}<div id="res"><div class="card mut">Cargando…</div></div><p class="mut center" style="margin-top:18px">Versión ${VERSION}</p></main>`;
   reloj();clearInterval(salir.c);salir.c=setInterval(reloj,30000);EM.anim=false;carga();clearInterval(salir.t);salir.t=setInterval(()=>{if(!$('modal')&&!document.querySelector('.leaflet-popup')&&!(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)))carga()},20000);
 }
 function panelAdmin(){return `<details class="card" id="adm" open><summary>📥 Cargar embalajes del día</summary>
