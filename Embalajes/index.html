@@ -147,6 +147,7 @@ header{flex-wrap:wrap}header h1{flex:1 1 130px;min-width:0}header h1 small{text-
 <div id="root"></div><div id="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const LS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){return null}};
@@ -309,7 +310,7 @@ function tarjeta(x,mapa){
 }
 const ORD={pend:0,nc:1,ok:2};
 function filtrados(){const d=EM.d,q=EM.q.toLowerCase();
-  return d.items.map((x,i)=>[x,i]).filter(([x])=>EM.f==='todos'||stOf(x)===EM.f).filter(([x])=>!EM.l||(A(x).loc||'Sin ubicar')===EM.l).filter(([x])=>!q||x.Detalle.toLowerCase().includes(q)||(x.Nota||'').toLowerCase().includes(q))
+  return d.items.map((x,i)=>[x,i]).filter(([x])=>EM.f==='todos'||stOf(x)===EM.f).filter(([x])=>!EM.l||(A(x).loc||'Sin ubicar')===EM.l).filter(([x])=>!EM.t||(EM.t==='aux'?!!partes(x).auxiliar:!partes(x).auxiliar)).filter(([x])=>!q||x.Detalle.toLowerCase().includes(q)||(x.Nota||'').toLowerCase().includes(q))
     .sort((p,q)=>ORD[stOf(p[0])]-ORD[stOf(q[0])]||p[1]-q[1]).map(p=>p[0])}
 function listaHtml(){
   const f=filtrados();if(!f.length)return '<div class="card center"><p class="mut" style="margin:0">Ningún vehículo coincide con el filtro.</p></div>';
@@ -402,8 +403,8 @@ function pinta(){
    <div class="stats">${T('pend','Pendientes',c.pend,'p')}${T('ok','Llamados',c.ok,'o')}${T('nc','No contestó',c.nc,'n')}</div>
    <div class="kpis">${K(d.total,'Vehículos')}${M.peso?K(fmt(M.peso),'Peso total'):''}${M.ped?K(fmt(M.ped),'Pedidos'):''}${M.esc?K(M.esc,'Con escolta'):''}${M.locs.length>1?K(M.locs.length,'Localidades'):''}</div>
    <div class="sync"><i></i>${EM.sync?'Actualizado a las '+EM.sync+'. Se refresca solo':'Conectado'}</div></section>
-   <div class="tools"><input id="q" placeholder="Buscar placa, conductor, barrio…" value="${esc(EM.q)}"><select id="fl" aria-label="Localidad"><option value="">Todas las localidades</option>${M.locs.map(l=>`<option ${EM.l===l?'selected':''}>${esc(l)}</option>`).join('')}</select></div>
-   <div class="row" style="margin:0 0 12px"><div class="seg" style="flex:1 1 100%">${[['lista','Lista'],['zonas','Localidad'],['mapa','Mapa'],['resumen','Resumen']].map(([k,t])=>`<button class="${EM.v===k?'on':''}" data-act="vista" data-v="${k}">${t}</button>`).join('')}</div>${EM.f!=='todos'||EM.l?'<button class="btn ghost sm" data-act="limpiar">Quitar filtros</button>':''}<button class="btn ghost sm" data-act="soporte">⬇ Excel</button></div>`;
+   <div class="tools"><input id="q" placeholder="Buscar placa, conductor, barrio…" value="${esc(EM.q)}"><select id="fl" aria-label="Localidad"><option value="">Todas las localidades</option>${M.locs.map(l=>`<option ${EM.l===l?'selected':''}>${esc(l)}</option>`).join('')}</select><select id="ft" aria-label="Tipo de embalaje"><option value="">Todos los embalajes</option><option value="aux" ${EM.t==='aux'?'selected':''}>Con auxiliar</option><option value="sin" ${EM.t==='sin'?'selected':''}>Sin auxiliar (demás)</option></select></div>
+   <div class="row" style="margin:0 0 12px"><div class="seg" style="flex:1 1 100%">${[['lista','Lista'],['zonas','Localidad'],['mapa','Mapa'],['resumen','Resumen']].map(([k,t])=>`<button class="${EM.v===k?'on':''}" data-act="vista" data-v="${k}">${t}</button>`).join('')}</div>${EM.f!=='todos'||EM.l||EM.t?'<button class="btn ghost sm" data-act="limpiar">Quitar filtros</button>':''}<button class="btn ghost sm" data-act="soporte">⬇ Excel</button></div>`;
   EM.anim=true;
   $('lista').innerHTML=EM.v==='resumen'?resumenHtml(d):listaHtml();$('lista').style.display=EM.v==='mapa'?'none':'';$('vmapa').style.display=EM.v==='mapa'?'':'none';
   if(EM.v==='mapa')pintaMapa();
@@ -415,7 +416,11 @@ function soporte(){
   const nc=Math.max(h.length,...d.items.map(x=>x.Detalle.split(' | ').length));
   const orig=Array.from({length:nc},(_,i)=>h[i]||'Dato '+(i+1));
   const cab=['N°','Fecha','Placa','Localidad (detectada)','Latitud aprox.','Longitud aprox.','Ver en mapa',...orig,'Estado','Resultado','Llamado por','Fecha y hora de la llamada','Nota'];
-  const filas=d.items.map((x,i)=>{const a=an[i],ll=a.ll||(a.loc?LOC[a.loc]:null),c=x.Detalle.split(' | ');
+  /* orden: primero los que contestaron, luego los que no contestaron y al final los pendientes (cada grupo por hora de llamada) */
+  const ORD={ok:0,nc:1,pend:2};
+  const idx=d.items.map((x,i)=>i).sort((a,b)=>{const xa=d.items[a],xb=d.items[b],ga=ORD[stOf(xa)],gb=ORD[stOf(xb)];if(ga!==gb)return ga-gb;const ta=xa.LlamadoEn||'',tb=xb.LlamadoEn||'';return ta<tb?-1:ta>tb?1:a-b});
+  const est=idx.map(i=>stOf(d.items[i]));
+  const filas=idx.map(i=>{const x=d.items[i],a=an[i],ll=a.ll||(a.loc?LOC[a.loc]:null),c=x.Detalle.split(' | ');
     return [i+1,d.fecha,a.placa,a.loc,ll?ll[0]:'',ll?ll[1]:'',ll?`https://www.google.com/maps?q=${ll[0]},${ll[1]}`:'',...orig.map((_,k)=>c[k]||''),TXT[stOf(x)],x.Llamado==='SI'?x.Resultado:'',x.LlamadoPor,x.LlamadoEn,x.Nota]});
   const cnt=a=>{const o={ok:0,nc:0,pend:0};a.forEach(x=>o[stOf(x)]++);return o};
   const T=cnt(d.items),ll=d.items.filter(x=>x.LlamadoEn).map(x=>x.LlamadoEn).sort();
@@ -424,12 +429,31 @@ function soporte(){
   res.push([],['POR LOCALIDAD','Total','Llamados','No contestó','Pendientes']);
   const pl={};d.items.forEach((x,i)=>{const k=an[i].loc||'Sin ubicar';(pl[k]=pl[k]||[]).push(x)});Object.keys(pl).sort().forEach(k=>{const c=cnt(pl[k]);res.push([k,pl[k].length,c.ok,c.nc,c.pend])});
   const nom='seguimiento_embalajes_'+d.fecha;
-  if(typeof XLSX!=='undefined'){
+  const FILA={ok:'FFD6F5E3',nc:'FFFFD9D5',pend:'FFFFF1B8'},FUERTE={ok:'FF2FBF71',nc:'FFE5483C',pend:'FFF2B600'};
+  const plano=()=>{if(typeof XLSX!=='undefined'){
     const w=XLSX.utils.book_new(),s1=XLSX.utils.aoa_to_sheet([cab,...filas]),s2=XLSX.utils.aoa_to_sheet(res);
     s1['!cols']=cab.map((c,i)=>({wch:i===6?14:Math.min(32,Math.max(10,String(c).length+2))}));s2['!cols']=[{wch:30},{wch:14},{wch:14},{wch:14},{wch:14}];
     s1['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:filas.length,c:cab.length-1}})};
-    XLSX.utils.book_append_sheet(w,s1,'Seguimiento');XLSX.utils.book_append_sheet(w,s2,'Resumen');XLSX.writeFile(w,nom+'.xlsx');
-  }else{const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';descargar(nom+'.csv','﻿'+[cab,...filas].map(r=>r.map(q).join(';')).join('\n'));toast('Se descargó en CSV (sin Excel por falta de internet)')}
+    XLSX.utils.book_append_sheet(w,s1,'Seguimiento');XLSX.utils.book_append_sheet(w,s2,'Resumen');XLSX.writeFile(w,nom+'.xlsx');toast('Excel descargado (sin colores: no cargó el módulo de formato)')
+  }else{const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';descargar(nom+'.csv','\ufeff'+[cab,...filas].map(r=>r.map(q).join(';')).join('\n'));toast('Se descargó en CSV (sin Excel por falta de internet)')}};
+  if(typeof ExcelJS!=='undefined'){try{
+    const wb=new ExcelJS.Workbook(),ws=wb.addWorksheet('Seguimiento',{views:[{state:'frozen',ySplit:1}]}),rs=wb.addWorksheet('Resumen');
+    const borde={style:'thin',color:{argb:'FFBFC7D1'}},bd={top:borde,left:borde,bottom:borde,right:borde};
+    ws.addRow(cab);const hr=ws.getRow(1);hr.height=30;hr.eachCell(c=>{c.font={bold:true,color:{argb:'FFFFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF0B2545'}};c.alignment={vertical:'middle',horizontal:'center',wrapText:true};c.border=bd});
+    const iEst=7+nc;
+    filas.forEach((f,k)=>{const r=ws.addRow(f),e=est[k];
+      r.eachCell({includeEmpty:true},(c,col)=>{if(col>cab.length)return;c.fill={type:'pattern',pattern:'solid',fgColor:{argb:FILA[e]}};c.border=bd;c.alignment={vertical:'middle',wrapText:col>7&&col<=7+nc}});
+      const ce=r.getCell(iEst+1);ce.fill={type:'pattern',pattern:'solid',fgColor:{argb:FUERTE[e]}};ce.font={bold:true,color:{argb:e==='pend'?'FF3A2C00':'FFFFFFFF'}};ce.alignment={horizontal:'center',vertical:'middle'};
+      const mp=f[6];if(mp){const cm=r.getCell(7);cm.value={text:'Abrir mapa',hyperlink:mp};cm.font={color:{argb:'FF0B5FD0'},underline:true}}});
+    ws.columns=cab.map((c,i)=>({width:i===6?14:i===iEst+1?14:Math.min(34,Math.max(11,String(c).length+3))}));
+    ws.autoFilter={from:{row:1,column:1},to:{row:filas.length+1,column:cab.length}};
+    res.forEach(r=>rs.addRow(r));
+    rs.columns=[{width:34},{width:14},{width:14},{width:14},{width:14}];
+    rs.getRow(1).font={bold:true,size:14,color:{argb:'FF0B2545'}};
+    [['Llamados (contestaron)','ok'],['No contestaron','nc'],['Pendientes','pend']].forEach(([t,e])=>{rs.eachRow(r=>{if(r.getCell(1).value===t){r.getCell(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:FILA[e]}};r.getCell(2).fill={type:'pattern',pattern:'solid',fgColor:{argb:FUERTE[e]}};r.getCell(1).font={bold:true};r.getCell(2).font={bold:true,color:{argb:e==='pend'?'FF3A2C00':'FFFFFFFF'}}}})});
+    rs.eachRow(r=>{const v=r.getCell(1).value;if(typeof v==='string'&&/^POR /.test(v))r.eachCell(c=>{c.font={bold:true,color:{argb:'FFFFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF0B2545'}}})});
+    wb.xlsx.writeBuffer().then(buf=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));a.download=nom+'.xlsx';document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},800);toast('Excel descargado: contestaron (verde), no contestaron (rojo), pendientes (amarillo)')}).catch(e=>{console.error(e);plano()});
+  }catch(e){console.error(e);plano()}}else plano();
 }
 /* ---- carga desde la Proyectada (Excel) ---- */
 const PF={wb:null,nombre:'',hoja:'',head:[],rows:[],sel:{}};
@@ -558,20 +582,22 @@ async function traerCorreo(auto){
 }
 /* ---- enlace para los sargentos ---- */
 const enlace=()=>location.href.split('#')[0].split('?')[0]+'#api='+encodeURIComponent(S.api||'');
-async function carga(){if(!S.token)return;try{EM.d=await api('listar',{fecha:S.rol==='A'?S.fecha:undefined});EM.sync=new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});pinta();if(S.rol==='A'&&S.puente&&EM.d.total===0&&Date.now()-EM.autoT>300000)traerCorreo(true)}catch(e){if(!EM.d&&$('res'))$('res').innerHTML=`<div class="banner">${esc(e.offline?'Sin conexión. Reintentando…':e.message)}</div>`}}
+async function carga(){if(!S.token)return;try{EM.d=await api('listar',{fecha:S.fecha});if(S.rol==='S'&&EM.d&&EM.d.fecha&&EM.d.fecha!==S.fecha){const a=$('avisoF');if(a)a.innerHTML='<p class="mut" style="margin:8px 0 0">El sistema aún no entrega días anteriores a coordinadores; se muestra '+fecha(EM.d.fecha)+'.</p>'}else{const a=$('avisoF');if(a)a.innerHTML=''}
+  EM.sync=new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});pinta();if(S.rol==='A'&&S.puente&&EM.d.total===0&&Date.now()-EM.autoT>300000)traerCorreo(true)}catch(e){if(!EM.d&&$('res'))$('res').innerHTML=`<div class="banner">${esc(e.offline?'Sin conexión. Reintentando…':e.message)}</div>`}}
 async function accion(p){
   const x=p.id&&EM.d?EM.d.items.find(i=>i.ID===p.id):null;
   if(x){if(p.deshacer){x.Llamado='';x.Resultado='';x.LlamadoPor='';x.LlamadoEn=''}else if(p.resultado){x.Llamado='SI';x.Resultado=p.resultado;x.LlamadoPor=S.nombre||'';x.LlamadoEn=ahora()}if(p.nota!==undefined)x.Nota=p.nota;EM.pop=x.ID;pinta();EM.pop=''}
-  try{EM.d=await api('marcar',Object.assign({fecha:S.rol==='A'?S.fecha:undefined},p));pinta()}catch(e){toast(e.message,true);carga()}
+  try{EM.d=await api('marcar',Object.assign({fecha:S.fecha},p));pinta()}catch(e){toast(e.message,true);carga()}
 }
 function inicio(){
   if(!S.token)return login();
-  if(MAP){MAP.remove();MAP=null}EM.d=null;EM.f='todos';EM.q='';EM.v='lista';EM.vio=false;EM.autoT=0;EM.nota='';
+  if(MAP){MAP.remove();MAP=null}EM.d=null;EM.f='todos';EM.t='';EM.q='';EM.v='lista';EM.vio=false;EM.autoT=0;EM.nota='';
   if(!S.fecha||S.fechaSet!==hoyL()){S.fecha=hoyL();S.fechaSet=hoyL();save()}
   const adm=S.rol==='A';
-  $('root').innerHTML=`<header>${LOGO}<h1>Seguimiento operación destinos<small>${esc(S.nombre||'')}</small></h1><span class="clk" id="clk"></span><button data-act="tema" aria-label="Cambiar entre tema claro y oscuro">Tema</button>${adm?'<button data-act="claves">Ajustes</button>':''}<button data-act="salir">Salir</button></header><main>${adm?panelAdmin():''}<div id="res"><div class="card mut">Cargando…</div></div><p class="mut center" style="margin-top:18px">Versión ${VERSION}</p></main>`;
+  $('root').innerHTML=`<header>${LOGO}<h1>Seguimiento operación destinos<small>${esc(S.nombre||'')}</small></h1><span class="clk" id="clk"></span><button data-act="tema" aria-label="Cambiar entre tema claro y oscuro">Tema</button>${adm?'<button data-act="claves">Ajustes</button>':'<button data-act="miclave">Mi clave</button>'}<button data-act="salir">Salir</button></header><main>${adm?panelAdmin():navDias()}<div id="res"><div class="card mut">Cargando…</div></div><p class="mut center" style="margin-top:18px">Versión ${VERSION}</p></main>`;
   reloj();clearInterval(salir.c);salir.c=setInterval(reloj,30000);EM.anim=false;carga();clearInterval(salir.t);salir.t=setInterval(()=>{if(!$('modal')&&!document.querySelector('.leaflet-popup')&&!(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)))carga()},20000);
 }
+function navDias(){return `<div class="card" id="nav"><label>Día que quieres ver</label><div class="row"><button class="btn ghost sm" data-act="dia" data-d="-1" aria-label="Día anterior">‹</button><input type="date" id="fd" value="${S.fecha}" max="${hoyL()}" class="grow" style="width:auto"><button class="btn ghost sm" data-act="dia" data-d="1" aria-label="Día siguiente">›</button><button class="btn ghost sm" data-act="irdia" data-d="0">Hoy</button></div><div id="avisoF"></div></div>`}
 function panelAdmin(){return `<details class="card" id="adm" open><summary>📥 Cargar embalajes del día</summary>
  <label>Día de los embalajes</label>
  <div class="row"><button class="btn ghost sm" data-act="dia" data-d="-1">‹</button><input type="date" id="fd" value="${S.fecha}" class="grow" style="width:auto"><button class="btn ghost sm" data-act="dia" data-d="1">›</button></div>
@@ -598,7 +624,7 @@ irdia(d){S.fecha=sumaDias(hoyL(),+d.d);S.fechaSet=hoyL();save();inicio()},
 modo(d){$('modo1').style.display=d.m==='1'?'':'none';$('modo2').style.display=d.m==='2'?'':'none';$('m1').className=d.m==='1'?'on':'';$('m2').className=d.m==='2'?'on':''},
 elegir(){$('pf').click()},
 tema(){const t=document.documentElement.dataset.theme==='light'?'dark':'light';document.documentElement.dataset.theme=t;LS('em_th',t);if(MAP){MAP.remove();MAP=null}if(EM.d)pinta()},
-limpiar(){EM.f='todos';EM.l='';pinta()},
+limpiar(){EM.f='todos';EM.l='';EM.t='';pinta()},
 ir(d){EM.v='lista';EM.f='todos';EM.l='';EM.q='';pinta();const e=$('v-'+d.id);if(e){e.scrollIntoView({behavior:'smooth',block:'center'});e.classList.add('flash');setTimeout(()=>e.classList.remove('flash'),1600)}},
 correo(){if(!S.puente){toast('Primero configura el puente en ⚙ Ajustes',true);return ACT.claves()}traerCorreo(false)},
 gpu(){const u=val('pu'),k=$('pk').value.trim();if(!urlOk(u))return toast('Enlace del puente no válido',true);if(k.length<8)return toast('La clave del puente debe tener mínimo 8 caracteres',true);S.puente={url:u,k};save();closeModal();toast('Puente guardado');EM.autoT=0;carga()},
@@ -616,6 +642,8 @@ async borrar(){if(!confirm('¿Borrar toda la lista de este día?'))return;try{EM
 copiar(){const l=enlace();if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(l).then(()=>toast('Enlace copiado. Envíaselo a los coordinadores'),()=>prompt('Copia este enlace:',l));else prompt('Copia este enlace:',l)},
 wa(){window.open('https://wa.me/?text='+encodeURIComponent('Seguimiento operación destinos: '+enlace()),'_blank')},
 claves(){modal(`<h2 style="margin-top:0">Ajustes</h2><label>Clave de los coordinadores REPCO (la usan todos; mínimo 4)</label><input id="cs"><br><br><button class="btn big" data-act="gcs">Guardar clave de coordinadores</button><label style="margin-top:16px">Cambiar mi clave de administrador (mínimo 6)</label><input id="ca"><br><br><button class="btn ghost big" data-act="gca">Guardar mi clave</button><label style="margin-top:16px">Puente de correo: enlace del script “PUENTE CORREO EMBALAJES” (termina en /exec)</label><input id="pu" value="${esc(S.puente&&S.puente.url||'')}" placeholder="https://script.google.com/macros/s/…/exec"><label>Clave del puente (la que está en el script)</label><input id="pk" type="password" value="${esc(S.puente&&S.puente.k||'')}"><br><br><button class="btn ghost big" data-act="gpu">Guardar puente</button><p class="mut">Se guarda solo en este dispositivo.</p>`)},
+miclave(){modal(`<h2 style="margin-top:0">Cambiar mi clave</h2><label>Clave actual</label><input id="mc0" type="password" autocomplete="current-password"><label>Clave nueva (mínimo 4)</label><input id="mc1" type="password" autocomplete="new-password"><label>Repite la clave nueva</label><input id="mc2" type="password" autocomplete="new-password"><br><br><button class="btn big" data-act="gmc">Guardar mi clave</button>`)},
+async gmc(){try{const a=val('mc0'),n=val('mc1');if(n.length<4)throw new Error('Mínimo 4 caracteres');if(n!==val('mc2'))throw new Error('Las claves no coinciden');await api('cambiarClaveSargento',{actual:a,clave:n});closeModal();toast('Tu clave quedó cambiada')}catch(e){toast(e.message,true)}},
 async gcs(){try{await api('ponerClaveSargentos',{clave:val('cs')});closeModal();toast('Clave de coordinadores guardada')}catch(e){toast(e.message,true)}},
 async gca(){try{if(val('ca').length<6)throw new Error('Mínimo 6 caracteres');await api('cambiarClaveAdmin',{clave:val('ca')});closeModal();toast('Clave guardada')}catch(e){toast(e.message,true)}}
 };
@@ -623,6 +651,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(
 document.addEventListener('input',e=>{if(e.target.id==='q'&&EM.d){EM.q=e.target.value;$('lista').innerHTML=listaHtml();if(EM.v==='mapa')pintaMapa()}});
 document.addEventListener('change',e=>{const t=e.target;
   if(t.id==='fl'){EM.l=t.value;pinta()}
+  else if(t.id==='ft'){EM.t=t.value;pinta()}
   else if(t.id==='fd'){S.fecha=t.value||hoyL();S.fechaSet=hoyL();save();inicio()}
   else if(t.id==='pf')leerArchivo(t.files[0]);
   else if(t.id==='hsel')hoja(t.value);
