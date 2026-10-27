@@ -80,6 +80,8 @@ button{font:inherit;cursor:pointer}
 .gente small,.kv small{display:block;font-size:12px;color:var(--mut)}.gente span,.kv span{font-size:15px;word-break:break-word}
 .kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:4px 12px;margin:6px 0}
 .quien{font-size:13px;color:var(--mut);margin-top:8px}
+.pin-pos{background:none;border:0;font-size:26px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.7))}
+.pos{margin-top:8px;padding:8px 10px;border-radius:10px;background:rgba(0,120,255,.12);border-left:4px solid #1d7bff}.pos small{display:block;font-weight:700;letter-spacing:.02em;color:var(--mut)}.pos a{color:inherit;font-weight:600;word-break:break-word}
 .nota{margin-top:6px;font-size:14px;color:var(--mut)}
 .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.acts .main{flex:1;min-width:120px}
 .gh{display:flex;align-items:center;gap:10px;margin:16px 2px 8px}.gh h3{margin:0;font:700 20px 'Barlow Condensed',sans-serif;flex:1}
@@ -166,7 +168,7 @@ function modal(h){closeModal();const m=document.createElement('div');m.className
 function closeModal(){const m=$('modal');if(m)m.remove()}
 function descargar(n,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download=n;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
 
-const VERSION='2026-10-26 · destinos v6 tracto';
+const VERSION='2026-10-27 · destinos v7 posición';
 const LOGO=`<svg width="34" height="34" style="flex:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b2545"/><path d="M256 92c-66 0-118 51-118 114 0 84 118 214 118 214s118-130 118-214c0-63-52-114-118-114z" fill="#fff"/><circle cx="256" cy="206" r="78" fill="#188a4b"/><path d="M222 208l26 27 46-54" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><circle cx="392" cy="392" r="38" fill="#e8a317"/><circle cx="392" cy="392" r="16" fill="#0b2545"/></svg>`;
 /* ---- estado y conexión ---- */
 let S=(()=>{try{return JSON.parse(LS('em_s'))||{}}catch(e){return{}}})();
@@ -254,7 +256,7 @@ function botones(x){
   const st=stOf(x),a=A(x);
   return `<div class="acts">${st!=='pend'
     ?`<button class="btn ghost main" data-act="des" data-id="${esc(x.ID)}">↩ Deshacer</button>`
-    :`<button class="btn ok main" data-act="marca" data-id="${esc(x.ID)}">✓ Llamado</button><button class="btn ghost badc main" data-act="marca" data-id="${esc(x.ID)}" data-r="No contestó">✗ No contestó</button>`}${a.tel?`<a class="btn ghost" href="tel:${esc(a.tel)}">📞 Llamar</a>`:''}<button class="btn ghost" data-act="nota" data-id="${esc(x.ID)}">📝 Nota</button></div>`;
+    :`<button class="btn ok main" data-act="marca" data-id="${esc(x.ID)}">✓ Llamado</button><button class="btn ghost badc main" data-act="marca" data-id="${esc(x.ID)}" data-r="No contestó">✗ No contestó</button>`}${a.tel?`<a class="btn ghost" href="tel:${esc(a.tel)}">📞 Llamar</a>`:''}<button class="btn ghost" data-act="ubic" data-id="${esc(x.ID)}">📍 ${x.Ubicacion?'Cambiar posición':'Posición'}</button><button class="btn ghost" data-act="nota" data-id="${esc(x.ID)}">📝 Nota</button></div>`;
 }
 /* tractocamión: cabina convencional + remolque; el remolque toma el color del estado */
 const ICO_UP='M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z';
@@ -306,6 +308,7 @@ function tarjeta(x,mapa){
    +(gente.length?`<div class="gente">${gente.map(([t,v])=>`<div><small>${t}</small><span>${esc(v)}</span></div>`).join('')}</div>`:'')
    +(p.otros?`<div class="kv">${p.otros}</div>`:'')
    +(st!=='pend'?`<div class="quien">${esc(x.Resultado||'Llamado')} por ${esc(corto(x.LlamadoPor))} a las ${hm(x.LlamadoEn)}</div>`:'')
+   +(x.Ubicacion?`<div class="pos"><small>📍 Posición al contacto</small><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.Ubicacion+', Colombia')}" target="_blank" rel="noopener">${esc(x.Ubicacion)}</a></div>`:'')
    +botones(x)+`</article>`;
 }
 const ORD={pend:0,nc:1,ok:2};
@@ -362,6 +365,18 @@ function vigilaMapa(B){
         if(sig){MAP.removeLayer(l);B[sig].addTo(MAP);toast('El mapa anterior no cargó. Cambié a '+sig,true)}}})});
 }
 const tip=x=>({permanent:true,direction:'right',offset:[10,0],className:'ptip'});
+/* posición al contacto → punto en el mapa (geocodificación con OpenStreetMap, se guarda en el dispositivo) */
+let GEO=(()=>{try{return JSON.parse(LS('em_geo'))||{}}catch(e){return{}}})();
+const geoK=t=>norm(t);
+let GEOQ=[],GEOON=false;
+function geocoda(t){const k=geoK(t);if(GEO[k]||GEOQ.includes(t))return;GEOQ.push(t);if(!GEOON){GEOON=true;geoSig()}}
+async function geoSig(){
+  const t=GEOQ.shift();if(!t){GEOON=false;return}
+  const k=geoK(t);
+  try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=co&viewbox=-74.5,5.2,-73.8,4.2&q='+encodeURIComponent(t+', Bogotá, Colombia'));const j=await r.json();
+    GEO[k]=j&&j[0]?{ll:[+j[0].lat,+j[0].lon]}:{ll:null};LS('em_geo',JSON.stringify(GEO));if(EM.v==='mapa'&&MAP)pintaMapa()}catch(e){}
+  setTimeout(geoSig,1100);
+}
 function pintaMapa(){
   const w=$('mapa');if(!w)return;
   if(typeof L==='undefined'){w.innerHTML='<p class="mut" style="padding:14px">No se pudo cargar el mapa (se necesita internet). La lista sigue funcionando.</p>';return}
@@ -383,6 +398,7 @@ function pintaMapa(){
   Object.keys(aprox).forEach(k=>{const c=LOC[k];
     aprox[k].forEach((x,i)=>{naprox++;const r=i===0?0:0.007*Math.sqrt(i),an=i*2.4,q=[c[0]+r*Math.sin(an),c[1]+r*Math.cos(an)],st=stOf(x);
       L.circleMarker(q,{radius:10,color:COL[st],weight:3,dashArray:'3 3',fillColor:COL[st],fillOpacity:.25}).bindPopup(()=>popup(x),{maxWidth:300}).bindTooltip(esc(partes(x).placa),tip()).addTo(CAPA);pts.push(q)})});
+  filtrados().forEach(x=>{if(!x.Ubicacion)return;const g=GEO[geoK(x.Ubicacion)];if(g&&g.ll){const q=g.ll,st=stOf(x);L.marker(q,{icon:L.divIcon({className:'pin-pos',html:'<span>📍</span>',iconSize:[30,30],iconAnchor:[15,28]})}).bindPopup(()=>`<div><b>📍 Posición al contacto</b><br>${esc(x.Ubicacion)}<br><small>${esc(partes(x).placa)} · ${TXT[st]}</small></div>`,{maxWidth:260}).bindTooltip(esc(partes(x).placa)+' · '+esc(x.Ubicacion),tip()).addTo(CAPA);pts.push(q)}else if(!g)geocoda(x.Ubicacion)});
   const key=EM.f+'|'+EM.l+'|'+EM.q;
   if(pts.length&&AJUSTADO!==key){MAP.fitBounds(L.latLngBounds(pts).pad(.15),{maxZoom:15});AJUSTADO=key;w.classList.toggle('sin-tips',MAP.getZoom()<12)}
   const ley=`<p class="leyenda">${exactos?`<b>${exactos}</b> con la ubicación real de sus entregas (puntos pequeños = paradas). `:''}${naprox?`<b>${naprox}</b> con ubicación aproximada por localidad (círculo punteado).`:''}${!exactos&&naprox?' Para ubicar cada vehículo con precisión, el Excel debe traer la hoja de pedidos con coordenadas (CX y CY).':''}</p>`;
@@ -415,13 +431,13 @@ function soporte(){
   const h=d.encabezado?d.encabezado.split(' | '):[];const an=d.items.map(x=>analiza(x.Detalle,d.encabezado));
   const nc=Math.max(h.length,...d.items.map(x=>x.Detalle.split(' | ').length));
   const orig=Array.from({length:nc},(_,i)=>h[i]||'Dato '+(i+1));
-  const cab=['N°','Fecha','Placa','Localidad (detectada)','Latitud aprox.','Longitud aprox.','Ver en mapa',...orig,'Estado','Resultado','Llamado por','Fecha y hora de la llamada','Nota'];
+  const cab=['N°','Fecha','Placa','Localidad (detectada)','Latitud aprox.','Longitud aprox.','Ver en mapa',...orig,'Estado','Resultado','Llamado por','Fecha y hora de la llamada','Ubicación del vehículo al contacto','Nota'];
   /* orden: primero los que contestaron, luego los que no contestaron y al final los pendientes (cada grupo por hora de llamada) */
   const ORD={ok:0,nc:1,pend:2};
   const idx=d.items.map((x,i)=>i).sort((a,b)=>{const xa=d.items[a],xb=d.items[b],ga=ORD[stOf(xa)],gb=ORD[stOf(xb)];if(ga!==gb)return ga-gb;const ta=xa.LlamadoEn||'',tb=xb.LlamadoEn||'';return ta<tb?-1:ta>tb?1:a-b});
   const est=idx.map(i=>stOf(d.items[i]));
   const filas=idx.map(i=>{const x=d.items[i],a=an[i],ll=a.ll||(a.loc?LOC[a.loc]:null),c=x.Detalle.split(' | ');
-    return [i+1,d.fecha,a.placa,a.loc,ll?ll[0]:'',ll?ll[1]:'',ll?`https://www.google.com/maps?q=${ll[0]},${ll[1]}`:'',...orig.map((_,k)=>c[k]||''),TXT[stOf(x)],x.Llamado==='SI'?x.Resultado:'',x.LlamadoPor,x.LlamadoEn,x.Nota]});
+    return [i+1,d.fecha,a.placa,a.loc,ll?ll[0]:'',ll?ll[1]:'',ll?`https://www.google.com/maps?q=${ll[0]},${ll[1]}`:'',...orig.map((_,k)=>c[k]||''),TXT[stOf(x)],x.Llamado==='SI'?x.Resultado:'',x.LlamadoPor,x.LlamadoEn,x.Ubicacion||'',x.Nota]});
   const cnt=a=>{const o={ok:0,nc:0,pend:0};a.forEach(x=>o[stOf(x)]++);return o};
   const T=cnt(d.items),ll=d.items.filter(x=>x.LlamadoEn).map(x=>x.LlamadoEn).sort();
   const res=[['SEGUIMIENTO OPERACIÓN DESTINOS — SOPORTE DE LLAMADAS'],['Fecha',d.fecha],['Generado',new Date().toLocaleString('es-CO')],[],['Total embalajes',d.total],['Llamados (contestaron)',T.ok],['No contestaron',T.nc],['Pendientes',T.pend],['% gestionado',d.total?Math.round((T.ok+T.nc)*100/d.total)+'%':''],['Primera llamada',ll[0]||''],['Última llamada',ll[ll.length-1]||''],[],['POR COORDINADOR REPCO','Llamados','No contestó']];
@@ -586,7 +602,7 @@ async function carga(){if(!S.token)return;try{EM.d=await api('listar',{fecha:S.f
   EM.sync=new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});pinta();if(S.rol==='A'&&S.puente&&EM.d.total===0&&Date.now()-EM.autoT>300000)traerCorreo(true)}catch(e){if(!EM.d&&$('res'))$('res').innerHTML=`<div class="banner">${esc(e.offline?'Sin conexión. Reintentando…':e.message)}</div>`}}
 async function accion(p){
   const x=p.id&&EM.d?EM.d.items.find(i=>i.ID===p.id):null;
-  if(x){if(p.deshacer){x.Llamado='';x.Resultado='';x.LlamadoPor='';x.LlamadoEn=''}else if(p.resultado){x.Llamado='SI';x.Resultado=p.resultado;x.LlamadoPor=S.nombre||'';x.LlamadoEn=ahora()}if(p.nota!==undefined)x.Nota=p.nota;EM.pop=x.ID;pinta();EM.pop=''}
+  if(x){if(p.deshacer){x.Llamado='';x.Resultado='';x.LlamadoPor='';x.LlamadoEn=''}else if(p.resultado){x.Llamado='SI';x.Resultado=p.resultado;x.LlamadoPor=S.nombre||'';x.LlamadoEn=ahora()}if(p.nota!==undefined)x.Nota=p.nota;if(p.ubicacion!==undefined)x.Ubicacion=p.ubicacion;EM.pop=x.ID;pinta();EM.pop=''}
   try{EM.d=await api('marcar',Object.assign({fecha:S.fecha},p));pinta()}catch(e){toast(e.message,true);carga()}
 }
 function inicio(){
@@ -618,6 +634,8 @@ vista(d){EM.v=d.v;pinta();if(d.v==='mapa')setTimeout(()=>MAP&&MAP.invalidateSize
 marca(d){accion({id:d.id,resultado:d.r||'Llamado'})},
 des(d){accion({id:d.id,deshacer:true})},
 nota(d){const x=EM.d.items.find(i=>i.ID===d.id);modal(`<h2 style="margin-top:0">Nota</h2><input type="hidden" id="ni" value="${esc(d.id)}"><textarea id="nt" rows="3" maxlength="200" placeholder="Ej: pidió que lo llamen a las 3 pm">${esc(x&&x.Nota||'')}</textarea><br><br><button class="btn big" data-act="notaOk">Guardar</button>`)},
+ubic(d){const x=EM.d.items.find(i=>i.ID===d.id);modal(`<h2 style="margin-top:0">📍 Posición del vehículo al contacto</h2><p class="mut" style="margin:0 0 8px">Dirección, vía o punto donde estaba el vehículo cuando lo llamaste.</p><input type="hidden" id="ui" value="${esc(d.id)}"><textarea id="ut" rows="2" maxlength="160" placeholder="Ej: Autopista Sur con Calle 57 sur, frente a Éxito">${esc(x&&x.Ubicacion||'')}</textarea><br><br><button class="btn big" data-act="ubicOk">Guardar posición</button>`)},
+async ubicOk(){const id=val('ui'),u=$('ut').value.trim();closeModal();await accion({id,ubicacion:u})},
 async notaOk(){const id=val('ni'),n=$('nt').value;closeModal();await accion({id,nota:n})},
 dia(d){S.fecha=sumaDias(S.fecha,+d.d);S.fechaSet=hoyL();save();inicio()},
 irdia(d){S.fecha=sumaDias(hoyL(),+d.d);S.fechaSet=hoyL();save();inicio()},
