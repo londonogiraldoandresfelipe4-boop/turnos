@@ -195,7 +195,7 @@ function modal(h){closeModal();const m=document.createElement('div');m.className
 function closeModal(){const m=$('modal');if(m)m.remove()}
 function descargar(n,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download=n;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
 
-const VERSION='2026-10-27 · destinos v12 panel futurista';
+const VERSION='2026-10-27 · destinos v13 camión realista';
 const LOGO=`<svg width="34" height="34" style="flex:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b2545"/><path d="M256 92c-66 0-118 51-118 114 0 84 118 214 118 214s118-130 118-214c0-63-52-114-118-114z" fill="#fff"/><circle cx="256" cy="206" r="78" fill="#188a4b"/><path d="M222 208l26 27 46-54" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><circle cx="392" cy="392" r="38" fill="#e8a317"/><circle cx="392" cy="392" r="16" fill="#0b2545"/></svg>`;
 /* ---- estado y conexión ---- */
 let S=(()=>{try{return JSON.parse(LS('em_s'))||{}}catch(e){return{}}})();
@@ -312,32 +312,53 @@ function botellas(){
     o+=`<g transform="translate(${x} ${y})"><rect x="1.4" y="5.5" width="5.2" height="9" rx="1.3" fill="${c}" stroke="#000" stroke-opacity=".45" stroke-width=".4"/><rect x="3" y="1.6" width="2" height="4.6" fill="${c}" stroke="#000" stroke-opacity=".4" stroke-width=".3"/><rect x="2.8" y=".5" width="2.4" height="1.7" rx=".4" fill="#222"/><rect x="1.4" y="8.4" width="5.2" height="3.2" fill="#fff6dc" opacity=".9"/><rect x="2" y="6.2" width="1" height="6.5" fill="#fff" opacity=".35"/></g>`}
   return o}
 function camion(st,placa,txt,loc,nota,id,nuevo){
-  const c=COL[st],R=(x,y,h)=>`<rect x="${x}" y="${y}" width="1.2" height="${h}" fill="#000" opacity=".16"/>`;
-  let ribs='';for(let x=102;x<250;x+=12)ribs+=R(x,12,32);
-  const rueda=cx=>`<circle cx="${cx}" cy="58" r="9.5" fill="#15171a"/><circle cx="${cx}" cy="58" r="6" fill="#2a2e33"/><circle cx="${cx}" cy="58" r="4" fill="url(#cr)"/><circle cx="${cx}" cy="58" r="1.4" fill="#333"/>`;
+  const c=COL[st];
+  /* llanta: neumático con flanco, rin cromado y tuercas */
+  const rueda=cx=>`<circle cx="${cx}" cy="58" r="9.6" fill="#0d0f11"/><circle cx="${cx}" cy="58" r="8.2" fill="#1a1d20" stroke="#2c3135" stroke-width=".8"/><circle cx="${cx}" cy="58" r="5.6" fill="url(#rin)" stroke="#59616a" stroke-width=".5"/><circle cx="${cx}" cy="58" r="3.4" fill="#7d8790" stroke="#444" stroke-width=".4"/><circle cx="${cx-2.1}" cy="58" r=".6" fill="#2a2e33"/><circle cx="${cx+2.1}" cy="58" r=".6" fill="#2a2e33"/><circle cx="${cx}" cy="55.9" r=".6" fill="#2a2e33"/><circle cx="${cx}" cy="60.1" r=".6" fill="#2a2e33"/><path d="M${cx-8.4} 55a8.8 8.8 0 0 1 6-5" stroke="#fff" stroke-opacity=".22" stroke-width="1" fill="none"/>`;
+  let postes='';for(let x=114;x<256;x+=18)postes+=`<rect x="${x}" y="6" width="1.5" height="43" fill="#dfe5ea" opacity=".5"/><rect x="${x+1.5}" y="6" width=".8" height="43" fill="#000" opacity=".18"/>`;
+  let cinta='';for(let x=98,i=0;x<254;x+=6,i++)cinta+=`<rect x="${x}" y="43.2" width="6" height="2" fill="${i%2?'#f2f2f2':'#c8261f'}" opacity=".92"/>`;
+  const caja=st==='pend'
+   ?`<rect x="96" y="6" width="162" height="43" rx="2.5" fill="#2e1c0e" stroke="#000" stroke-opacity=".55" stroke-width="1"/><rect x="96" y="30.5" width="162" height="1.8" fill="#7a5230"/>${botellas()}<rect x="96" y="6" width="162" height="8" rx="2.5" fill="#8a1f24"/><rect x="96" y="12" width="162" height="1.5" fill="#ffc400" opacity=".9"/><path d="M110 6l34 43h-16L96 14V6z" fill="#fff" opacity=".07"/><path d="M180 6l34 43h-10L170 6z" fill="#fff" opacity=".05"/>`
+   :`<rect x="96" y="6" width="162" height="43" rx="2.5" fill="url(#tr-${st})" stroke="#000" stroke-opacity=".4" stroke-width="1"/>${Array.from({length:13},(_,i)=>`<rect x="${100+i*12.2}" y="9" width="1" height="34" fill="#000" opacity=".13"/>`).join('')}<rect x="96" y="6" width="162" height="5" rx="2" fill="#fff" opacity=".3"/><path d="M110 6l34 43h-16L96 14V6z" fill="#fff" opacity=".1"/>`;
   return `<div class="truck${nota?' con-nota':''}"><svg viewBox="0 0 262 70" role="img" aria-label="Vehículo ${esc(placa)}"><defs>
   <linearGradient id="tr-${st}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c}"/><stop offset="1" stop-color="${c}" stop-opacity=".62"/></linearGradient>
-  <linearGradient id="cb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f6f8"/><stop offset=".55" stop-color="#d5dbe1"/><stop offset="1" stop-color="#9aa4ae"/></linearGradient>
-  <linearGradient id="gl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9fd3f2"/><stop offset="1" stop-color="#35586f"/></linearGradient>
-  <linearGradient id="cr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#7d8790"/></linearGradient></defs>
-  <rect x="0" y="66.5" width="262" height="1.6" fill="currentColor" opacity=".22"/>
-  <rect x="94" y="49" width="166" height="5" rx="1.5" fill="#23272c"/>
-  ${st==='pend'?`<rect x="96" y="6" width="162" height="43" rx="3" fill="#3a2412" stroke="#000" stroke-opacity=".5" stroke-width="1"/><rect x="96" y="30.5" width="162" height="1.8" fill="#7a5230"/><rect x="96" y="46.5" width="162" height="2.5" fill="#7a5230"/>${botellas()}<rect x="96" y="6" width="162" height="8" rx="3" fill="#8a1f24"/><rect x="96" y="12" width="162" height="1.6" fill="#ffc400" opacity=".9"/>`
-  :`<rect x="96" y="6" width="162" height="43" rx="3" fill="url(#tr-${st})" stroke="#000" stroke-opacity=".35" stroke-width="1"/>${ribs}<rect x="96" y="6" width="162" height="4" rx="2" fill="#fff" opacity=".28"/><rect x="96" y="46.5" width="162" height="2.5" fill="#000" opacity=".25"/>`}
-  <rect x="255" y="40" width="5" height="9" rx="1" fill="#c8302b"/>
-  <path d="M5 52V33q0-4 4-4h31v23z" fill="url(#cb)" stroke="#000" stroke-opacity=".4"/>
-  <path d="M40 52V17q0-5 5-5h20l12-8h6v8h6q4 0 4 4v36z" fill="url(#cb)" stroke="#000" stroke-opacity=".4"/>
-  <path d="M43 16l1 15h18V16z" fill="url(#gl)" stroke="#222" stroke-width=".8"/><path d="M66 16v15h17V18q0-2-2-2z" fill="url(#gl)" stroke="#222" stroke-width=".8"/>
+  <linearGradient id="cb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbfcfd"/><stop offset=".5" stop-color="#d9dfe5"/><stop offset="1" stop-color="#8e99a5"/></linearGradient>
+  <linearGradient id="cbv" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity=".16"/><stop offset=".25" stop-color="#fff" stop-opacity=".25"/><stop offset=".6" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".18"/></linearGradient>
+  <linearGradient id="gl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#bfe6fa"/><stop offset=".5" stop-color="#5d8aa6"/><stop offset="1" stop-color="#1f3a4d"/></linearGradient>
+  <linearGradient id="cr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#7d8790"/></linearGradient>
+  <linearGradient id="chr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6e7780"/><stop offset=".35" stop-color="#fff"/><stop offset=".6" stop-color="#aab3bb"/><stop offset="1" stop-color="#5a626a"/></linearGradient>
+  <radialGradient id="rin" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#8b959f"/></radialGradient>
+  <radialGradient id="fa" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fffbe0"/><stop offset=".5" stop-color="#fff2a8" stop-opacity=".75"/><stop offset="1" stop-color="#fff2a8" stop-opacity="0"/></radialGradient></defs>
+  <ellipse cx="131" cy="68.6" rx="129" ry="2.3" fill="#000" opacity=".3"/>
+  <rect x="0" y="66.8" width="262" height="1.2" fill="currentColor" opacity=".18"/>
+  <rect x="10" y="49.5" width="238" height="4.6" rx="1" fill="#16191c"/>
+  <path d="M92 50c7 5 4 10 10 8M95 50c6 4 3 10 9 7" stroke="#d33" stroke-width="1.1" fill="none"/><path d="M97 50c6 4 3 8 8 6" stroke="#2a6fd6" stroke-width="1.1" fill="none"/>
+  <rect x="112" y="49" width="3" height="11" fill="#3a3f45"/><rect x="108.5" y="59" width="10" height="2" rx=".8" fill="#2a2d31"/>
+  ${caja}${postes}
+  <rect x="96" y="6" width="162" height="2.4" fill="#e8edf1" opacity=".75"/><rect x="96" y="46.6" width="162" height="2.6" fill="url(#chr)" opacity=".85"/>${cinta}
+  <rect x="256.2" y="7" width="3.6" height="42" rx="1" fill="#b9c0c7" stroke="#555" stroke-width=".4"/><rect x="256.4" y="37" width="3.2" height="7" rx=".8" fill="#e0261f"/><rect x="256.4" y="9" width="3.2" height="3" rx=".8" fill="#ff9f1a"/>
+  <rect x="244" y="52" width="16" height="3.2" rx="1" fill="#2a2d31"/><rect x="237" y="52" width="7" height="6" fill="#16191c"/>
+  <rect x="48" y="52" width="28" height="8" rx="4" fill="url(#chr)" stroke="#444" stroke-width=".5"/><path d="M55 52v8M69 52v8" stroke="#555" stroke-width=".7"/>
+  <rect x="74" y="49" width="22" height="4" fill="#1d2024"/><circle cx="91" cy="49" r="3.4" fill="#444" stroke="#222" stroke-width=".5"/><circle cx="91" cy="49" r="1.3" fill="#777"/>
+  <path d="M5 52V33q0-4 4-4h31v23z" fill="url(#cb)" stroke="#000" stroke-opacity=".45"/><path d="M5 52V33q0-4 4-4h31v23z" fill="url(#cbv)"/>
+  <path d="M9 30h31" stroke="#fff" stroke-width="1.1" opacity=".85"/><path d="M14 36h22M14 39h22M14 42h22" stroke="#000" opacity=".16" stroke-width=".7"/><path d="M12 33v17" stroke="#000" opacity=".18" stroke-width=".6"/>
+  <path d="M40 52V17q0-5 5-5h20l12-8h6v8h6q4 0 4 4v36z" fill="url(#cb)" stroke="#000" stroke-opacity=".45"/><path d="M40 52V17q0-5 5-5h20l12-8h6v8h6q4 0 4 4v36z" fill="url(#cbv)"/>
+  <path d="M65 12l12-8h6" stroke="#fff" stroke-opacity=".8" stroke-width="1" fill="none"/>
+  <path d="M43 16l1 15h18V16z" fill="url(#gl)" stroke="#222" stroke-width=".8"/><path d="M66 16v15h17V18q0-2-2-2z" fill="url(#gl)" stroke="#222" stroke-width=".8"/><path d="M45 17l5 13h-4zM68 17l6 13h-5z" fill="#fff" opacity=".25"/>
   ${conductor(st,nuevo)}
+  <rect x="64" y="13" width="27" height="38" rx="3" fill="none" stroke="#000" stroke-opacity=".3" stroke-width=".7"/><rect x="66" y="36" width="5.5" height="1.7" rx=".8" fill="#2a2d31"/><rect x="66.4" y="36.3" width="4.7" height=".5" fill="#fff" opacity=".6"/>
   <rect x="40" y="35" width="48" height="3" fill="#0f2a44"/><rect x="40" y="39" width="48" height="1.4" fill="${c}"/>
-  <rect x="3.5" y="31" width="5.5" height="19" rx="1.2" fill="url(#cr)" stroke="#333" stroke-width=".6"/><path d="M5 34h3M5 37h3M5 40h3M5 43h3M5 46h3" stroke="#555" stroke-width=".6"/>
-  <rect x="9" y="30" width="16" height="2" fill="#222" opacity=".25"/><rect x="2" y="32" width="3" height="5" rx="1" fill="#fff6c8" stroke="#555" stroke-width=".5"/>
-  <rect x="2" y="48" width="12" height="4" rx="1.5" fill="#2b2f34"/>
-  <rect x="88" y="3" width="2.6" height="34" rx="1" fill="url(#cr)"/><rect x="92" y="9" width="2.6" height="28" rx="1" fill="url(#cr)"/>
-  <rect x="48" y="52" width="26" height="7" rx="3.5" fill="url(#cr)" stroke="#555" stroke-width=".6"/>
-  <rect x="74" y="49" width="22" height="4" fill="#23272c"/><circle cx="91" cy="49" r="3.2" fill="#555"/>
+  <rect x="35.5" y="14" width="1.6" height="12" fill="#2a2d31"/><rect x="32.5" y="13" width="5" height="10" rx="1.5" fill="#1d2126" stroke="#9aa4ae" stroke-width=".5"/><rect x="33.4" y="14" width="1.4" height="8" rx=".7" fill="#7fa6c0" opacity=".7"/>
+  <rect x="3.2" y="31" width="5.8" height="19" rx="1.2" fill="url(#chr)" stroke="#333" stroke-width=".6"/><path d="M4.6 33.5h3M4.6 36.5h3M4.6 39.5h3M4.6 42.5h3M4.6 45.5h3" stroke="#444" stroke-width=".6"/>
+  <circle cx="3" cy="35" r="5" fill="url(#fa)"/><rect x="1.6" y="32" width="3.6" height="6" rx="1.3" fill="#fff8d0" stroke="#666" stroke-width=".5"/><rect x="1.8" y="40" width="2.6" height="2.4" rx=".8" fill="#ff9f1a"/>
+  <rect x="9" y="30" width="16" height="2" fill="#222" opacity=".22"/>
+  <rect x="1.5" y="48" width="14" height="4.6" rx="2" fill="url(#chr)" stroke="#333" stroke-width=".5"/>
+  <rect x="88" y="3" width="2.6" height="34" rx="1" fill="url(#chr)"/><rect x="92" y="9" width="2.6" height="28" rx="1" fill="url(#chr)"/><rect x="87.6" y="2" width="3.4" height="2" rx="1" fill="#333"/><rect x="91.6" y="8" width="3.4" height="2" rx="1" fill="#333"/>
+  <path d="M9 53a12 12 0 0 1 24 0z" fill="#101214"/><path d="M8 53a13 13 0 0 1 26 0" fill="none" stroke="url(#cb)" stroke-width="2.2"/>
+  <path d="M56 53a22 12 0 0 1 44 0z" fill="#101214"/><path d="M55 53a23 13 0 0 1 46 0" fill="none" stroke="url(#cb)" stroke-width="2"/>
   ${rueda(21)}${rueda(66)}${rueda(82)}${rueda(214)}${rueda(231)}${rueda(247)}
-  <path d="M10 62h22" stroke="none"/></svg>
+  <rect x="92" y="55" width="2.6" height="9" fill="#101214"/><rect x="255.5" y="55" width="2.6" height="9" fill="#101214"/>
+  </svg>
   <div class="tinfo"><span class="plate">${esc(placa)}</span><div class="trow"><span class="stamp s-${st}">${txt}</span>${loc?`<span class="tloc">${esc(loc)}</span>`:''}</div></div>${nota?`<div class="tnota" data-act="nota" data-id="${esc(id)}" title="${esc(nota)}"><b>Obs.</b> ${esc(nota)}</div>`:''}</div>`;
 }
 function tarjeta(x,mapa){
