@@ -133,6 +133,7 @@ header{flex-wrap:wrap}header h1{flex:1 1 130px;min-width:0}header h1 small{text-
 .tnota{position:absolute;left:38.5%;right:3.5%;top:38%;height:30%;box-sizing:border-box;background:#fff3b0;color:#3a2e00;border:1px solid rgba(0,0,0,.35);border-radius:3px;padding:1px 5px;font-size:clamp(8.5px,2.8vw,10.5px);line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;cursor:pointer;transform:rotate(-.6deg);box-shadow:0 1px 2px rgba(0,0,0,.35)}
 .tnota b{color:#8a5a00;font-weight:800}
 @media (prefers-reduced-motion:reduce){.pop{animation:none!important}}
+.ubb{margin:8px 0;font-size:15px;min-height:20px}.barr{display:block;margin-top:2px;font-size:13px;color:var(--mut)}.barr b{color:var(--tx)}
 .btn.arr{background:#1769c2;color:#fff;border-color:#1769c2}.quien.llego{color:#4aa3ff;font-weight:700}
 details.done{margin:14px 0 8px;border:1px dashed var(--line);border-radius:12px;padding:0 8px 4px;background:var(--bg2)}
 details.done>summary{cursor:pointer;list-style:none;padding:12px 6px;font:700 17px 'Barlow Condensed',sans-serif;letter-spacing:.4px;display:flex;align-items:center;gap:8px}
@@ -174,7 +175,7 @@ function modal(h){closeModal();const m=document.createElement('div');m.className
 function closeModal(){const m=$('modal');if(m)m.remove()}
 function descargar(n,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download=n;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
 
-const VERSION='2026-10-27 · destinos v9 llegada en columnas';
+const VERSION='2026-10-27 · destinos v10 barrio de la posición';
 const LOGO=`<svg width="34" height="34" style="flex:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b2545"/><path d="M256 92c-66 0-118 51-118 114 0 84 118 214 118 214s118-130 118-214c0-63-52-114-118-114z" fill="#fff"/><circle cx="256" cy="206" r="78" fill="#188a4b"/><path d="M222 208l26 27 46-54" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><circle cx="392" cy="392" r="38" fill="#e8a317"/><circle cx="392" cy="392" r="16" fill="#0b2545"/></svg>`;
 /* ---- estado y conexión ---- */
 let S=(()=>{try{return JSON.parse(LS('em_s'))||{}}catch(e){return{}}})();
@@ -329,7 +330,7 @@ function tarjeta(x,mapa){
    +(p.otros?`<div class="kv">${p.otros}</div>`:'')
    +(lg?`<div class="quien llego">🏁 Llegó a destino a las ${hm(lg.ts)} · registró ${esc(lg.quien)}</div>`:'')
    +(stOf(x)!=='pend'?`<div class="quien">${esc(x.Resultado||'Llamado')} por ${esc(corto(x.LlamadoPor))} a las ${hm(x.LlamadoEn)}</div>`:'')
-   +(x.Ubicacion?`<div class="pos"><small>📍 Posición al contacto</small><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.Ubicacion+', Colombia')}" target="_blank" rel="noopener">${esc(x.Ubicacion)}</a></div>`:'')
+   +(x.Ubicacion?`<div class="pos"><small>📍 Posición al contacto</small><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ubicLimpia(x)+(barrioUb(x)?', '+barrioUb(x):'')+', Bogotá, Colombia')}" target="_blank" rel="noopener">${esc(ubicLimpia(x))}</a>${barrioUb(x)?`<span class="barr">🏘 Barrio: <b>${esc(barrioUb(x))}</b></span>`:''}</div>`:'')
    +botones(x)+`</article>`;
 }
 const ORD={pend:0,nc:1,ok:2};
@@ -400,6 +401,24 @@ const tip=x=>({permanent:true,direction:'right',offset:[10,0],className:'ptip'})
 let GEO=(()=>{try{return JSON.parse(LS('em_geo'))||{}}catch(e){return{}}})();
 const geoK=t=>norm(t);
 let GEOQ=[],GEOON=false;
+/* barrio de una dirección: se guarda junto a la posición como «texto [Barrio: X]» (así queda en el servidor y en el Excel) */
+const UB_RE=/\s*\[Barrio:\s*([^\]]*)\]\s*$/;
+const ubicLimpia=x=>String(x.Ubicacion||'').replace(UB_RE,'').trim();
+const barrioUb=x=>{const m=String(x.Ubicacion||'').match(UB_RE);return m?m[1].trim():''};
+const normDir=t=>String(t||'').replace(/\s+/g,' ').trim()
+  .replace(/\b(AK|AV\.? ?(KR|KRA|CR|CRA)|AVENIDA CARRERA)\.?\s*(?=\d)/gi,'Avenida Carrera ').replace(/\b(AC|AV\.? ?(CL|CLL)|AVENIDA CALLE)\.?\s*(?=\d)/gi,'Avenida Calle ')
+  .replace(/\b(KRA|KR|CRA|CR|CARR?)\.?\s*(?=\d)/gi,'Carrera ').replace(/\b(CLL|CL|CALLE)\.?\s*(?=\d)/gi,'Calle ')
+  .replace(/\b(DG|DIAG)\.?\s*(?=\d)/gi,'Diagonal ').replace(/\b(TV|TRANSV)\.?\s*(?=\d)/gi,'Transversal ').replace(/\s+(CON|CRUCE|ESQ\.?)\s+/gi,' & ');
+async function nomJ(u){const r=await fetch(u,{headers:{'Accept-Language':'es'}});return r.json()}
+async function buscaBarrio(t){
+  const base='https://nominatim.openstreetmap.org/';
+  const j=await nomJ(base+'search?format=json&limit=1&addressdetails=1&countrycodes=co&viewbox=-74.5,5.2,-73.8,4.2&q='+encodeURIComponent(normDir(t)+', Bogotá, Colombia'));
+  if(!j||!j[0])return null;
+  const pick=a=>a.neighbourhood||a.suburb||a.quarter||a.residential||'';
+  let a=j[0].address||{},b=pick(a),loc=a.city_district||'';
+  if(!b||!loc){try{const r=await nomJ(base+'reverse?format=json&zoom=17&addressdetails=1&lat='+j[0].lat+'&lon='+j[0].lon),ad=r.address||{};b=b||pick(ad);loc=loc||ad.city_district||''}catch(e){}}
+  return{ll:[+j[0].lat,+j[0].lon],barrio:b,loc:loc}
+}
 function geocoda(t){const k=geoK(t);if(GEO[k]||GEOQ.includes(t))return;GEOQ.push(t);if(!GEOON){GEOON=true;geoSig()}}
 async function geoSig(){
   const t=GEOQ.shift();if(!t){GEOON=false;return}
@@ -429,7 +448,7 @@ function pintaMapa(){
   Object.keys(aprox).forEach(k=>{const c=LOC[k];
     aprox[k].forEach((x,i)=>{naprox++;const r=i===0?0:0.007*Math.sqrt(i),an=i*2.4,q=[c[0]+r*Math.sin(an),c[1]+r*Math.cos(an)],st=stOf(x);
       L.circleMarker(q,{radius:10,color:COL[st],weight:3,dashArray:'3 3',fillColor:COL[st],fillOpacity:.25}).bindPopup(()=>popup(x),{maxWidth:300}).bindTooltip(esc(partes(x).placa),tip()).addTo(CAPA);pts.push(q)})});
-  filtrados().forEach(x=>{if(!x.Ubicacion)return;const g=GEO[geoK(x.Ubicacion)];if(g&&g.ll){const q=g.ll,st=stOf(x);L.marker(q,{icon:L.divIcon({className:'pin-pos',html:'<span>📍</span>',iconSize:[30,30],iconAnchor:[15,28]})}).bindPopup(()=>`<div><b>📍 Posición al contacto</b><br>${esc(x.Ubicacion)}<br><small>${esc(partes(x).placa)} · ${TXT[st]}</small></div>`,{maxWidth:260}).bindTooltip(esc(partes(x).placa)+' · '+esc(x.Ubicacion),tip()).addTo(CAPA);pts.push(q)}else if(!g)geocoda(x.Ubicacion)});
+  filtrados().forEach(x=>{if(!x.Ubicacion)return;const g=GEO[geoK(ubicLimpia(x))];if(g&&g.ll){const q=g.ll,st=stOf(x);L.marker(q,{icon:L.divIcon({className:'pin-pos',html:'<span>📍</span>',iconSize:[30,30],iconAnchor:[15,28]})}).bindPopup(()=>`<div><b>📍 Posición al contacto</b><br>${esc(ubicLimpia(x))}<br><small>${esc(partes(x).placa)} · ${TXT[st]}</small></div>`,{maxWidth:260}).bindTooltip(esc(partes(x).placa)+' · '+esc(ubicLimpia(x)),tip()).addTo(CAPA);pts.push(q)}else if(!g)geocoda(ubicLimpia(x))});
   const key=EM.f+'|'+EM.l+'|'+EM.q;
   if(pts.length&&AJUSTADO!==key){MAP.fitBounds(L.latLngBounds(pts).pad(.15),{maxZoom:15});AJUSTADO=key;w.classList.toggle('sin-tips',MAP.getZoom()<12)}
   const ley=`<p class="leyenda">${exactos?`<b>${exactos}</b> con la ubicación real de sus entregas (puntos pequeños = paradas). `:''}${naprox?`<b>${naprox}</b> con ubicación aproximada por localidad (círculo punteado).`:''}${!exactos&&naprox?' Para ubicar cada vehículo con precisión, el Excel debe traer la hoja de pedidos con coordenadas (CX y CY).':''}</p>`;
@@ -462,13 +481,13 @@ function soporte(){
   const h=d.encabezado?d.encabezado.split(' | '):[];const an=d.items.map(x=>analiza(x.Detalle,d.encabezado));
   const nc=Math.max(h.length,...d.items.map(x=>x.Detalle.split(' | ').length));
   const orig=Array.from({length:nc},(_,i)=>h[i]||'Dato '+(i+1));
-  const cab=['N°','Fecha','Placa','Localidad (detectada)','Latitud aprox.','Longitud aprox.','Ver en mapa',...orig,'Estado','Resultado','Llamado por','Fecha y hora de la llamada','Ubicación del vehículo al contacto','Llegó a destino','Hora de llegada','Llegada registrada por','Nota'];
+  const cab=['N°','Fecha','Placa','Localidad (detectada)','Latitud aprox.','Longitud aprox.','Ver en mapa',...orig,'Estado','Resultado','Llamado por','Fecha y hora de la llamada','Ubicación del vehículo al contacto','Barrio de la posición','Llegó a destino','Hora de llegada','Llegada registrada por','Nota'];
   /* orden: primero los que contestaron, luego los que no contestaron y al final los pendientes (cada grupo por hora de llamada) */
   const ORD={ok:0,nc:1,pend:2};
   const idx=d.items.map((x,i)=>i).sort((a,b)=>{const xa=d.items[a],xb=d.items[b],ga=ORD[stOf(xa)],gb=ORD[stOf(xb)];if(ga!==gb)return ga-gb;const ta=xa.LlamadoEn||'',tb=xb.LlamadoEn||'';return ta<tb?-1:ta>tb?1:a-b});
   const est=idx.map(i=>stOf(d.items[i]));
   const filas=idx.map(i=>{const x=d.items[i],a=an[i],ll=a.ll||(a.loc?LOC[a.loc]:null),c=x.Detalle.split(' | ');
-    return [i+1,d.fecha,a.placa,a.loc,ll?ll[0]:'',ll?ll[1]:'',ll?`https://www.google.com/maps?q=${ll[0]},${ll[1]}`:'',...orig.map((_,k)=>c[k]||''),TXT[stOf(x)],x.Llamado==='SI'?x.Resultado:'',x.LlamadoPor,x.LlamadoEn,x.Ubicacion||'',llegoDe(x)?'SI':'',llegoDe(x)?llegoDe(x).ts:'',llegoDe(x)?llegoDe(x).quien:'',notaLimpia(x)]});
+    return [i+1,d.fecha,a.placa,a.loc,ll?ll[0]:'',ll?ll[1]:'',ll?`https://www.google.com/maps?q=${ll[0]},${ll[1]}`:'',...orig.map((_,k)=>c[k]||''),TXT[stOf(x)],x.Llamado==='SI'?x.Resultado:'',x.LlamadoPor,x.LlamadoEn,ubicLimpia(x),barrioUb(x),llegoDe(x)?'SI':'',llegoDe(x)?llegoDe(x).ts:'',llegoDe(x)?llegoDe(x).quien:'',notaLimpia(x)]});
   const cnt=a=>{const o={ok:0,nc:0,pend:0};a.forEach(x=>o[stOf(x)]++);return o};
   const T=cnt(d.items),ll=d.items.filter(x=>x.LlamadoEn).map(x=>x.LlamadoEn).sort();
   const res=[['SEGUIMIENTO OPERACIÓN DESTINOS — SOPORTE DE LLAMADAS'],['Fecha',d.fecha],['Generado',new Date().toLocaleString('es-CO')],[],['Total embalajes',d.total],['Llamados (contestaron)',T.ok],['No contestaron',T.nc],['Pendientes',T.pend],['Llegaron a destino',d.items.filter(llegoDe).length],['% gestionado',d.total?Math.round((T.ok+T.nc)*100/d.total)+'%':''],['Primera llamada',ll[0]||''],['Última llamada',ll[ll.length-1]||''],[],['POR COORDINADOR REPCO','Llamados','No contestó']];
@@ -668,8 +687,15 @@ des(d){accion({id:d.id,deshacer:true})},
 llego(d){const x=EM.d.items.find(i=>i.ID===d.id);if(!x)return;if(srvV2())accion({id:d.id,llego:true});else accion({id:d.id,nota:armaNota(notaLimpia(x),{ts:ahora(),quien:corto(S.nombre||'')})})},
 quitaLlego(d){const x=EM.d.items.find(i=>i.ID===d.id);if(!x)return;const p={id:d.id};if(srvV2())p.llego=false;if(tagDe(x))p.nota=armaNota(notaLimpia(x),null);accion(p)},
 nota(d){const x=EM.d.items.find(i=>i.ID===d.id);modal(`<h2 style="margin-top:0">Nota</h2><input type="hidden" id="ni" value="${esc(d.id)}"><textarea id="nt" rows="3" maxlength="140" placeholder="Ej: pidió que lo llamen a las 3 pm">${esc(x?notaLimpia(x):'')}</textarea><br><br><button class="btn big" data-act="notaOk">Guardar</button>`)},
-ubic(d){const x=EM.d.items.find(i=>i.ID===d.id);modal(`<h2 style="margin-top:0">📍 Posición del vehículo al contacto</h2><p class="mut" style="margin:0 0 8px">Dirección, vía o punto donde estaba el vehículo cuando lo llamaste.</p><input type="hidden" id="ui" value="${esc(d.id)}"><textarea id="ut" rows="2" maxlength="160" placeholder="Ej: Autopista Sur con Calle 57 sur, frente a Éxito">${esc(x&&x.Ubicacion||'')}</textarea><br><br><button class="btn big" data-act="ubicOk">Guardar posición</button>`)},
-async ubicOk(){const id=val('ui'),u=$('ut').value.trim();closeModal();await accion({id,ubicacion:u})},
+ubic(d){const x=EM.d.items.find(i=>i.ID===d.id);EM.bar=null;modal(`<h2 style="margin-top:0">📍 Posición del vehículo al contacto</h2><p class="mut" style="margin:0 0 8px">Dirección, vía o punto donde estaba el vehículo cuando lo llamaste. Te muestro el barrio donde queda.</p><input type="hidden" id="ui" value="${esc(d.id)}"><textarea id="ut" rows="2" maxlength="115" placeholder="Ej: Autopista Sur con Calle 57 sur, frente a Éxito">${esc(x?ubicLimpia(x):'')}</textarea><div id="ubb" class="ubb mut">Escribe la dirección y aquí aparece el barrio.</div><label>Barrio (se llena solo; corrígelo si hace falta)</label><input id="ubm" maxlength="40" placeholder="Barrio" value="${esc(x?barrioUb(x):'')}"><div class="row" style="margin-top:8px"><button class="btn ghost sm" data-act="ubBuscar">🔎 Buscar barrio</button></div><br><button class="btn big" data-act="ubicOk">Guardar posición</button>`);if(x&&ubicLimpia(x)&&!barrioUb(x))setTimeout(()=>ACT.ubBuscar(),200)},
+async ubBuscar(){const t=($('ut')||{}).value.trim(),n=$('ubb');if(!n)return;if(t.length<5){n.textContent='Escribe la dirección primero.';return}
+  n.textContent='Buscando el barrio…';let r=null;try{r=await buscaBarrio(t)}catch(e){n.textContent='No se pudo consultar (sin internet). Escribe el barrio a mano.';return}
+  if(($('ut')||{}).value.trim()!==t)return;EM.bar=r?{t,...r}:null;
+  if(!r){n.textContent='No encontré esa dirección. Escribe el barrio a mano si lo conoces.';return}
+  if(r.ll)GEO[geoK(t)]={ll:r.ll};try{LS('em_geo',JSON.stringify(GEO))}catch(e){}
+  if(r.barrio){n.innerHTML='🏘 Barrio: <b>'+esc(r.barrio)+'</b>'+(r.loc?' · '+esc(r.loc):'');const m=$('ubm');if(m&&!m.value)m.value=r.barrio}
+  else n.textContent='Ubiqué la dirección'+(r.loc?' ('+r.loc+')':'')+' pero sin barrio. Escríbelo a mano.'},
+async ubicOk(){const id=val('ui'),u=$('ut').value.trim().slice(0,115),m=(($('ubm')||{}).value||'').trim().slice(0,40);closeModal();await accion({id,ubicacion:u?u+(m?' [Barrio: '+m+']':''):''})},
 async notaOk(){const id=val('ni'),n=$('nt').value,x=EM.d.items.find(i=>i.ID===id);closeModal();await accion({id,nota:armaNota(n,x?tagDe(x):null)})},
 dia(d){S.fecha=sumaDias(S.fecha,+d.d);S.fechaSet=hoyL();save();inicio()},
 irdia(d){S.fecha=sumaDias(hoyL(),+d.d);S.fechaSet=hoyL();save();inicio()},
@@ -701,6 +727,7 @@ async gca(){try{if(val('ca').length<6)throw new Error('Mínimo 6 caracteres');aw
 };
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;const f=ACT[b.dataset.act];if(f){e.preventDefault();f(b.dataset)}});
 document.addEventListener('input',e=>{if(e.target.id==='q'&&EM.d){EM.q=e.target.value;$('lista').innerHTML=listaHtml();if(EM.v==='mapa')pintaMapa()}});
+let UBT=0;document.addEventListener('input',e=>{if(e.target&&e.target.id==='ut'){clearTimeout(UBT);const m=$('ubm');if(m&&EM.bar&&EM.bar.t!==e.target.value.trim()){}UBT=setTimeout(()=>ACT.ubBuscar(),1300)}});
 document.addEventListener('toggle',e=>{const t=e.target;if(t&&t.matches&&t.matches('details.done')&&t.dataset.k)EM.abre[t.dataset.k]=t.open},true);
 document.addEventListener('change',e=>{const t=e.target;
   if(t.id==='fl'){EM.l=t.value;pinta()}
