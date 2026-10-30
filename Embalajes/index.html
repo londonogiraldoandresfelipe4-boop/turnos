@@ -133,6 +133,7 @@ header{flex-wrap:wrap}header h1{flex:1 1 130px;min-width:0}header h1 small{text-
 .tnota{position:absolute;left:38.5%;right:3.5%;top:38%;height:30%;box-sizing:border-box;background:#fff3b0;color:#3a2e00;border:1px solid rgba(0,0,0,.35);border-radius:3px;padding:1px 5px;font-size:clamp(8.5px,2.8vw,10.5px);line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;cursor:pointer;transform:rotate(-.6deg);box-shadow:0 1px 2px rgba(0,0,0,.35)}
 .tnota b{color:#8a5a00;font-weight:800}
 @media (prefers-reduced-motion:reduce){.pop{animation:none!important}}
+.ubc{margin-top:8px}.ubc .chip{cursor:pointer;margin:4px 6px 0 0;border:1px solid var(--line);background:var(--card2);color:var(--tx);font:inherit;font-size:13px;padding:4px 10px;border-radius:999px}
 .ubb{margin:8px 0;font-size:15px;min-height:20px}.barr{display:block;margin-top:2px;font-size:13px;color:var(--mut)}.barr b{color:var(--tx)}
 .btn.arr{background:#1769c2;color:#fff;border-color:#1769c2}.quien.llego{color:#4aa3ff;font-weight:700}
 details.done{margin:14px 0 8px;border:1px dashed var(--line);border-radius:12px;padding:0 8px 4px;background:var(--bg2)}
@@ -175,7 +176,7 @@ function modal(h){closeModal();const m=document.createElement('div');m.className
 function closeModal(){const m=$('modal');if(m)m.remove()}
 function descargar(n,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download=n;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
 
-const VERSION='2026-10-27 · destinos v10 barrio de la posición';
+const VERSION='2026-10-27 · destinos v11 barrio con respaldo';
 const LOGO=`<svg width="34" height="34" style="flex:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b2545"/><path d="M256 92c-66 0-118 51-118 114 0 84 118 214 118 214s118-130 118-214c0-63-52-114-118-114z" fill="#fff"/><circle cx="256" cy="206" r="78" fill="#188a4b"/><path d="M222 208l26 27 46-54" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><circle cx="392" cy="392" r="38" fill="#e8a317"/><circle cx="392" cy="392" r="16" fill="#0b2545"/></svg>`;
 /* ---- estado y conexión ---- */
 let S=(()=>{try{return JSON.parse(LS('em_s'))||{}}catch(e){return{}}})();
@@ -409,15 +410,29 @@ const normDir=t=>String(t||'').replace(/\s+/g,' ').trim()
   .replace(/\b(AK|AV\.? ?(KR|KRA|CR|CRA)|AVENIDA CARRERA)\.?\s*(?=\d)/gi,'Avenida Carrera ').replace(/\b(AC|AV\.? ?(CL|CLL)|AVENIDA CALLE)\.?\s*(?=\d)/gi,'Avenida Calle ')
   .replace(/\b(KRA|KR|CRA|CR|CARR?)\.?\s*(?=\d)/gi,'Carrera ').replace(/\b(CLL|CL|CALLE)\.?\s*(?=\d)/gi,'Calle ')
   .replace(/\b(DG|DIAG)\.?\s*(?=\d)/gi,'Diagonal ').replace(/\b(TV|TRANSV)\.?\s*(?=\d)/gi,'Transversal ').replace(/\s+(CON|CRUCE|ESQ\.?)\s+/gi,' & ');
+const barriosDia=()=>{const o=new Set();(EM.d?EM.d.items:[]).forEach(x=>partes(x).barrios.forEach(b=>o.add(b)));return [...o].sort((a,b)=>a.localeCompare(b))};
 async function nomJ(u){const r=await fetch(u,{headers:{'Accept-Language':'es'}});return r.json()}
 async function buscaBarrio(t){
-  const base='https://nominatim.openstreetmap.org/';
-  const j=await nomJ(base+'search?format=json&limit=1&addressdetails=1&countrycodes=co&viewbox=-74.5,5.2,-73.8,4.2&q='+encodeURIComponent(normDir(t)+', Bogotá, Colombia'));
-  if(!j||!j[0])return null;
-  const pick=a=>a.neighbourhood||a.suburb||a.quarter||a.residential||'';
-  let a=j[0].address||{},b=pick(a),loc=a.city_district||'';
-  if(!b||!loc){try{const r=await nomJ(base+'reverse?format=json&zoom=17&addressdetails=1&lat='+j[0].lat+'&lon='+j[0].lon),ad=r.address||{};b=b||pick(ad);loc=loc||ad.city_district||''}catch(e){}}
-  return{ll:[+j[0].lat,+j[0].lon],barrio:b,loc:loc}
+  const q=normDir(t),pick=a=>a.neighbourhood||a.suburb||a.quarter||a.residential||'';
+  /* 1) OpenStreetMap */
+  try{
+    const base='https://nominatim.openstreetmap.org/';
+    const j=await nomJ(base+'search?format=json&limit=1&addressdetails=1&countrycodes=co&viewbox=-74.5,5.2,-73.8,4.2&q='+encodeURIComponent(q+', Bogotá, Colombia'));
+    if(j&&j[0]){
+      let a=j[0].address||{},b=pick(a),loc=a.city_district||'';
+      if(!b||!loc){try{const r=await nomJ(base+'reverse?format=json&zoom=17&addressdetails=1&lat='+j[0].lat+'&lon='+j[0].lon),ad=r.address||{};b=b||pick(ad);loc=loc||ad.city_district||''}catch(e){}}
+      if(b)return{ll:[+j[0].lat,+j[0].lon],barrio:b,loc:loc,fuente:'OpenStreetMap'};
+      var ll0=[+j[0].lat,+j[0].lon],loc0=loc;
+    }
+  }catch(e){}
+  /* 2) ArcGIS (entiende bien «Carrera 52 & Calle 128A») */
+  try{
+    const j=await nomJ('https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?f=json&maxLocations=1&countryCode=COL&outFields=Neighborhood,District,City&location=-74.08,4.65&singleLine='+encodeURIComponent(q+', Bogotá'));
+    const c=j&&j.candidates&&j.candidates[0];
+    if(c&&c.score>=75){const at=c.attributes||{};const b=at.Neighborhood||'';
+      return{ll:c.location?[c.location.y,c.location.x]:ll0||null,barrio:b,loc:at.District||loc0||'',fuente:'ArcGIS'}}
+  }catch(e){}
+  return ll0?{ll:ll0,barrio:'',loc:loc0||'',fuente:'OpenStreetMap'}:null;
 }
 function geocoda(t){const k=geoK(t);if(GEO[k]||GEOQ.includes(t))return;GEOQ.push(t);if(!GEOON){GEOON=true;geoSig()}}
 async function geoSig(){
@@ -687,14 +702,15 @@ des(d){accion({id:d.id,deshacer:true})},
 llego(d){const x=EM.d.items.find(i=>i.ID===d.id);if(!x)return;if(srvV2())accion({id:d.id,llego:true});else accion({id:d.id,nota:armaNota(notaLimpia(x),{ts:ahora(),quien:corto(S.nombre||'')})})},
 quitaLlego(d){const x=EM.d.items.find(i=>i.ID===d.id);if(!x)return;const p={id:d.id};if(srvV2())p.llego=false;if(tagDe(x))p.nota=armaNota(notaLimpia(x),null);accion(p)},
 nota(d){const x=EM.d.items.find(i=>i.ID===d.id);modal(`<h2 style="margin-top:0">Nota</h2><input type="hidden" id="ni" value="${esc(d.id)}"><textarea id="nt" rows="3" maxlength="140" placeholder="Ej: pidió que lo llamen a las 3 pm">${esc(x?notaLimpia(x):'')}</textarea><br><br><button class="btn big" data-act="notaOk">Guardar</button>`)},
-ubic(d){const x=EM.d.items.find(i=>i.ID===d.id);EM.bar=null;modal(`<h2 style="margin-top:0">📍 Posición del vehículo al contacto</h2><p class="mut" style="margin:0 0 8px">Dirección, vía o punto donde estaba el vehículo cuando lo llamaste. Te muestro el barrio donde queda.</p><input type="hidden" id="ui" value="${esc(d.id)}"><textarea id="ut" rows="2" maxlength="115" placeholder="Ej: Autopista Sur con Calle 57 sur, frente a Éxito">${esc(x?ubicLimpia(x):'')}</textarea><div id="ubb" class="ubb mut">Escribe la dirección y aquí aparece el barrio.</div><label>Barrio (se llena solo; corrígelo si hace falta)</label><input id="ubm" maxlength="40" placeholder="Barrio" value="${esc(x?barrioUb(x):'')}"><div class="row" style="margin-top:8px"><button class="btn ghost sm" data-act="ubBuscar">🔎 Buscar barrio</button></div><br><button class="btn big" data-act="ubicOk">Guardar posición</button>`);if(x&&ubicLimpia(x)&&!barrioUb(x))setTimeout(()=>ACT.ubBuscar(),200)},
+ubic(d){const x=EM.d.items.find(i=>i.ID===d.id);EM.bar=null;modal(`<h2 style="margin-top:0">📍 Posición del vehículo al contacto</h2><p class="mut" style="margin:0 0 8px">Dirección, vía o punto donde estaba el vehículo cuando lo llamaste. Te muestro el barrio donde queda.</p><input type="hidden" id="ui" value="${esc(d.id)}"><textarea id="ut" rows="2" maxlength="115" placeholder="Ej: Autopista Sur con Calle 57 sur, frente a Éxito">${esc(x?ubicLimpia(x):'')}</textarea><div id="ubb" class="ubb mut">Escribe la dirección y aquí aparece el barrio.</div><label>Barrio (se llena solo; corrígelo si hace falta)</label><input id="ubm" list="ubl" maxlength="40" placeholder="Barrio" value="${esc(x?barrioUb(x):'')}"><datalist id="ubl">${barriosDia().map(b=>`<option value="${esc(b)}">`).join('')}</datalist>${x&&partes(x).barrios.length?`<div class="ubc"><small class="mut">Barrios de la ruta de este vehículo:</small><div>${partes(x).barrios.map(b=>`<button type="button" class="chip" data-act="ubPon" data-b="${esc(b)}">${esc(b)}</button>`).join('')}</div></div>`:''}<div class="row" style="margin-top:8px"><button class="btn ghost sm" data-act="ubBuscar">🔎 Buscar barrio</button></div><br><button class="btn big" data-act="ubicOk">Guardar posición</button>`);if(x&&ubicLimpia(x)&&!barrioUb(x))setTimeout(()=>ACT.ubBuscar(),200)},
+ubPon(d){const m=$('ubm');if(m)m.value=d.b},
 async ubBuscar(){const t=($('ut')||{}).value.trim(),n=$('ubb');if(!n)return;if(t.length<5){n.textContent='Escribe la dirección primero.';return}
   n.textContent='Buscando el barrio…';let r=null;try{r=await buscaBarrio(t)}catch(e){n.textContent='No se pudo consultar (sin internet). Escribe el barrio a mano.';return}
   if(($('ut')||{}).value.trim()!==t)return;EM.bar=r?{t,...r}:null;
-  if(!r){n.textContent='No encontré esa dirección. Escribe el barrio a mano si lo conoces.';return}
+  if(!r){n.textContent='No pude ubicar esa dirección en el mapa. Elige el barrio de la ruta (botones de abajo) o escríbelo.';return}
   if(r.ll)GEO[geoK(t)]={ll:r.ll};try{LS('em_geo',JSON.stringify(GEO))}catch(e){}
   if(r.barrio){n.innerHTML='🏘 Barrio: <b>'+esc(r.barrio)+'</b>'+(r.loc?' · '+esc(r.loc):'');const m=$('ubm');if(m&&!m.value)m.value=r.barrio}
-  else n.textContent='Ubiqué la dirección'+(r.loc?' ('+r.loc+')':'')+' pero sin barrio. Escríbelo a mano.'},
+  else n.textContent='Ubiqué la dirección'+(r.loc?' ('+r.loc+')':'')+' pero el mapa no trae el barrio. Elige uno de la ruta (botones de abajo) o escríbelo.'},
 async ubicOk(){const id=val('ui'),u=$('ut').value.trim().slice(0,115),m=(($('ubm')||{}).value||'').trim().slice(0,40);closeModal();await accion({id,ubicacion:u?u+(m?' [Barrio: '+m+']':''):''})},
 async notaOk(){const id=val('ni'),n=$('nt').value,x=EM.d.items.find(i=>i.ID===id);closeModal();await accion({id,nota:armaNota(n,x?tagDe(x):null)})},
 dia(d){S.fecha=sumaDias(S.fecha,+d.d);S.fechaSet=hoyL();save();inicio()},
