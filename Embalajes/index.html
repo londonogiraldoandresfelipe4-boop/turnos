@@ -49,14 +49,14 @@ button{font:inherit;cursor:pointer}
 .pct{margin-left:auto;font:700 46px/0.9 'Barlow Condensed',sans-serif;color:var(--acc);font-variant-numeric:tabular-nums}.pct small{font-size:22px}
 .convoy{display:flex;gap:3px;height:36px;margin:14px 0 4px;padding:3px;background:var(--bg);border:1px solid var(--line);border-radius:10px}
 .convoy .seg{all:unset;box-sizing:border-box;flex:1;min-width:4px;border-radius:4px;background:var(--warn);cursor:pointer;transition:transform .15s}
-.convoy .seg.ok{background:var(--ok)}.convoy .seg.nc{background:var(--bad)}.convoy .seg:hover{transform:scaleY(1.12)}.convoy .seg:focus-visible{outline:2px solid var(--tx)}
+.convoy .seg.lleg{background:#4aa3ff}.convoy .seg.ok{background:var(--ok)}.convoy .seg.nc{background:var(--bad)}.convoy .seg:hover{transform:scaleY(1.12)}.convoy .seg:focus-visible{outline:2px solid var(--tx)}
 .convoy.go .seg{animation:arr .5s both;animation-delay:calc(var(--i)*20ms)}
 @keyframes arr{from{transform:scaleY(.1);opacity:.2}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.convoy.go .seg{animation:none}}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}
 .stat{border:1px solid var(--line);border-radius:12px;padding:8px 6px;text-align:center;font-size:13px;font-weight:600;color:var(--tx);background:var(--card2);border-bottom:4px solid var(--warn)}
 .stat b{display:block;font:700 30px/1.05 'Barlow Condensed',sans-serif;font-variant-numeric:tabular-nums}
-.stat.o{border-bottom-color:var(--ok)}.stat.n{border-bottom-color:var(--bad)}.stat.on{background:var(--card);outline:2px solid var(--acc)}
+.stat.g{border-bottom-color:#4aa3ff}.stat.o{border-bottom-color:var(--ok)}.stat.n{border-bottom-color:var(--bad)}.stat.on{background:var(--card);outline:2px solid var(--acc)}
 .kpis{display:flex;gap:8px;flex-wrap:wrap}
 .kpi{flex:1;min-width:92px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 .kpi b{display:block;font:700 22px/1.1 'Barlow Condensed',sans-serif;font-variant-numeric:tabular-nums}.kpi small{color:var(--mut);font-size:12px}
@@ -65,12 +65,12 @@ button{font:inherit;cursor:pointer}
 @media (min-width:700px){.tools{grid-template-columns:1.4fr 1fr}}
 /* tarjeta tipo guía de despacho */
 .vc{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--warn);border-radius:12px;padding:12px 14px;margin:0 0 10px;box-shadow:var(--sh)}
-.vc.ok{border-left-color:var(--ok)}.vc.nc{border-left-color:var(--bad)}
+.vc.lleg{border-left-color:#4aa3ff}.vc.ok{border-left-color:var(--ok)}.vc.nc{border-left-color:var(--bad)}
 .vc.flash{outline:3px solid var(--acc)}
 .vc-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .plate{background:#ffc400;color:#111;border:2px solid #111;border-radius:6px;padding:0 10px;font:700 24px/1.25 'Barlow Condensed',sans-serif;letter-spacing:1.5px}
 .stamp{border-radius:6px;padding:2px 9px;font-weight:700;font-size:13px;border:1.5px solid currentColor}
-.stamp.s-pend{color:var(--warn)}.stamp.s-ok{color:var(--ok)}.stamp.s-nc{color:var(--bad)}
+.stamp.s-lleg{color:#4aa3ff}.stamp.s-pend{color:var(--warn)}.stamp.s-ok{color:var(--ok)}.stamp.s-nc{color:var(--bad)}
 .chip{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:13px;color:var(--mut);font-weight:600;margin-left:auto}
 .ruta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:10px 0 2px}
 .ruta span{background:var(--card2);border:1px solid var(--line);border-radius:6px;padding:2px 9px;font-size:14px}
@@ -133,6 +133,12 @@ header{flex-wrap:wrap}header h1{flex:1 1 130px;min-width:0}header h1 small{text-
 .tnota{position:absolute;left:38.5%;right:3.5%;top:38%;height:30%;box-sizing:border-box;background:#fff3b0;color:#3a2e00;border:1px solid rgba(0,0,0,.35);border-radius:3px;padding:1px 5px;font-size:clamp(8.5px,2.8vw,10.5px);line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;cursor:pointer;transform:rotate(-.6deg);box-shadow:0 1px 2px rgba(0,0,0,.35)}
 .tnota b{color:#8a5a00;font-weight:800}
 @media (prefers-reduced-motion:reduce){.pop{animation:none!important}}
+.btn.arr{background:#1769c2;color:#fff;border-color:#1769c2}.quien.llego{color:#4aa3ff;font-weight:700}
+details.done{margin:14px 0 8px;border:1px dashed var(--line);border-radius:12px;padding:0 8px 4px;background:var(--bg2)}
+details.done>summary{cursor:pointer;list-style:none;padding:12px 6px;font:700 17px 'Barlow Condensed',sans-serif;letter-spacing:.4px;display:flex;align-items:center;gap:8px}
+details.done>summary::-webkit-details-marker{display:none}details.done>summary::after{content:'▾';margin-left:auto;opacity:.7}details.done[open]>summary::after{content:'▴'}
+details.done>summary b{background:var(--ok);color:#fff;border-radius:999px;padding:0 9px;font-size:15px}details.lleg>summary b{background:#4aa3ff}
+.card.vacio{border-left:6px solid var(--ok)}
 .tinfo .stamp{background:rgba(10,14,20,.78);color:#fff!important;border:0;font-size:11px;padding:1px 8px;letter-spacing:.3px}
 .vc-top{align-items:center;justify-content:space-between}
 .vc-top .chip{margin-left:0;align-self:flex-start}
@@ -168,7 +174,7 @@ function modal(h){closeModal();const m=document.createElement('div');m.className
 function closeModal(){const m=$('modal');if(m)m.remove()}
 function descargar(n,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download=n;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
 
-const VERSION='2026-10-27 · destinos v7 posición';
+const VERSION='2026-10-27 · destinos v8 llegada y botellas';
 const LOGO=`<svg width="34" height="34" style="flex:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b2545"/><path d="M256 92c-66 0-118 51-118 114 0 84 118 214 118 214s118-130 118-214c0-63-52-114-118-114z" fill="#fff"/><circle cx="256" cy="206" r="78" fill="#188a4b"/><path d="M222 208l26 27 46-54" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><circle cx="392" cy="392" r="38" fill="#e8a317"/><circle cx="392" cy="392" r="16" fill="#0b2545"/></svg>`;
 /* ---- estado y conexión ---- */
 let S=(()=>{try{return JSON.parse(LS('em_s'))||{}}catch(e){return{}}})();
@@ -230,7 +236,13 @@ function analiza(det,enc){
 /* ---- lista ---- */
 const EM={d:null,f:'todos',q:'',l:'',v:'lista',vio:false,autoT:0,nota:'',anim:false,sync:''};
 const stOf=x=>x.Llamado!=='SI'?'pend':(x.Resultado==='No contestó'?'nc':'ok');
-const COL={pend:'#ffc400',ok:'#34d27b',nc:'#ff6a5e'},TXT={pend:'Pendiente',ok:'Llamado',nc:'No contestó'};
+const COL={pend:'#ffc400',ok:'#34d27b',nc:'#ff6a5e',lleg:'#4aa3ff'},TXT={pend:'Pendiente',ok:'Llamado',nc:'No contestó',lleg:'Llegó'};
+/* “Llegó a destino”: se guarda dentro de la nota con una marca [[LLEGO|fecha-hora|quién]] (el servidor ya guarda la nota, así no hace falta tocarlo) */
+const LLEGO_RE=/\s*\[\[LLEGO\|([^|\]]*)\|([^\]]*)\]\]\s*$/;
+const llegoDe=x=>{const m=String(x.Nota||'').match(LLEGO_RE);return m?{ts:m[1],quien:m[2]}:null};
+const notaLimpia=x=>String(x.Nota||'').replace(LLEGO_RE,'').trim();
+const stV=x=>llegoDe(x)?'lleg':stOf(x);
+const armaNota=(txt,lg)=>(String(txt||'').trim().slice(0,140)+(lg?' [[LLEGO|'+lg.ts+'|'+lg.quien+']]':'')).trim();
 const A=x=>x._a||(x._a=analiza(x.Detalle,EM.d.encabezado));
 const vacio=v=>{v=String(v||'').trim();return !v||v==='-'};
 function num(s){s=String(s||'').replace(/[^\d.,-]/g,'');if(!s)return 0;
@@ -256,7 +268,7 @@ function botones(x){
   const st=stOf(x),a=A(x);
   return `<div class="acts">${st!=='pend'
     ?`<button class="btn ghost main" data-act="des" data-id="${esc(x.ID)}">↩ Deshacer</button>`
-    :`<button class="btn ok main" data-act="marca" data-id="${esc(x.ID)}">✓ Llamado</button><button class="btn ghost badc main" data-act="marca" data-id="${esc(x.ID)}" data-r="No contestó">✗ No contestó</button>`}${a.tel?`<a class="btn ghost" href="tel:${esc(a.tel)}">📞 Llamar</a>`:''}<button class="btn ghost" data-act="ubic" data-id="${esc(x.ID)}">📍 ${x.Ubicacion?'Cambiar posición':'Posición'}</button><button class="btn ghost" data-act="nota" data-id="${esc(x.ID)}">📝 Nota</button></div>`;
+    :`<button class="btn ok main" data-act="marca" data-id="${esc(x.ID)}">✓ Llamado</button><button class="btn ghost badc main" data-act="marca" data-id="${esc(x.ID)}" data-r="No contestó">✗ No contestó</button>`}${a.tel?`<a class="btn ghost" href="tel:${esc(a.tel)}">📞 Llamar</a>`:''}${llegoDe(x)?`<button class="btn ghost" data-act="quitaLlego" data-id="${esc(x.ID)}">↩ Quitar llegada</button>`:`<button class="btn arr main" data-act="llego" data-id="${esc(x.ID)}">🏁 Llegó a destino</button>`}<button class="btn ghost" data-act="ubic" data-id="${esc(x.ID)}">📍 ${x.Ubicacion?'Cambiar posición':'Posición'}</button><button class="btn ghost" data-act="nota" data-id="${esc(x.ID)}">📝 Nota</button></div>`;
 }
 /* tractocamión: cabina convencional + remolque; el remolque toma el color del estado */
 const ICO_UP='M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z';
@@ -265,11 +277,17 @@ const ICO_TEL='M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 
 function conductor(st,nuevo){
   const pop=nuevo?' pop':'';
   let o=`<clipPath id="vent"><path d="M66 16v15h17V18q0-2-2-2z"/></clipPath><g clip-path="url(#vent)"><path d="M67 32q1-6 7.5-6t7.5 6z" fill="#1f3f66"/><rect x="73" y="24" width="3" height="3" fill="#d49b74"/><circle cx="74.5" cy="22" r="3.7" fill="#e2ae88"/><path d="M70.7 21.2q.3-4.2 3.8-4.2t3.8 4.2z" fill="#16314f"/><path d="M69.6 21.4h9.8" stroke="#16314f" stroke-width="1.2"/></g><path d="M67 16l5 15h-5z" fill="#fff" opacity=".16"/>`;
-  if(st==='ok')o+=`<g class="sena${pop}"><rect x="66" y="27.5" width="10" height="4.4" rx="2" fill="#1f3f66"/><g transform="translate(51.5 15.5) scale(.62)"><path d="${ICO_UP}" fill="#e2ae88" stroke="#7a4a2a" stroke-width="1"/></g></g>
+  if(st==='ok'||st==='lleg')o+=`<g class="sena${pop}"><rect x="66" y="27.5" width="10" height="4.4" rx="2" fill="#1f3f66"/><g transform="translate(51.5 15.5) scale(.62)"><path d="${ICO_UP}" fill="#e2ae88" stroke="#7a4a2a" stroke-width="1"/></g></g>
    <g class="burbuja${pop}"><rect x="5" y="1.5" width="31" height="22" rx="7" fill="#1fb85f" stroke="#0b5a2c" stroke-width="1"/><path d="M26 23l4 5 1-5z" fill="#1fb85f" stroke="#0b5a2c" stroke-width="1"/><path d="M26.4 22.6h4" stroke="#1fb85f" stroke-width="1.6"/><g transform="translate(14.5 5) scale(.66)"><path d="${ICO_UP}" fill="#fff"/></g></g>`;
   else if(st==='nc')o+=`<g class="burbuja${pop}"><rect x="5" y="1.5" width="31" height="22" rx="7" fill="#e5483d" stroke="#6b130d" stroke-width="1"/><path d="M26 23l4 5 1-5z" fill="#e5483d" stroke="#6b130d" stroke-width="1"/><path d="M26.4 22.6h4" stroke="#e5483d" stroke-width="1.6"/><g transform="translate(14.5 5) scale(.66)"><path d="${ICO_TEL}" fill="#fff"/></g><path d="M13 20L28 5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M13 20L28 5" stroke="#6b130d" stroke-width=".8" stroke-linecap="round" opacity=".6"/></g>`;
   return o;
 }
+/* carga de licor: dos filas de botellas (ámbar, verde, transparente, vino…) que llenan el remolque mientras el vehículo está pendiente */
+function botellas(){
+  const cs=['#b8721a','#2e7d4f','#c9d6df','#8b1e2d','#d4a017','#3b6ea5','#6b3a1e'];let o='';
+  for(let r=0;r<2;r++)for(let i=0;i<17;i++){const x=(98.5+i*9.3).toFixed(1),y=r?32:16,c=cs[(i*3+r*2)%cs.length];
+    o+=`<g transform="translate(${x} ${y})"><rect x="1.4" y="5.5" width="5.2" height="9" rx="1.3" fill="${c}" stroke="#000" stroke-opacity=".45" stroke-width=".4"/><rect x="3" y="1.6" width="2" height="4.6" fill="${c}" stroke="#000" stroke-opacity=".4" stroke-width=".3"/><rect x="2.8" y=".5" width="2.4" height="1.7" rx=".4" fill="#222"/><rect x="1.4" y="8.4" width="5.2" height="3.2" fill="#fff6dc" opacity=".9"/><rect x="2" y="6.2" width="1" height="6.5" fill="#fff" opacity=".35"/></g>`}
+  return o}
 function camion(st,placa,txt,loc,nota,id,nuevo){
   const c=COL[st],R=(x,y,h)=>`<rect x="${x}" y="${y}" width="1.2" height="${h}" fill="#000" opacity=".16"/>`;
   let ribs='';for(let x=102;x<250;x+=12)ribs+=R(x,12,32);
@@ -281,8 +299,8 @@ function camion(st,placa,txt,loc,nota,id,nuevo){
   <linearGradient id="cr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#7d8790"/></linearGradient></defs>
   <rect x="0" y="66.5" width="262" height="1.6" fill="currentColor" opacity=".22"/>
   <rect x="94" y="49" width="166" height="5" rx="1.5" fill="#23272c"/>
-  <rect x="96" y="6" width="162" height="43" rx="3" fill="url(#tr-${st})" stroke="#000" stroke-opacity=".35" stroke-width="1"/>${ribs}
-  <rect x="96" y="6" width="162" height="4" rx="2" fill="#fff" opacity=".28"/>
+  ${st==='pend'?`<rect x="96" y="6" width="162" height="43" rx="3" fill="#3a2412" stroke="#000" stroke-opacity=".5" stroke-width="1"/><rect x="96" y="30.5" width="162" height="1.8" fill="#7a5230"/><rect x="96" y="46.5" width="162" height="2.5" fill="#7a5230"/>${botellas()}<rect x="96" y="6" width="162" height="8" rx="3" fill="#8a1f24"/><rect x="96" y="12" width="162" height="1.6" fill="#ffc400" opacity=".9"/>`
+  :`<rect x="96" y="6" width="162" height="43" rx="3" fill="url(#tr-${st})" stroke="#000" stroke-opacity=".35" stroke-width="1"/>${ribs}<rect x="96" y="6" width="162" height="4" rx="2" fill="#fff" opacity=".28"/><rect x="96" y="46.5" width="162" height="2.5" fill="#000" opacity=".25"/>`}
   <rect x="255" y="40" width="5" height="9" rx="1" fill="#c8302b"/>
   <path d="M5 52V33q0-4 4-4h31v23z" fill="url(#cb)" stroke="#000" stroke-opacity=".4"/>
   <path d="M40 52V17q0-5 5-5h20l12-8h6v8h6q4 0 4 4v36z" fill="url(#cb)" stroke="#000" stroke-opacity=".4"/>
@@ -300,30 +318,41 @@ function camion(st,placa,txt,loc,nota,id,nuevo){
   <div class="tinfo"><span class="plate">${esc(placa)}</span><div class="trow"><span class="stamp s-${st}">${txt}</span>${loc?`<span class="tloc">${esc(loc)}</span>`:''}</div></div>${nota?`<div class="tnota" data-act="nota" data-id="${esc(id)}" title="${esc(nota)}"><b>Obs.</b> ${esc(nota)}</div>`:''}</div>`;
 }
 function tarjeta(x,mapa){
-  const st=stOf(x),a=A(x),p=partes(x);
+  const st=stV(x),a=A(x),p=partes(x),lg=llegoDe(x);
   const gente=[['Conductor',p.conductor],['Auxiliar',p.auxiliar],['Escolta',p.escolta]].filter(g=>g[1]);
-  return `<article class="vc ${st}" ${mapa?'':`id="v-${esc(x.ID)}"`}><div class="vc-top">${camion(st,p.placa,TXT[st],a.loc,x.Nota,x.ID,EM.pop===x.ID)}</div>`
+  return `<article class="vc ${st}" ${mapa?'':`id="v-${esc(x.ID)}"`}><div class="vc-top">${camion(st,p.placa,TXT[st],a.loc,notaLimpia(x),x.ID,EM.pop===x.ID)}</div>`
    +(p.barrios.length?`<div class="ruta">${p.barrios.map(b=>`<span>${esc(b)}</span>`).join('<i></i>')}</div>`:'')
    +((p.peso||p.pedidos)?`<div class="mets">${p.peso?`<div><b>${esc(p.peso)}</b><small>Peso</small></div>`:''}${p.pedidos?`<div><b>${esc(p.pedidos)}</b><small>${esc(p.pedL)}</small></div>`:''}</div>`:'')
    +(gente.length?`<div class="gente">${gente.map(([t,v])=>`<div><small>${t}</small><span>${esc(v)}</span></div>`).join('')}</div>`:'')
    +(p.otros?`<div class="kv">${p.otros}</div>`:'')
-   +(st!=='pend'?`<div class="quien">${esc(x.Resultado||'Llamado')} por ${esc(corto(x.LlamadoPor))} a las ${hm(x.LlamadoEn)}</div>`:'')
+   +(lg?`<div class="quien llego">🏁 Llegó a destino a las ${hm(lg.ts)} · registró ${esc(lg.quien)}</div>`:'')
+   +(stOf(x)!=='pend'?`<div class="quien">${esc(x.Resultado||'Llamado')} por ${esc(corto(x.LlamadoPor))} a las ${hm(x.LlamadoEn)}</div>`:'')
    +(x.Ubicacion?`<div class="pos"><small>📍 Posición al contacto</small><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.Ubicacion+', Colombia')}" target="_blank" rel="noopener">${esc(x.Ubicacion)}</a></div>`:'')
    +botones(x)+`</article>`;
 }
 const ORD={pend:0,nc:1,ok:2};
 function filtrados(){const d=EM.d,q=EM.q.toLowerCase();
-  return d.items.map((x,i)=>[x,i]).filter(([x])=>EM.f==='todos'||stOf(x)===EM.f).filter(([x])=>!EM.l||(A(x).loc||'Sin ubicar')===EM.l).filter(([x])=>!EM.t||(EM.t==='aux'?!!partes(x).auxiliar:!partes(x).auxiliar)).filter(([x])=>!q||x.Detalle.toLowerCase().includes(q)||(x.Nota||'').toLowerCase().includes(q))
+  return d.items.map((x,i)=>[x,i]).filter(([x])=>EM.f==='todos'||stV(x)===EM.f).filter(([x])=>!EM.l||(A(x).loc||'Sin ubicar')===EM.l).filter(([x])=>!EM.t||(EM.t==='aux'?!!partes(x).auxiliar:!partes(x).auxiliar)).filter(([x])=>!q||x.Detalle.toLowerCase().includes(q)||notaLimpia(x).toLowerCase().includes(q))
     .sort((p,q)=>ORD[stOf(p[0])]-ORD[stOf(q[0])]||p[1]-q[1]).map(p=>p[0])}
+EM.abre={done:false,lleg:false};
+function seccion(t,arr,k){return arr.length?`<details class="done ${k}" data-k="${k}" ${EM.abre[k]?'open':''}><summary>${t} <b>${arr.length}</b></summary>${arr.map(x=>tarjeta(x)).join('')}</details>`:''}
 function listaHtml(){
   const f=filtrados();if(!f.length)return '<div class="card center"><p class="mut" style="margin:0">Ningún vehículo coincide con el filtro.</p></div>';
+  /* con “Todos” la lista larga solo trae los PENDIENTES; los ya llamados y los que llegaron salen a sus propios bloques plegados */
+  const sep=EM.f==='todos';
+  const pend=sep?f.filter(x=>stV(x)==='pend'):f;
+  const llam=sep?f.filter(x=>!llegoDe(x)&&stOf(x)!=='pend'):[],lleg=sep?f.filter(x=>llegoDe(x)):[];
+  const resto=seccion('✓ Ya llamados',llam,'done')+seccion('🏁 Llegaron a destino',lleg,'lleg');
+  const vacioP=sep&&!pend.length?'<div class="card center vacio"><p style="margin:0"><b>Todos los vehículos ya fueron gestionados</b><br><span class="mut">Abajo está el detalle de los llamados y de los que ya llegaron.</span></p></div>':'';
+  let cuerpo;
   if(EM.v==='zonas'){
-    const g={};f.forEach(x=>{const k=A(x).loc||'Sin ubicar';(g[k]=g[k]||[]).push(x)});
-    return Object.keys(g).sort((a,b)=>g[b].filter(x=>stOf(x)==='pend').length-g[a].filter(x=>stOf(x)==='pend').length||a.localeCompare(b)).map(k=>{
-      const t=g[k].length,ok=g[k].filter(x=>stOf(x)!=='pend').length;
+    const g={},tot={},hec={};f.forEach(x=>{const k=A(x).loc||'Sin ubicar';tot[k]=(tot[k]||0)+1;if(stV(x)!=='pend')hec[k]=(hec[k]||0)+1});
+    pend.forEach(x=>{const k=A(x).loc||'Sin ubicar';(g[k]=g[k]||[]).push(x)});
+    cuerpo=Object.keys(g).sort((a,b)=>g[b].length-g[a].length||a.localeCompare(b)).map(k=>{
+      const t=tot[k],ok=hec[k]||0;
       return `<div class="gh"><h3>${esc(k)}</h3><span class="num">${ok}/${t}</span><div class="bar"><i style="width:${Math.round(ok*100/t)}%;background:var(--ok)"></i></div></div>`+g[k].map(x=>tarjeta(x)).join('')}).join('');
-  }
-  return f.map(x=>tarjeta(x)).join('');
+  }else cuerpo=pend.map(x=>tarjeta(x)).join('');
+  return vacioP+cuerpo+resto;
 }
 function metricas(d){
   let peso=0,ped=0,esc_=0;const locs=new Set();
@@ -410,13 +439,13 @@ function pinta(){
   if(!d.total){if(MAP){MAP.remove();MAP=null}n.innerHTML=`<div class="card center"><p class="mut" style="margin:6px 0"><b>${fecha(d.fecha)}</b><br>${S.rol==='S'?'Aún no hay embalajes cargados para este día. Se actualiza solo cuando el administrador los cargue.':'No hay embalajes cargados para este día. '+(S.puente?'Esperando el correo de Centro Control…':'Sube la Proyectada arriba.')}${S.rol==='A'&&EM.nota?'<br><span class="mut">'+esc(EM.nota)+'</span>':''}</p></div>`;return}
   if(!$('lista')){if(MAP){MAP.remove();MAP=null}
     n.innerHTML=`<div id="top"></div><div id="vmapa" style="display:none"><div class="card" style="padding:0;overflow:hidden"><div id="mapa" style="height:62vh;min-height:360px"></div></div><div id="sinub"></div></div><div id="lista"></div>`}
-  const c={ok:0,nc:0,pend:0};d.items.forEach(x=>c[stOf(x)]++);const hechos=c.ok+c.nc,pct=d.total?Math.round(hechos*100/d.total):0;
+  const c={ok:0,nc:0,pend:0,lleg:0};d.items.forEach(x=>{c[stV(x)]++});const hechos=c.ok+c.nc+c.lleg,pct=d.total?Math.round(hechos*100/d.total):0;
   const M=metricas(d);
   const T=(k,t,n,cl)=>`<button class="stat ${cl} ${EM.f===k?'on':''}" data-act="filtro" data-f="${k}"><b>${n}</b>${t}</button>`;
   const K=(v,t)=>`<div class="kpi"><b>${v}</b><small>${t}</small></div>`;
   $('top').innerHTML=`<section class="hero"><div class="hero-h"><div><div class="dia">${d.fecha===d.hoy?'Hoy':'Día'}, ${fecha(d.fecha)}</div><h2>${hechos} de ${d.total} vehículos gestionados</h2></div><div class="pct">${pct}<small>%</small></div></div>
-   <div class="convoy ${EM.anim?'':'go'}">${d.items.map((x,i)=>`<button class="seg ${stOf(x)}" style="--i:${i}" data-act="ir" data-id="${esc(x.ID)}" title="${esc(partes(x).placa)}: ${TXT[stOf(x)]}" aria-label="${esc(partes(x).placa)}: ${TXT[stOf(x)]}"></button>`).join('')}</div>
-   <div class="stats">${T('pend','Pendientes',c.pend,'p')}${T('ok','Llamados',c.ok,'o')}${T('nc','No contestó',c.nc,'n')}</div>
+   <div class="convoy ${EM.anim?'':'go'}">${d.items.map((x,i)=>`<button class="seg ${stV(x)}" style="--i:${i}" data-act="ir" data-id="${esc(x.ID)}" title="${esc(partes(x).placa)}: ${TXT[stV(x)]}" aria-label="${esc(partes(x).placa)}: ${TXT[stV(x)]}"></button>`).join('')}</div>
+   <div class="stats">${T('pend','Pendientes',c.pend,'p')}${T('ok','Llamados',c.ok,'o')}${T('nc','No contestó',c.nc,'n')}${T('lleg','Llegaron',c.lleg,'g')}</div>
    <div class="kpis">${K(d.total,'Vehículos')}${M.peso?K(fmt(M.peso),'Peso total'):''}${M.ped?K(fmt(M.ped),'Pedidos'):''}${M.esc?K(M.esc,'Con escolta'):''}${M.locs.length>1?K(M.locs.length,'Localidades'):''}</div>
    <div class="sync"><i></i>${EM.sync?'Actualizado a las '+EM.sync+'. Se refresca solo':'Conectado'}</div></section>
    <div class="tools"><input id="q" placeholder="Buscar placa, conductor, barrio…" value="${esc(EM.q)}"><select id="fl" aria-label="Localidad"><option value="">Todas las localidades</option>${M.locs.map(l=>`<option ${EM.l===l?'selected':''}>${esc(l)}</option>`).join('')}</select><select id="ft" aria-label="Tipo de embalaje"><option value="">Todos los embalajes</option><option value="aux" ${EM.t==='aux'?'selected':''}>Con auxiliar</option><option value="sin" ${EM.t==='sin'?'selected':''}>Sin auxiliar (demás)</option></select></div>
@@ -431,16 +460,16 @@ function soporte(){
   const h=d.encabezado?d.encabezado.split(' | '):[];const an=d.items.map(x=>analiza(x.Detalle,d.encabezado));
   const nc=Math.max(h.length,...d.items.map(x=>x.Detalle.split(' | ').length));
   const orig=Array.from({length:nc},(_,i)=>h[i]||'Dato '+(i+1));
-  const cab=['N°','Fecha','Placa','Localidad (detectada)','Latitud aprox.','Longitud aprox.','Ver en mapa',...orig,'Estado','Resultado','Llamado por','Fecha y hora de la llamada','Ubicación del vehículo al contacto','Nota'];
+  const cab=['N°','Fecha','Placa','Localidad (detectada)','Latitud aprox.','Longitud aprox.','Ver en mapa',...orig,'Estado','Resultado','Llamado por','Fecha y hora de la llamada','Ubicación del vehículo al contacto','Llegó a destino','Hora de llegada','Llegada registrada por','Nota'];
   /* orden: primero los que contestaron, luego los que no contestaron y al final los pendientes (cada grupo por hora de llamada) */
   const ORD={ok:0,nc:1,pend:2};
   const idx=d.items.map((x,i)=>i).sort((a,b)=>{const xa=d.items[a],xb=d.items[b],ga=ORD[stOf(xa)],gb=ORD[stOf(xb)];if(ga!==gb)return ga-gb;const ta=xa.LlamadoEn||'',tb=xb.LlamadoEn||'';return ta<tb?-1:ta>tb?1:a-b});
   const est=idx.map(i=>stOf(d.items[i]));
   const filas=idx.map(i=>{const x=d.items[i],a=an[i],ll=a.ll||(a.loc?LOC[a.loc]:null),c=x.Detalle.split(' | ');
-    return [i+1,d.fecha,a.placa,a.loc,ll?ll[0]:'',ll?ll[1]:'',ll?`https://www.google.com/maps?q=${ll[0]},${ll[1]}`:'',...orig.map((_,k)=>c[k]||''),TXT[stOf(x)],x.Llamado==='SI'?x.Resultado:'',x.LlamadoPor,x.LlamadoEn,x.Ubicacion||'',x.Nota]});
+    return [i+1,d.fecha,a.placa,a.loc,ll?ll[0]:'',ll?ll[1]:'',ll?`https://www.google.com/maps?q=${ll[0]},${ll[1]}`:'',...orig.map((_,k)=>c[k]||''),TXT[stOf(x)],x.Llamado==='SI'?x.Resultado:'',x.LlamadoPor,x.LlamadoEn,x.Ubicacion||'',llegoDe(x)?'SI':'',llegoDe(x)?llegoDe(x).ts:'',llegoDe(x)?llegoDe(x).quien:'',notaLimpia(x)]});
   const cnt=a=>{const o={ok:0,nc:0,pend:0};a.forEach(x=>o[stOf(x)]++);return o};
   const T=cnt(d.items),ll=d.items.filter(x=>x.LlamadoEn).map(x=>x.LlamadoEn).sort();
-  const res=[['SEGUIMIENTO OPERACIÓN DESTINOS — SOPORTE DE LLAMADAS'],['Fecha',d.fecha],['Generado',new Date().toLocaleString('es-CO')],[],['Total embalajes',d.total],['Llamados (contestaron)',T.ok],['No contestaron',T.nc],['Pendientes',T.pend],['% gestionado',d.total?Math.round((T.ok+T.nc)*100/d.total)+'%':''],['Primera llamada',ll[0]||''],['Última llamada',ll[ll.length-1]||''],[],['POR COORDINADOR REPCO','Llamados','No contestó']];
+  const res=[['SEGUIMIENTO OPERACIÓN DESTINOS — SOPORTE DE LLAMADAS'],['Fecha',d.fecha],['Generado',new Date().toLocaleString('es-CO')],[],['Total embalajes',d.total],['Llamados (contestaron)',T.ok],['No contestaron',T.nc],['Pendientes',T.pend],['Llegaron a destino',d.items.filter(llegoDe).length],['% gestionado',d.total?Math.round((T.ok+T.nc)*100/d.total)+'%':''],['Primera llamada',ll[0]||''],['Última llamada',ll[ll.length-1]||''],[],['POR COORDINADOR REPCO','Llamados','No contestó']];
   const ps={};d.items.filter(x=>x.Llamado==='SI').forEach(x=>{const p=ps[x.LlamadoPor]=ps[x.LlamadoPor]||[0,0];stOf(x)==='nc'?p[1]++:p[0]++});Object.keys(ps).forEach(k=>res.push([k,ps[k][0],ps[k][1]]));
   res.push([],['POR LOCALIDAD','Total','Llamados','No contestó','Pendientes']);
   const pl={};d.items.forEach((x,i)=>{const k=an[i].loc||'Sin ubicar';(pl[k]=pl[k]||[]).push(x)});Object.keys(pl).sort().forEach(k=>{const c=cnt(pl[k]);res.push([k,pl[k].length,c.ok,c.nc,c.pend])});
@@ -460,6 +489,7 @@ function soporte(){
     filas.forEach((f,k)=>{const r=ws.addRow(f),e=est[k];
       r.eachCell({includeEmpty:true},(c,col)=>{if(col>cab.length)return;c.fill={type:'pattern',pattern:'solid',fgColor:{argb:FILA[e]}};c.border=bd;c.alignment={vertical:'middle',wrapText:col>7&&col<=7+nc}});
       const ce=r.getCell(iEst+1);ce.fill={type:'pattern',pattern:'solid',fgColor:{argb:FUERTE[e]}};ce.font={bold:true,color:{argb:e==='pend'?'FF3A2C00':'FFFFFFFF'}};ce.alignment={horizontal:'center',vertical:'middle'};
+      if(f[cab.length-4]==='SI')[cab.length-3,cab.length-2,cab.length-1].forEach(cc=>{const z=r.getCell(cc);z.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFBFDDFF'}};z.font={bold:true,color:{argb:'FF0B3A73'}}});
       const mp=f[6];if(mp){const cm=r.getCell(7);cm.value={text:'Abrir mapa',hyperlink:mp};cm.font={color:{argb:'FF0B5FD0'},underline:true}}});
     ws.columns=cab.map((c,i)=>({width:i===6?14:i===iEst+1?14:Math.min(34,Math.max(11,String(c).length+3))}));
     ws.autoFilter={from:{row:1,column:1},to:{row:filas.length+1,column:cab.length}};
@@ -633,17 +663,19 @@ filtro(d){EM.f=EM.f===d.f&&d.f!=='todos'?'todos':d.f;pinta()},
 vista(d){EM.v=d.v;pinta();if(d.v==='mapa')setTimeout(()=>MAP&&MAP.invalidateSize(),50)},soporte,
 marca(d){accion({id:d.id,resultado:d.r||'Llamado'})},
 des(d){accion({id:d.id,deshacer:true})},
-nota(d){const x=EM.d.items.find(i=>i.ID===d.id);modal(`<h2 style="margin-top:0">Nota</h2><input type="hidden" id="ni" value="${esc(d.id)}"><textarea id="nt" rows="3" maxlength="200" placeholder="Ej: pidió que lo llamen a las 3 pm">${esc(x&&x.Nota||'')}</textarea><br><br><button class="btn big" data-act="notaOk">Guardar</button>`)},
+llego(d){const x=EM.d.items.find(i=>i.ID===d.id);if(!x)return;accion({id:d.id,nota:armaNota(notaLimpia(x),{ts:ahora(),quien:corto(S.nombre||'')})})},
+quitaLlego(d){const x=EM.d.items.find(i=>i.ID===d.id);if(!x)return;accion({id:d.id,nota:armaNota(notaLimpia(x),null)})},
+nota(d){const x=EM.d.items.find(i=>i.ID===d.id);modal(`<h2 style="margin-top:0">Nota</h2><input type="hidden" id="ni" value="${esc(d.id)}"><textarea id="nt" rows="3" maxlength="140" placeholder="Ej: pidió que lo llamen a las 3 pm">${esc(x?notaLimpia(x):'')}</textarea><br><br><button class="btn big" data-act="notaOk">Guardar</button>`)},
 ubic(d){const x=EM.d.items.find(i=>i.ID===d.id);modal(`<h2 style="margin-top:0">📍 Posición del vehículo al contacto</h2><p class="mut" style="margin:0 0 8px">Dirección, vía o punto donde estaba el vehículo cuando lo llamaste.</p><input type="hidden" id="ui" value="${esc(d.id)}"><textarea id="ut" rows="2" maxlength="160" placeholder="Ej: Autopista Sur con Calle 57 sur, frente a Éxito">${esc(x&&x.Ubicacion||'')}</textarea><br><br><button class="btn big" data-act="ubicOk">Guardar posición</button>`)},
 async ubicOk(){const id=val('ui'),u=$('ut').value.trim();closeModal();await accion({id,ubicacion:u})},
-async notaOk(){const id=val('ni'),n=$('nt').value;closeModal();await accion({id,nota:n})},
+async notaOk(){const id=val('ni'),n=$('nt').value,x=EM.d.items.find(i=>i.ID===id);closeModal();await accion({id,nota:armaNota(n,x?llegoDe(x):null)})},
 dia(d){S.fecha=sumaDias(S.fecha,+d.d);S.fechaSet=hoyL();save();inicio()},
 irdia(d){S.fecha=sumaDias(hoyL(),+d.d);S.fechaSet=hoyL();save();inicio()},
 modo(d){$('modo1').style.display=d.m==='1'?'':'none';$('modo2').style.display=d.m==='2'?'':'none';$('m1').className=d.m==='1'?'on':'';$('m2').className=d.m==='2'?'on':''},
 elegir(){$('pf').click()},
 tema(){const t=document.documentElement.dataset.theme==='light'?'dark':'light';document.documentElement.dataset.theme=t;LS('em_th',t);if(MAP){MAP.remove();MAP=null}if(EM.d)pinta()},
 limpiar(){EM.f='todos';EM.l='';EM.t='';pinta()},
-ir(d){EM.v='lista';EM.f='todos';EM.l='';EM.q='';pinta();const e=$('v-'+d.id);if(e){e.scrollIntoView({behavior:'smooth',block:'center'});e.classList.add('flash');setTimeout(()=>e.classList.remove('flash'),1600)}},
+ir(d){EM.v='lista';EM.f='todos';EM.l='';EM.q='';EM.abre={done:true,lleg:true};pinta();const e=$('v-'+d.id);if(e){e.scrollIntoView({behavior:'smooth',block:'center'});e.classList.add('flash');setTimeout(()=>e.classList.remove('flash'),1600)}},
 correo(){if(!S.puente){toast('Primero configura el puente en ⚙ Ajustes',true);return ACT.claves()}traerCorreo(false)},
 gpu(){const u=val('pu'),k=$('pk').value.trim();if(!urlOk(u))return toast('Enlace del puente no válido',true);if(k.length<8)return toast('La clave del puente debe tener mínimo 8 caracteres',true);S.puente={url:u,k};save();closeModal();toast('Puente guardado');EM.autoT=0;carga()},
 async cargarPF(d){
@@ -667,6 +699,7 @@ async gca(){try{if(val('ca').length<6)throw new Error('Mínimo 6 caracteres');aw
 };
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;const f=ACT[b.dataset.act];if(f){e.preventDefault();f(b.dataset)}});
 document.addEventListener('input',e=>{if(e.target.id==='q'&&EM.d){EM.q=e.target.value;$('lista').innerHTML=listaHtml();if(EM.v==='mapa')pintaMapa()}});
+document.addEventListener('toggle',e=>{const t=e.target;if(t&&t.matches&&t.matches('details.done')&&t.dataset.k)EM.abre[t.dataset.k]=t.open},true);
 document.addEventListener('change',e=>{const t=e.target;
   if(t.id==='fl'){EM.l=t.value;pinta()}
   else if(t.id==='ft'){EM.t=t.value;pinta()}
