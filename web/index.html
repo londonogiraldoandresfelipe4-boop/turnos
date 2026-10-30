@@ -253,7 +253,9 @@ function barra(v,tope){const p=Math.min(100,v/tope*100);const c=v>tope?'b':v>top
 const hcls=(v,tope)=>v>tope?'b':v>tope*0.85?'w':''
 function descargar(nombre,texto,tipo){const b=new Blob([texto],{type:tipo||'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nombre;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
 function wa(tel,texto){const t=String(tel||'').replace(/\D/g,'');const num=t?(t.length===10?'57'+t:t):'';return `https://wa.me/${num}?text=${encodeURIComponent(texto)}`}
-function getPos(ms){return new Promise(res=>{if(!navigator.geolocation)return res({});let hecho=false;const fin=v=>{if(!hecho){hecho=true;res(v)}};setTimeout(()=>fin({}),ms+1500);navigator.geolocation.getCurrentPosition(p=>fin({lat:p.coords.latitude,lng:p.coords.longitude,prec:p.coords.accuracy}),()=>fin({}),{enableHighAccuracy:true,timeout:ms,maximumAge:0})})}
+let POS_MEM=null; /* última ubicación buena: evita esperar el GPS otra vez si se acaba de tomar */
+function getPos(ms){return new Promise(res=>{if(!navigator.geolocation)return res({});if(POS_MEM&&Date.now()-POS_MEM.t<45000&&POS_MEM.v.prec<=80)return res({...POS_MEM.v});let hecho=false;const fin=v=>{if(!hecho){hecho=true;res(v)}};setTimeout(()=>fin({}),ms+1500);navigator.geolocation.getCurrentPosition(p=>{const v={lat:p.coords.latitude,lng:p.coords.longitude,prec:p.coords.accuracy};POS_MEM={t:Date.now(),v};fin({...v})},()=>fin({}),{enableHighAccuracy:true,timeout:ms,maximumAge:0})})}
+function precalentarPos(){if(!(POS_MEM&&Date.now()-POS_MEM.t<45000)){const m=POS_MEM;POS_MEM=null;getPos(12000).then(v=>{if(!v.lat)POS_MEM=m})}}
 async function notificar(t,b){try{toast(t+(b?': '+b:''));if(navigator.vibrate)navigator.vibrate([200,100,200]);if('Notification' in window&&Notification.permission==='granted'){const reg=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();if(reg)reg.showNotification(t,{body:b||'',icon:'icon-192.png',badge:'icon-192.png'});else new Notification(t,{body:b||'',icon:'icon-192.png'})}}catch(e){}}
 
 /* ================= estado y API ================= */
@@ -264,7 +266,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.10.25-d';
+const APP_VERSION='2026.10.30-rapida';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -297,6 +299,9 @@ async function accion(action,payload){
     Q.push({action,payload:p,uid:S.id});saveQ();optimista(action,p);pintaEstado();
     toast('Sin señal: guardado en el celular');return {offline:true};
   }
+}
+function aplicarLocal(a,p){ /* tras una respuesta correcta: refleja el cambio de inmediato y deja el refresco real para después */
+  try{optimista(a,{...p,ts:Date.now()})}catch(e){}
 }
 function optimista(a,p){
   const E=jp(LS('rt_est'),null);if(!E)return;
@@ -976,6 +981,7 @@ async permisoNotif(){if(!('Notification' in window))return toast('Este navegador
 copiar(d){navigator.clipboard.writeText(d.v).then(()=>toast('Copiado'),()=>toast('No se pudo copiar',true))},
 /* --- escolta --- */
 abrirInicio(){
+  precalentarPos();
   const hoy=hoyL(),asig=((EST&&EST.programacion)||[]).filter(x=>x.Fecha===hoy);
   const libre=EST&&EST.exigir===false;
   if(!asig.length&&!libre){modal(`<h2 style="margin-top:0">Sin turno asignado hoy</h2><p>Hoy no tienes un turno programado. Para trabajar necesitas autorización del administrador.</p><button class="btn big" data-act="abrirCambio">🔄 Solicitar cambio / otra área</button>`);return}
@@ -1040,23 +1046,23 @@ async iniciar(){
     b.textContent='Tomando ubicación…';const p=await getPos(12000);Object.assign(pl,p);
     if(!p.lat&&(S.cfg||{}).exigir_gps!=='NO'){let den='';try{const pm=await navigator.permissions.query({name:'geolocation'});if(pm.state==='denied')den=' El permiso está BLOQUEADO: en el celular entra a Ajustes → Aplicaciones (o el navegador) → Permisos → Ubicación → Permitir.'}catch(_){}
       toast('No se pudo obtener tu ubicación. Activa el GPS del celular y permite la ubicación para iniciar el turno.'+den,true);b.disabled=false;b.textContent='▶ Iniciar ahora';return}
-    const r=await accion('iniciarTurno',pl);closeModal();
+    const r=await accion('iniciarTurno',pl);closeModal();if(!r.offline)aplicarLocal('iniciarTurno',pl);
     if(r&&r.alertas&&r.alertas.some(a=>/^INICIO TARDE/.test(a)))toast('⛔ Inició tarde. '+AVISO_TARDE,true);else if(r&&r.alertas&&r.alertas.length)toast('Turno iniciado con aviso: '+r.alertas.join(', '));else toast('Turno iniciado. '+MSG_PUNTUAL);
-    if(!r.offline)await cargaEsc(true);
+    if(!r.offline)cargaEsc(true);
   }catch(e){
     if(String(e.message).startsWith('MOTIVO_TARDE')){const x=e.message.split('|');$('i_dif').textContent=x[1];$('i_late').style.display='block';toast('Estás iniciando tarde: elige el motivo y vuelve a pulsar Iniciar',true)}
     else toast(e.message,true);b.disabled=false;b.textContent='▶ Iniciar ahora'}
 },
-abrirParada(){modal(`<h2 style="margin-top:0">Parada / Novedad</h2><label>Tipo</label><select id="p_tipo"><option value="PARADA">Parada</option><option value="NOVEDAD">Novedad</option><option value="PERNOCTA">Pernocta</option><option value="PEAJE">Peaje</option><option value="COMBUSTIBLE">Combustible</option></select><label>Nota</label><textarea id="p_nota"></textarea><br><button class="btn big" id="p_go" data-act="parada">Registrar con mi ubicación</button>`)},
-async parada(){const b=$('p_go');b.disabled=true;b.textContent='Tomando ubicación…';try{const p=await getPos(10000);await accion('registrarParada',{tipo:val('p_tipo'),nota:val('p_nota'),...p});closeModal();toast('Registrado');await cargaEsc(true)}catch(e){toast(e.message,true);b.disabled=false;b.textContent='Registrar con mi ubicación'}},
+abrirParada(){precalentarPos();modal(`<h2 style="margin-top:0">Parada / Novedad</h2><label>Tipo</label><select id="p_tipo"><option value="PARADA">Parada</option><option value="NOVEDAD">Novedad</option><option value="PERNOCTA">Pernocta</option><option value="PEAJE">Peaje</option><option value="COMBUSTIBLE">Combustible</option></select><label>Nota</label><textarea id="p_nota"></textarea><br><button class="btn big" id="p_go" data-act="parada">Registrar con mi ubicación</button>`)},
+async parada(){const b=$('p_go');b.disabled=true;b.textContent='Tomando ubicación…';try{const p=await getPos(10000);const pl={tipo:val('p_tipo'),nota:val('p_nota'),...p};const r=await accion('registrarParada',pl);closeModal();toast('Registrado');if(!r.offline)aplicarLocal('registrarParada',pl);cargaEsc(true)}catch(e){toast(e.message,true);b.disabled=false;b.textContent='Registrar con mi ubicación'}},
 abrirMov(){modal(`<h2 style="margin-top:0">Movimiento de bodega</h2><label>Ruta</label><input id="m_ruta"><label>Placa</label><input id="m_placa" value="${esc((EST&&EST.turno&&EST.turno.Vehiculo)||'')}"><div class="grid2"><div><label>Viajes</label><input id="m_viajes" type="number" value="1" min="1"></div><div><label>Peso (kg) *</label><input id="m_peso" type="number" inputmode="decimal" min="0" step="any"></div></div><p class="mut" style="margin:6px 0 0">El peso es obligatorio en los movimientos de bodega.</p><br><button class="btn big" data-act="mov">Registrar</button>`)},
-async mov(){const tm=EST&&EST.turno&&EST.turno.Tipo==='MOVIMIENTO';if((parseInt(val('m_viajes'),10)||1)>20){toast('Viajes parece demasiado alto. ¿Escribiste el peso en viajes? Los kg van en Peso (kg).',true);return}if(tm&&!(parseFloat(val('m_peso'))>0)){toast('Escribe el peso movido en kg',true);return}try{await accion('registrarMovimiento',{ruta:val('m_ruta'),placa:val('m_placa'),viajes:val('m_viajes'),peso:val('m_peso')});closeModal();toast('Movimiento registrado');await cargaEsc(true)}catch(e){toast(e.message,true)}},
-abrirCierre(){const t=EST&&EST.turno,falta=t&&t.Tipo==='MOVIMIENTO'&&kgTurno()<=0;modal(`<h2 style="margin-top:0">Cerrar turno</h2><p>${t&&t.Tipo==='CARAVANA'?`La caravana cuenta <b>${EST.hcar||36} h</b> fijas.`:`Llevas <b>${fh(transcurrido())}</b>.`}</p>${falta?`<div class="banner bad" style="border:2px solid var(--bad)"><b>📦 Falta el peso movido.</b><br>Registra el peso antes de cerrar.<br><button class="btn big" style="margin-top:8px" data-act="cierreIrMov">📦 Registrar el peso ahora</button><label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="c_sp" style="width:22px;height:22px"> Hoy no se movió carga (explícalo abajo)</label></div>`:''}<label>Observaciones ${falta?'(obligatorio si no hubo carga)':'(opcional)'}</label><textarea id="c_obs"></textarea><br><button class="btn big bad" id="c_go" data-act="cerrar">■ Cerrar turno</button>`)},
+async mov(){const tm=EST&&EST.turno&&EST.turno.Tipo==='MOVIMIENTO';if((parseInt(val('m_viajes'),10)||1)>20){toast('Viajes parece demasiado alto. ¿Escribiste el peso en viajes? Los kg van en Peso (kg).',true);return}if(tm&&!(parseFloat(val('m_peso'))>0)){toast('Escribe el peso movido en kg',true);return}try{const pl={ruta:val('m_ruta'),placa:val('m_placa'),viajes:val('m_viajes'),peso:val('m_peso')};const r=await accion('registrarMovimiento',pl);closeModal();toast('Movimiento registrado');if(!r.offline)aplicarLocal('registrarMovimiento',pl);cargaEsc(true)}catch(e){toast(e.message,true)}},
+abrirCierre(){precalentarPos();const t=EST&&EST.turno,falta=t&&t.Tipo==='MOVIMIENTO'&&kgTurno()<=0;modal(`<h2 style="margin-top:0">Cerrar turno</h2><p>${t&&t.Tipo==='CARAVANA'?`La caravana cuenta <b>${EST.hcar||36} h</b> fijas.`:`Llevas <b>${fh(transcurrido())}</b>.`}</p>${falta?`<div class="banner bad" style="border:2px solid var(--bad)"><b>📦 Falta el peso movido.</b><br>Registra el peso antes de cerrar.<br><button class="btn big" style="margin-top:8px" data-act="cierreIrMov">📦 Registrar el peso ahora</button><label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="c_sp" style="width:22px;height:22px"> Hoy no se movió carga (explícalo abajo)</label></div>`:''}<label>Observaciones ${falta?'(obligatorio si no hubo carga)':'(opcional)'}</label><textarea id="c_obs"></textarea><br><button class="btn big bad" id="c_go" data-act="cerrar">■ Cerrar turno</button>`)},
 cierreIrMov(){closeModal();ACT.abrirMov()},
 async cerrar(){const b=$('c_go');const t=EST&&EST.turno;const falta=t&&t.Tipo==='MOVIMIENTO'&&kgTurno()<=0,sp=!!($('c_sp')&&$('c_sp').checked);
   if(falta&&!sp){toast('Registra el peso movido antes de cerrar el turno',true);return}
   if(falta&&sp&&val('c_obs').trim().length<5){toast('Explica en observaciones por qué no se movió carga',true);return}
-  b.disabled=true;try{const p=t&&t.Tipo==='CARAVANA'?{}:await getPos(8000);const pg=t&&t.Tipo==='CARAVANA'?GPS.q.filter(x=>x.uid===S.id).slice(0,300):[];const r=await accion('cerrarTurno',{obs:val('c_obs'),sinPeso:sp,...p,...(pg.length?{pts:pg.map(x=>x.p)}:{})});if(pg.length){GPS.q=GPS.q.filter(x=>!pg.includes(x));gpsSave()}closeModal();toast(r.offline?'Cierre guardado':'Turno cerrado: '+fh(r.horas)+(r.km?' · '+f1(r.km)+' km':''));if(!r.offline)await cargaEsc(true)}catch(e){toast(e.message==='PESO_FALTANTE'?'Registra el peso movido antes de cerrar el turno':e.message,true);b.disabled=false}},
+  b.disabled=true;try{const p=t&&t.Tipo==='CARAVANA'?{}:await getPos(8000);const pg=t&&t.Tipo==='CARAVANA'?GPS.q.filter(x=>x.uid===S.id).slice(0,300):[];const r=await accion('cerrarTurno',{obs:val('c_obs'),sinPeso:sp,...p,...(pg.length?{pts:pg.map(x=>x.p)}:{})});if(pg.length){GPS.q=GPS.q.filter(x=>!pg.includes(x));gpsSave()}closeModal();toast(r.offline?'Cierre guardado':'Turno cerrado: '+fh(r.horas)+(r.km?' · '+f1(r.km)+' km':''));if(!r.offline){aplicarLocal('cerrarTurno',{});cargaEsc(true)}}catch(e){toast(e.message==='PESO_FALTANTE'?'Registra el peso movido antes de cerrar el turno':e.message,true);b.disabled=false}},
 async confirmarProg(d){try{await api('confirmarProgramacion',{id:d.id});toast('Confirmado');cargaEsc(true)}catch(e){toast(e.message,true)}},
 abrirPin(){modal(`<h2 style="margin-top:0">Cambiar PIN</h2><label>PIN actual</label><input id="n_a" type="password" inputmode="numeric"><label>PIN nuevo (6 a 8 números)</label><input id="n_n" type="password" inputmode="numeric" maxlength="8"><br><button class="btn big" data-act="cambiarPin">Guardar</button>`)},
 async cambiarPin(){try{const r=await api('cambiarMiPin',{actual:val('n_a'),nuevo:val('n_n')});S.token=r.token;saveS();closeModal();toast('PIN cambiado')}catch(e){toast(e.message,true)}},
