@@ -53,6 +53,25 @@ button{font:inherit;cursor:pointer}
 .convoy.go .seg{animation:arr .5s both;animation-delay:calc(var(--i)*20ms)}
 @keyframes arr{from{transform:scaleY(.1);opacity:.2}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.convoy.go .seg{animation:none}}
+.ring{--c:#19e6ff;position:relative;margin-left:auto;flex:0 0 auto;width:92px;height:92px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(from -90deg,var(--c) calc(var(--p)*1%),rgba(120,160,200,.16) 0);box-shadow:0 0 22px rgba(25,230,255,.35),inset 0 0 14px rgba(25,230,255,.18);animation:ringIn 1s ease-out both}
+.ring::before{content:'';position:absolute;inset:8px;border-radius:50%;background:radial-gradient(circle at 50% 40%,#0f2236,#08111c);box-shadow:inset 0 0 12px rgba(25,230,255,.25)}
+.ring::after{content:'';position:absolute;inset:-6px;border-radius:50%;background:repeating-conic-gradient(rgba(25,230,255,.55) 0 1.2deg,transparent 1.2deg 6deg);-webkit-mask:radial-gradient(circle,transparent 56%,#000 57%,#000 62%,transparent 63%);mask:radial-gradient(circle,transparent 56%,#000 57%,#000 62%,transparent 63%);opacity:.7;animation:giro 24s linear infinite}
+.ring .rn{position:relative;z-index:1;font:700 34px/1 'Barlow Condensed',sans-serif;color:#d9fbff;text-shadow:0 0 10px rgba(25,230,255,.9);font-variant-numeric:tabular-nums}.ring .rn small{font-size:15px;opacity:.85}
+@keyframes giro{to{transform:rotate(360deg)}}@keyframes ringIn{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:none}}
+.hud{margin:14px 0 4px;padding:10px 10px 8px;border-radius:14px;background:linear-gradient(180deg,#0b1726,#08111c);border:1px solid rgba(25,230,255,.35);box-shadow:0 0 18px rgba(25,230,255,.12),inset 0 0 20px rgba(25,230,255,.06);position:relative}
+.hud .convoy{position:relative;overflow:hidden;margin:0;background:repeating-linear-gradient(90deg,rgba(25,230,255,.07) 0 1px,transparent 1px 22px),#0a1420;border:1px solid rgba(25,230,255,.25);height:34px}
+.hud .convoy::after{content:'';position:absolute;top:0;bottom:0;left:-40px;width:40px;background:linear-gradient(90deg,transparent,rgba(160,255,255,.38),transparent);animation:scan 3.4s linear infinite;pointer-events:none}
+@keyframes scan{to{left:100%}}
+.hud .convoy .seg{background:#ffc400;box-shadow:0 0 9px rgba(255,196,0,.75),inset 0 0 4px rgba(255,255,255,.35)}
+.hud .convoy .seg.ok{background:#19ff9c;box-shadow:0 0 9px rgba(25,255,156,.8),inset 0 0 4px rgba(255,255,255,.4)}
+.hud .convoy .seg.nc{background:#ff4d6d;box-shadow:0 0 9px rgba(255,77,109,.8),inset 0 0 4px rgba(255,255,255,.35)}
+.hud .convoy .seg.lleg{background:#35b6ff;box-shadow:0 0 9px rgba(53,182,255,.85),inset 0 0 4px rgba(255,255,255,.4)}
+.pline{position:relative;height:18px;margin-top:8px;border-radius:9px;background:rgba(120,160,200,.14);overflow:hidden;font:700 11px/18px 'Barlow Condensed',sans-serif;letter-spacing:1.6px;color:#d9fbff}
+.pline i{position:absolute;inset:0 auto 0 0;width:calc(var(--p)*1%);background:linear-gradient(90deg,#0aa7c9,#19e6ff,#9bfff0);box-shadow:0 0 14px rgba(25,230,255,.85);border-radius:9px;transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.pline i::after{content:'';position:absolute;right:0;top:0;bottom:0;width:14px;background:#fff;filter:blur(5px);opacity:.85}
+.pline span,.pline em{position:relative;z-index:1;padding:0 10px;text-shadow:0 0 6px rgba(0,0,0,.7)}.pline em{position:absolute;right:0;top:0;font-style:normal;opacity:.95}
+@media (prefers-reduced-motion:reduce){.ring::after,.hud .convoy::after{animation:none}.ring{animation:none}}
+:root[data-theme=light] .hud{box-shadow:0 2px 10px rgba(18,32,50,.18)}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}
 .stat{border:1px solid var(--line);border-radius:12px;padding:8px 6px;text-align:center;font-size:13px;font-weight:600;color:var(--tx);background:var(--card2);border-bottom:4px solid var(--warn)}
 .stat b{display:block;font:700 30px/1.05 'Barlow Condensed',sans-serif;font-variant-numeric:tabular-nums}
@@ -176,7 +195,7 @@ function modal(h){closeModal();const m=document.createElement('div');m.className
 function closeModal(){const m=$('modal');if(m)m.remove()}
 function descargar(n,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download=n;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
 
-const VERSION='2026-10-27 · destinos v11 barrio con respaldo';
+const VERSION='2026-10-27 · destinos v12 panel futurista';
 const LOGO=`<svg width="34" height="34" style="flex:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b2545"/><path d="M256 92c-66 0-118 51-118 114 0 84 118 214 118 214s118-130 118-214c0-63-52-114-118-114z" fill="#fff"/><circle cx="256" cy="206" r="78" fill="#188a4b"/><path d="M222 208l26 27 46-54" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><circle cx="392" cy="392" r="38" fill="#e8a317"/><circle cx="392" cy="392" r="16" fill="#0b2545"/></svg>`;
 /* ---- estado y conexión ---- */
 let S=(()=>{try{return JSON.parse(LS('em_s'))||{}}catch(e){return{}}})();
@@ -479,8 +498,8 @@ function pinta(){
   const M=metricas(d);
   const T=(k,t,n,cl)=>`<button class="stat ${cl} ${EM.f===k?'on':''}" data-act="filtro" data-f="${k}"><b>${n}</b>${t}</button>`;
   const K=(v,t)=>`<div class="kpi"><b>${v}</b><small>${t}</small></div>`;
-  $('top').innerHTML=`<section class="hero"><div class="hero-h"><div><div class="dia">${d.fecha===d.hoy?'Hoy':'Día'}, ${fecha(d.fecha)}</div><h2>${hechos} de ${d.total} vehículos gestionados</h2></div><div class="pct">${pct}<small>%</small></div></div>
-   <div class="convoy ${EM.anim?'':'go'}">${d.items.map((x,i)=>`<button class="seg ${stV(x)}" style="--i:${i}" data-act="ir" data-id="${esc(x.ID)}" title="${esc(partes(x).placa)}: ${TXT[stV(x)]}" aria-label="${esc(partes(x).placa)}: ${TXT[stV(x)]}"></button>`).join('')}</div>
+  $('top').innerHTML=`<section class="hero"><div class="hero-h"><div><div class="dia">${d.fecha===d.hoy?'Hoy':'Día'}, ${fecha(d.fecha)}</div><h2>${hechos} de ${d.total} vehículos gestionados</h2></div><div class="ring" style="--p:${pct}" role="img" aria-label="${pct}% gestionado"><div class="rn">${pct}<small>%</small></div></div></div>
+   <div class="hud"><div class="convoy ${EM.anim?'':'go'}">${d.items.map((x,i)=>`<button class="seg ${stV(x)}" style="--i:${i}" data-act="ir" data-id="${esc(x.ID)}" title="${esc(partes(x).placa)}: ${TXT[stV(x)]}" aria-label="${esc(partes(x).placa)}: ${TXT[stV(x)]}"></button>`).join('')}</div><div class="pline" style="--p:${pct}"><i></i><span>${pct}% GESTIONADO</span><em>${hechos}/${d.total}</em></div></div>
    <div class="stats">${T('pend','Pendientes',c.pend,'p')}${T('ok','Llamados',c.ok,'o')}${T('nc','No contestó',c.nc,'n')}${T('lleg','Llegaron',c.lleg,'g')}</div>
    <div class="kpis">${K(d.total,'Vehículos')}${M.peso?K(fmt(M.peso),'Peso total'):''}${M.ped?K(fmt(M.ped),'Pedidos'):''}${M.esc?K(M.esc,'Con escolta'):''}${M.locs.length>1?K(M.locs.length,'Localidades'):''}</div>
    <div class="sync"><i></i>${EM.sync?'Actualizado a las '+EM.sync+'. Se refresca solo':'Conectado'}</div></section>
