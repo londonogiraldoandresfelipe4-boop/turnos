@@ -174,7 +174,7 @@ function modal(h){closeModal();const m=document.createElement('div');m.className
 function closeModal(){const m=$('modal');if(m)m.remove()}
 function descargar(n,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download=n;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
 
-const VERSION='2026-10-27 · destinos v8 llegada y botellas';
+const VERSION='2026-10-27 · destinos v9 llegada en columnas';
 const LOGO=`<svg width="34" height="34" style="flex:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b2545"/><path d="M256 92c-66 0-118 51-118 114 0 84 118 214 118 214s118-130 118-214c0-63-52-114-118-114z" fill="#fff"/><circle cx="256" cy="206" r="78" fill="#188a4b"/><path d="M222 208l26 27 46-54" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><circle cx="392" cy="392" r="38" fill="#e8a317"/><circle cx="392" cy="392" r="16" fill="#0b2545"/></svg>`;
 /* ---- estado y conexión ---- */
 let S=(()=>{try{return JSON.parse(LS('em_s'))||{}}catch(e){return{}}})();
@@ -239,10 +239,12 @@ const stOf=x=>x.Llamado!=='SI'?'pend':(x.Resultado==='No contestó'?'nc':'ok');
 const COL={pend:'#ffc400',ok:'#34d27b',nc:'#ff6a5e',lleg:'#4aa3ff'},TXT={pend:'Pendiente',ok:'Llamado',nc:'No contestó',lleg:'Llegó'};
 /* “Llegó a destino”: se guarda dentro de la nota con una marca [[LLEGO|fecha-hora|quién]] (el servidor ya guarda la nota, así no hace falta tocarlo) */
 const LLEGO_RE=/\s*\[\[LLEGO\|([^|\]]*)\|([^\]]*)\]\]\s*$/;
-const llegoDe=x=>{const m=String(x.Nota||'').match(LLEGO_RE);return m?{ts:m[1],quien:m[2]}:null};
+const tagDe=x=>{const m=String(x.Nota||'').match(LLEGO_RE);return m?{ts:m[1],quien:m[2]}:null};
+const llegoDe=x=>x.Llego==='SI'?{ts:x.LlegoEn||'',quien:x.LlegoPor||''}:tagDe(x);   /* servidor nuevo: columnas propias; servidor anterior: marca en la nota */
+const srvV2=()=>!!(EM.d&&EM.d.v>=2);
 const notaLimpia=x=>String(x.Nota||'').replace(LLEGO_RE,'').trim();
 const stV=x=>llegoDe(x)?'lleg':stOf(x);
-const armaNota=(txt,lg)=>(String(txt||'').trim().slice(0,140)+(lg?' [[LLEGO|'+lg.ts+'|'+lg.quien+']]':'')).trim();
+const armaNota=(txt,lg)=>(String(txt||'').trim().slice(0,lg?140:200)+(lg?' [[LLEGO|'+lg.ts+'|'+lg.quien+']]':'')).trim();
 const A=x=>x._a||(x._a=analiza(x.Detalle,EM.d.encabezado));
 const vacio=v=>{v=String(v||'').trim();return !v||v==='-'};
 function num(s){s=String(s||'').replace(/[^\d.,-]/g,'');if(!s)return 0;
@@ -632,7 +634,7 @@ async function carga(){if(!S.token)return;try{EM.d=await api('listar',{fecha:S.f
   EM.sync=new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});pinta();if(S.rol==='A'&&S.puente&&EM.d.total===0&&Date.now()-EM.autoT>300000)traerCorreo(true)}catch(e){if(!EM.d&&$('res'))$('res').innerHTML=`<div class="banner">${esc(e.offline?'Sin conexión. Reintentando…':e.message)}</div>`}}
 async function accion(p){
   const x=p.id&&EM.d?EM.d.items.find(i=>i.ID===p.id):null;
-  if(x){if(p.deshacer){x.Llamado='';x.Resultado='';x.LlamadoPor='';x.LlamadoEn=''}else if(p.resultado){x.Llamado='SI';x.Resultado=p.resultado;x.LlamadoPor=S.nombre||'';x.LlamadoEn=ahora()}if(p.nota!==undefined)x.Nota=p.nota;if(p.ubicacion!==undefined)x.Ubicacion=p.ubicacion;EM.pop=x.ID;pinta();EM.pop=''}
+  if(x){if(p.deshacer){x.Llamado='';x.Resultado='';x.LlamadoPor='';x.LlamadoEn=''}else if(p.resultado){x.Llamado='SI';x.Resultado=p.resultado;x.LlamadoPor=S.nombre||'';x.LlamadoEn=ahora()}if(p.llego===true){x.Llego='SI';x.LlegoEn=ahora();x.LlegoPor=corto(S.nombre||'')}else if(p.llego===false){x.Llego='';x.LlegoEn='';x.LlegoPor=''}if(p.nota!==undefined)x.Nota=p.nota;if(p.ubicacion!==undefined)x.Ubicacion=p.ubicacion;EM.pop=x.ID;pinta();EM.pop=''}
   try{EM.d=await api('marcar',Object.assign({fecha:S.fecha},p));pinta()}catch(e){toast(e.message,true);carga()}
 }
 function inicio(){
@@ -663,12 +665,12 @@ filtro(d){EM.f=EM.f===d.f&&d.f!=='todos'?'todos':d.f;pinta()},
 vista(d){EM.v=d.v;pinta();if(d.v==='mapa')setTimeout(()=>MAP&&MAP.invalidateSize(),50)},soporte,
 marca(d){accion({id:d.id,resultado:d.r||'Llamado'})},
 des(d){accion({id:d.id,deshacer:true})},
-llego(d){const x=EM.d.items.find(i=>i.ID===d.id);if(!x)return;accion({id:d.id,nota:armaNota(notaLimpia(x),{ts:ahora(),quien:corto(S.nombre||'')})})},
-quitaLlego(d){const x=EM.d.items.find(i=>i.ID===d.id);if(!x)return;accion({id:d.id,nota:armaNota(notaLimpia(x),null)})},
+llego(d){const x=EM.d.items.find(i=>i.ID===d.id);if(!x)return;if(srvV2())accion({id:d.id,llego:true});else accion({id:d.id,nota:armaNota(notaLimpia(x),{ts:ahora(),quien:corto(S.nombre||'')})})},
+quitaLlego(d){const x=EM.d.items.find(i=>i.ID===d.id);if(!x)return;const p={id:d.id};if(srvV2())p.llego=false;if(tagDe(x))p.nota=armaNota(notaLimpia(x),null);accion(p)},
 nota(d){const x=EM.d.items.find(i=>i.ID===d.id);modal(`<h2 style="margin-top:0">Nota</h2><input type="hidden" id="ni" value="${esc(d.id)}"><textarea id="nt" rows="3" maxlength="140" placeholder="Ej: pidió que lo llamen a las 3 pm">${esc(x?notaLimpia(x):'')}</textarea><br><br><button class="btn big" data-act="notaOk">Guardar</button>`)},
 ubic(d){const x=EM.d.items.find(i=>i.ID===d.id);modal(`<h2 style="margin-top:0">📍 Posición del vehículo al contacto</h2><p class="mut" style="margin:0 0 8px">Dirección, vía o punto donde estaba el vehículo cuando lo llamaste.</p><input type="hidden" id="ui" value="${esc(d.id)}"><textarea id="ut" rows="2" maxlength="160" placeholder="Ej: Autopista Sur con Calle 57 sur, frente a Éxito">${esc(x&&x.Ubicacion||'')}</textarea><br><br><button class="btn big" data-act="ubicOk">Guardar posición</button>`)},
 async ubicOk(){const id=val('ui'),u=$('ut').value.trim();closeModal();await accion({id,ubicacion:u})},
-async notaOk(){const id=val('ni'),n=$('nt').value,x=EM.d.items.find(i=>i.ID===id);closeModal();await accion({id,nota:armaNota(n,x?llegoDe(x):null)})},
+async notaOk(){const id=val('ni'),n=$('nt').value,x=EM.d.items.find(i=>i.ID===id);closeModal();await accion({id,nota:armaNota(n,x?tagDe(x):null)})},
 dia(d){S.fecha=sumaDias(S.fecha,+d.d);S.fechaSet=hoyL();save();inicio()},
 irdia(d){S.fecha=sumaDias(hoyL(),+d.d);S.fechaSet=hoyL();save();inicio()},
 modo(d){$('modo1').style.display=d.m==='1'?'':'none';$('modo2').style.display=d.m==='2'?'':'none';$('m1').className=d.m==='1'?'on':'';$('m2').className=d.m==='2'?'on':''},
