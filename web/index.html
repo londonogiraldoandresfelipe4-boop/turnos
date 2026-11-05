@@ -252,6 +252,7 @@ function compBloque(total,tope){
 function barra(v,tope){const p=Math.min(100,v/tope*100);const c=v>tope?'b':v>tope*0.85?'w':'';return `<div class="meter"><i class="${c}" style="width:${p}%"></i></div>`}
 const hcls=(v,tope)=>v>tope?'b':v>tope*0.85?'w':''
 function descargar(nombre,texto,tipo){const b=new Blob([texto],{type:tipo||'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nombre;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
+const NORMA_WA=`\n\n📞 *Importante:*\n• Apenas estés en el punto, comunícate con la Central REPCO al 3043901198.\n• No puedes retirarte de la operación sin ser previamente autorizado y que se te confirme la retirada.`;
 function wa(tel,texto){const t=String(tel||'').replace(/\D/g,'');const num=t?(t.length===10?'57'+t:t):'';return `https://wa.me/${num}?text=${encodeURIComponent(texto)}`}
 let POS_MEM=null; /* última ubicación buena: evita esperar el GPS otra vez si se acaba de tomar */
 function getPos(ms){return new Promise(res=>{if(!navigator.geolocation)return res({});if(POS_MEM&&Date.now()-POS_MEM.t<45000&&POS_MEM.v.prec<=80)return res({...POS_MEM.v});let hecho=false;const fin=v=>{if(!hecho){hecho=true;res(v)}};setTimeout(()=>fin({}),ms+1500);navigator.geolocation.getCurrentPosition(p=>{const v={lat:p.coords.latitude,lng:p.coords.longitude,prec:p.coords.accuracy};POS_MEM={t:Date.now(),v};fin({...v})},()=>fin({}),{enableHighAccuracy:true,timeout:ms,maximumAge:0})})}
@@ -1250,7 +1251,7 @@ async dcProgramar(){
   try{
     const r=await api('programarDisponibles',{fecha:f,hora:h,punto:p,ids});
     const link=location.origin+location.pathname+'#api='+encodeURIComponent(S.api);
-    const msg=c=>`Hola ${nombreCorto(c.nombre).split(' ')[0]}, quedaste programado como DISPONIBLE PROSEGUR:\n• Fecha: ${fecha(f)}\n• Hora: ${c.hora}\n• Punto de llegada: ${c.punto}\n\nConfírmalo en la app: ${link}`;
+    const msg=c=>`Hola ${nombreCorto(c.nombre).split(' ')[0]}, quedaste programado como DISPONIBLE PROSEGUR:\n• Fecha: ${fecha(f)}\n• Hora: ${c.hora}\n• Punto de llegada: ${c.punto}${NORMA_WA}\n\nConfírmalo en la app: ${link}`;
     modal(`<h2 style="margin-top:0">✅ Programados (${r.creados.length})</h2><p class="mut" style="margin-top:0">Ya quedaron como Disponible Prosegur el ${fecha(f)} a las ${esc(h)} en ${esc(p)}. Avísales por WhatsApp:</p>
     ${r.creados.map(c=>`<div class="item" style="display:flex;gap:8px;align-items:center"><b class="grow">${esc(nombreCorto(c.nombre))}</b>${c.tel?`<a class="btn ok sm" target="_blank" rel="noopener" href="${esc(wa(c.tel,msg(c)))}">💬 WhatsApp</a>`:'<span class="mut">sin celular</span>'}</div>`).join('')}
     ${r.omitidos.length?`<p class="mut">No se programaron: ${r.omitidos.map(o=>esc(nombreCorto(o.nombre))+' ('+esc(o.motivo)+')').join(', ')}</p>`:''}
@@ -1263,9 +1264,9 @@ msgProg(){
   const f=val('pf'),ls=ACT.lineasProg();if(!ls.length)return toast('No hay escoltas marcados',true);
   const link=location.origin+location.pathname+'#api='+encodeURIComponent(S.api);
   const E=id=>(A.data.escoltas||[]).find(x=>x.ID===id)||{};
-  const indiv=l=>`Hola ${nombreCorto(E(l.EscoltaID).Nombre)}, tu programación para ${fecha(f)}:\n• Tipo: ${TIPOS[l.Tipo]}\n• Hora: ${l.Hora}\n• Punto / ruta: ${l.Punto}${l.Placa?'\n• Placa: '+l.Placa:''}\n\nConfírmala en la app: ${link}`;
-  const grupo=(k,it)=>`*${TIPOS[k].toUpperCase()} — ${fecha(f).toUpperCase()}*\n`+it.map(l=>`• ${nombreCorto(E(l.EscoltaID).Nombre)} — ${l.Hora} — ${l.Punto}${l.Placa?' — '+l.Placa:''}`).join('\n')+`\n\nConfirma tu turno en la app: ${link}`;
-  const todo=`*PROGRAMACIÓN ${fecha(f).toUpperCase()}*\n`+ORD_T.map(k=>{const it=ls.filter(l=>l.Tipo===k);return it.length?`\n*${TIPOS[k].toUpperCase()}*\n`+it.map(l=>`• ${nombreCorto(E(l.EscoltaID).Nombre)} — ${l.Hora} — ${l.Punto}${l.Placa?' — '+l.Placa:''}`).join('\n'):''}).join('\n')+`\n\nConfirma tu turno en la app: ${link}`;
+  const indiv=l=>`Hola ${nombreCorto(E(l.EscoltaID).Nombre)}, tu programación para ${fecha(f)}:\n• Tipo: ${TIPOS[l.Tipo]}\n• Hora: ${l.Hora}\n• Punto / ruta: ${l.Punto}${l.Placa?'\n• Placa: '+l.Placa:''}${NORMA_WA}\n\nConfírmala en la app: ${link}`;
+  const grupo=(k,it)=>`*${TIPOS[k].toUpperCase()} — ${fecha(f).toUpperCase()}*\n`+it.map(l=>`• ${nombreCorto(E(l.EscoltaID).Nombre)} — ${l.Hora} — ${l.Punto}${l.Placa?' — '+l.Placa:''}`).join('\n')+`${NORMA_WA}\n\nConfirma tu turno en la app: ${link}`;
+  const todo=`*PROGRAMACIÓN ${fecha(f).toUpperCase()}*\n`+ORD_T.map(k=>{const it=ls.filter(l=>l.Tipo===k);return it.length?`\n*${TIPOS[k].toUpperCase()}*\n`+it.map(l=>`• ${nombreCorto(E(l.EscoltaID).Nombre)} — ${l.Hora} — ${l.Punto}${l.Placa?' — '+l.Placa:''}`).join('\n'):''}).join('\n')+`${NORMA_WA}\n\nConfirma tu turno en la app: ${link}`;
   let m=`<h2 style="margin-top:0">WhatsApp · ${fecha(f)}</h2><p class="mut" style="margin-top:0">Toca <b>WhatsApp</b> en cada escolta para enviarle su mensaje personal. Si lo guardaste hace poco, usa primero "Guardar programación".</p>`;
   ORD_T.forEach(k=>{const it=ls.filter(l=>l.Tipo===k);if(!it.length)return;
     m+=`<div class="gh tp-${k}">${esc(TIPOS[k]).toUpperCase()} <span>(${it.length})</span> <a class="btn ghost sm" style="float:right" target="_blank" rel="noopener" href="${esc(wa('',grupo(k,it)))}">Mensaje del grupo</a></div>`;
