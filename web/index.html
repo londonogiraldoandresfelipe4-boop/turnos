@@ -273,7 +273,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.10-a';
+const APP_VERSION='2026.11.10-b';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -450,7 +450,7 @@ function gpsTic(){const e=$('gpsHace');if(!e)return;e.textContent=GPS.ult?`Últi
 const hash=new URLSearchParams(location.hash.slice(1));
 if(hash.get('api')){S.api=hash.get('api');LS('rt_api',S.api);history.replaceState(null,'',location.pathname+location.search)}
 /* Enlace que arma el Asistente REPCO: #importar=<código>. Se abre solo el cuadro «Importar del Asistente» con la programación ya cargada */
-if(hash.get('ref')){window.__ref=1;if(!hash.get('api'))history.replaceState(null,'',location.pathname+location.search)}
+if(hash.get('ref')){try{sessionStorage.setItem('rt_ref','1')}catch(_){}window.__ref=1}
 if(hash.get('importar')){S.impPend=hash.get('importar');history.replaceState(null,'',location.pathname+location.search)}
 /* Si cambias la URL del servidor, basta editar config.json en GitHub: todos los celulares la toman solos al abrir la app */
 (async function sincronizaApi(){try{const r=await fetch('config.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const c=await r.json();const u=c&&c.api;
@@ -475,7 +475,7 @@ function vistaConfigApi(){
 }
 let LOGIN={rol:'E',lista:null,adminCreado:true};
 async function vistaLogin(){
-  LOGIN.lista=null;if(window.__ref){LOGIN.rol='R';LOGIN.refModo='reg';window.__ref=0}
+  LOGIN.lista=null;{let r=window.__ref;try{r=r||sessionStorage.getItem('rt_ref')==='1';sessionStorage.removeItem('rt_ref')}catch(_){}window.__ref=0;if(r){LOGIN.rol='R';LOGIN.refModo='reg'}}
   $('root').innerHTML=`<header><h1>Registro de Turnos<small id="op"></small></h1><button data-act="cambiarApi">⚙</button></header>
   <main><div class="center"><div class="tabs" id="rolTabs"></div><div class="card" id="loginBox"><p class="mut">Cargando…</p></div><div id="estado"></div><p class="mut" style="text-align:center;font-size:11px">Versión ${APP_VERSION}</p></div></main>`;
   pintaLogin();
