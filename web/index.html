@@ -273,7 +273,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.11-a';
+const APP_VERSION='2026.11.12-a';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -595,6 +595,7 @@ function pintaEsc(){
   const pr=EST.programacion||[];
   h+=`<div class="card"><h2>Mi programación</h2>${pr.length?pr.map(x=>`<div class="item"><div class="row"><div class="grow"><b>${fecha(x.Fecha)} · ${esc(x.Hora)}</b><br>${esc(x.Punto)}${x.Placa?' · '+esc(x.Placa):''} ${tbd(x.Tipo)}${x.Nota?`<br><span class="mut">${esc(x.Nota)}</span>`:''}</div>${x.Estado==='CONFIRMADA'?'<span class="badge ok">Confirmado</span>':`<button class="btn ok" data-act="confirmarProg" data-id="${esc(x.ID)}">CONFIRMAR</button>`}</div></div>`).join(''):'<p class="mut" style="margin:0">Sin turnos programados.</p>'}</div>`;
   h+=`<div class="card"><h2>🏅 Puntualidad del equipo</h2><p class="mut" style="margin:0 0 10px">Mira cómo va la puntualidad de todos y tu propio porcentaje.</p><button class="btn" data-act="abrirPunt">Ver tabla de puntualidad</button></div>`;
+  h+=`<div class="card"><h2>🧾 Viáticos</h2><p class="mut" style="margin:0 0 10px">Carga los recibos de tu comisión: peajes, hospedaje, comidas, lavada y gasolina.</p><button class="btn" data-act="vMis">Mis comisiones y recibos</button></div>`;
   const hi=EST.historial||[];
   h+=`<div class="card"><h2>Mis últimos turnos</h2>${hi.length?`<div class="scroll"><table><tr><th>Día</th><th>Tipo</th><th>Horario</th><th>Horas</th></tr>${hi.map(x=>`<tr><td>${fecha(x.Fecha)}</td><td>${esc(TIPOS[x.Tipo]||x.Tipo)}</td><td>${hm(x.Inicio)}–${hm(x.Fin)}</td><td>${f1(x.horas)}</td></tr>`).join('')}</table></div>`:'<p class="mut" style="margin:0">Aún no hay turnos.</p>'}</div>`;
   if(!LS('rt_ntfy_ok'))h+=cajaNtfy(EST.ntfy,'<br><button class="btn ghost sm" style="margin-top:6px" data-act="ntfyOk">Ya lo activé, ocultar</button>');
@@ -605,7 +606,7 @@ function formTipos(){return Object.entries(TIPOS).map(([k,n])=>`<option value="$
 
 /* ================= ADMIN / CENTRAL ================= */
 const A={tab:'tablero',data:{},cfg:null};
-const TABS_A=[['ejecutivo','Ejecutivo'],['tablero','Tablero'],['turnos','Turnos'],['prog','Programación'],['horas','Horas'],['peso','Peso movido'],['punt','Puntualidad'],['solic','Solicitudes'],['escoltas','Escoltas'],['export','Exportar'],['ajustes','Ajustes']];
+const TABS_A=[['ejecutivo','Ejecutivo'],['tablero','Tablero'],['turnos','Turnos'],['prog','Programación'],['horas','Horas'],['peso','Peso movido'],['punt','Puntualidad'],['solic','Solicitudes'],['escoltas','Escoltas'],['viaticos','Viáticos'],['export','Exportar'],['ajustes','Ajustes']];
 const TABS_C=[['ejecutivo','Ejecutivo'],['tablero','Tablero'],['peso','Peso movido'],['prog','Programación'],['solic','Solicitar personal']];
 function vistaAdmin(){
   A.tab='tablero';
@@ -1443,6 +1444,174 @@ function mostrarPins(l){
   const tel=id=>{const e=(A.data.escoltas||[]).find(z=>z.ID===id);return e&&e.Telefono};
   modal(`<h2 style="margin-top:0">PIN de acceso</h2><div class="banner warn">Anótalos ahora: por seguridad no se vuelven a mostrar (si se pierde uno, se genera otro con el botón PIN).</div>${l.map(x=>`<div class="item"><b>${esc(x.nombre)}</b> → <span style="font-size:22px;font-weight:700">${esc(x.pin)}</span>${x.id&&tel(x.id)?` <a class="btn ghost sm" target="_blank" rel="noopener" href="${esc(wa(tel(x.id),'Tu PIN para el registro de turnos es '+x.pin))}">WhatsApp</a>`:''}</div>`).join('')}<br><div class="row"><button class="btn" data-act="copiar" data-v="${esc(txt)}">Copiar todos</button><button class="btn ghost" data-act="imprimir">Imprimir</button></div>`);
 }
+/* ================= VIÁTICOS (recibos por comisión) ================= */
+const VT={com:null,det:null,foto:null,cats:[],nom:{}};
+const vP=n=>'$'+Math.round(+n||0).toLocaleString('es-CO');
+const vCat=c=>VT.nom[c]||c;
+const vEstCls={ABIERTA:'warn',POR_REVISAR:'warn',CERRADA:'ok',PENDIENTE:'warn',OBSERVADO:'bad',APROBADO:'ok',RECHAZADO:'bad'};
+const vEstTxt={ABIERTA:'Abierta',POR_REVISAR:'En revisión',CERRADA:'Cerrada',PENDIENTE:'Pendiente',OBSERVADO:'Observado',APROBADO:'Aprobado',RECHAZADO:'Rechazado'};
+const vBadge=e=>`<span class="badge ${vEstCls[e]||''}">${esc(vEstTxt[e]||e)}</span>`;
+function vAlertasHtml(a){return a?String(a).split(' | ').map(x=>`<div style="font-size:13px;margin-top:3px">${esc(x)}</div>`).join(''):''}
+function vResumen(c){
+  const q=c.cuadre,t=q.total,cats=Object.entries(q.porCategoria).filter(([k,v])=>v.n);
+  const acc=q.accion==='DEVOLVER'?`<div class="banner warn">💵 <b>Debe devolver ${vP(q.monto)}</b> (anticipo ${vP(q.anticipo)} − gastos aprobados ${vP(t.aprobado)})${t.pendientes?`<br><span style="font-size:13px">Estimado con lo digitado: ${vP(q.saldoEstimado)}. Hay ${t.pendientes} recibo(s) sin revisar.</span>`:''}</div>`
+   :q.accion==='REEMBOLSAR'?`<div class="banner warn">💵 <b>Se le debe reembolsar ${vP(q.monto)}</b> (gastó más que el anticipo).</div>`:`<div class="banner ok">✅ Cuadrado: gastos = anticipo.</div>`;
+  return `<div class="grid2"><div class="item"><span class="mut">Anticipo</span><br><b>${vP(q.anticipo)}</b></div><div class="item"><span class="mut">Gastado (digitado)</span><br><b>${vP(t.declarado)}</b></div><div class="item"><span class="mut">Aprobado</span><br><b>${vP(t.aprobado)}</b></div><div class="item"><span class="mut">Rechazado</span><br><b>${vP(t.rechazado)}</b></div></div>${acc}
+  ${cats.length?`<div class="scroll"><table><tr><th>Categoría</th><th>N.º</th><th>Valor</th><th>Aprobado</th></tr>${cats.map(([k,v])=>`<tr><td>${esc(vCat(k))}</td><td>${v.n}</td><td>${vP(v.declarado)}</td><td>${vP(v.aprobado)}</td></tr>`).join('')}</table></div>`:''}`;
+}
+function vListaRecibos(d,admin){
+  const abierta=d.comision.Estado==='ABIERTA',rs=d.recibos;
+  if(!rs.length)return '<p class="mut">Aún no hay recibos. Toca «Agregar recibo» y fotografía cada comprobante.</p>';
+  let ult='',h='';
+  rs.forEach(r=>{
+    if(r.Categoria!==ult){ult=r.Categoria;h+=`<div style="margin:12px 0 4px;font-weight:700">${esc(vCat(r.Categoria))}</div>`}
+    const puede=admin?d.comision.Estado!=='CERRADA':(abierta&&r.Estado!=='APROBADO');
+    h+=`<div class="item"><div class="row"><div class="grow"><b>N.º ${r.orden}</b> · ${esc(r.Fecha)} ${esc(r.Hora||'')} · ${esc(r.Proveedor||'sin proveedor')}<br><b>${vP(r.Valor)}</b>${r.Estado==='APROBADO'&&r.ValorAprob!==r.Valor?` <span class="mut">(aprobado ${vP(r.ValorAprob)})</span>`:''} ${vBadge(r.Estado)}${r.Fisico==='SI'?' <span class="badge ok">físico ✔</span>':''}</div></div>${vAlertasHtml(r.Alertas)}${r.Revision?`<div class="mut" style="font-size:13px">📝 ${esc(r.Revision)}</div>`:''}
+    <div class="row" style="margin-top:6px"><button class="btn ghost sm" data-act="vFoto" data-f="${esc(r.FotoId)}">📷 Ver foto</button>${puede?`<button class="btn ghost sm" data-act="vEditar" data-id="${esc(r.ID)}">Editar</button><button class="btn ghost sm" data-act="vAnular" data-id="${esc(r.ID)}">Quitar</button>`:''}${admin&&d.comision.Estado!=='CERRADA'?`<button class="btn sm" data-act="vDecidir" data-id="${esc(r.ID)}">Revisar</button>`:''}</div></div>`;
+  });
+  return h;
+}
+Object.assign(ACT,{
+async vMis(){
+  modal('<div class="mut">Cargando…</div>');
+  try{const r=await api('verMisComisiones');VT.cats=r.categorias;VT.nom=r.nombres;
+    modal(`<h2 style="margin-top:0">🧾 Mis viáticos</h2>${r.comisiones.length?r.comisiones.map(c=>`<div class="item"><div class="row"><div class="grow"><b>${esc(c.Codigo)}</b> · ${esc(c.Destino)}<br><span class="mut">${esc(c.Desde)} a ${esc(c.Hasta)} · anticipo ${vP(c.Anticipo)}</span></div>${vBadge(c.Estado)}</div><button class="btn sm" style="margin-top:6px" data-act="vCom" data-id="${esc(c.ID)}">Abrir y cargar recibos</button></div>`).join(''):'<p class="mut">No tienes comisiones. Cuando te entreguen un anticipo, el administrador crea tu comisión y aparece aquí.</p>'}<button class="btn ghost" style="width:100%;margin-top:10px" data-act="cerrarModal">Cerrar</button>`);
+  }catch(e){closeModal();toast(e.message,true)}
+},
+cerrarModal(){closeModal()},
+async vCom(d){
+  const id=d.id||(VT.com&&VT.com),admin=S.rol==='A';VT.com=id;
+  try{const r=await api('verComision',{id});VT.det=r;VT.cats=r.categorias;VT.nom=r.nombres;
+    const c=r.comision,ab=c.Estado==='ABIERTA'||(admin&&c.Estado==='POR_REVISAR');
+    modal(`<div class="row"><h2 style="margin:0" class="grow">${esc(c.Codigo)} · ${esc(c.Destino)}</h2>${vBadge(c.Estado)}</div><div class="mut" style="margin:4px 0 10px">${esc(c.Escolta)} · ${esc(c.Desde)} a ${esc(c.Hasta)}${c.Vehiculo?' · '+esc(c.Vehiculo):''}${c.TipoVeh&&c.TipoVeh!=='SIN'?' ('+c.TipoVeh.toLowerCase()+')':''}</div>
+    ${r.vencida?'<div class="banner bad">⏰ Pasó el plazo para legalizar: envía los recibos ya.</div>':''}${vResumen(c)}
+    ${ab?`<input type="file" id="v_file" accept="image/*" capture="environment" data-chg="vfoto" hidden><button class="btn big" style="width:100%;margin:10px 0" data-act="vPick">📷 Agregar recibo</button>`:''}
+    <h3 style="margin:12px 0 0">Recibos en orden de entrega</h3><div class="mut" style="font-size:13px">Escribe el N.º a lápiz en cada recibo físico y entrégalos en este orden.</div>${vListaRecibos(r,admin)}
+    ${admin?vAdminBotones(c,r):(c.Estado==='ABIERTA'?'<button class="btn big ok" style="width:100%;margin-top:12px" data-act="vEnviar">Enviar legalización</button>':'')}
+    <button class="btn ghost" style="width:100%;margin-top:10px" data-act="${admin?'cerrarModal':'vMis'}">${admin?'Cerrar':'← Mis comisiones'}</button>`);
+  }catch(e){toast(e.message,true)}
+},
+vPick(){const f=$('v_file');if(f){f.value='';f.click()}},
+async chg_vfoto(){
+  const f=$('v_file').files[0];if(!f)return;
+  const c=VT.det.comision;
+  modal('<h2 style="margin-top:0">Leyendo recibo…</h2><p class="mut">Comprimiendo la foto y leyendo el texto. Unos segundos.</p>');
+  try{
+    const dataUrl=await vComprimir(f);
+    const up=await api('subirFotoRecibo',{comisionId:c.ID,foto:dataUrl});
+    let o={leido:false,motivo:''};try{o=await api('verOcr',{comisionId:c.ID,fotoId:up.fotoId})}catch(e){o={leido:false,motivo:e.message}}
+    VT.foto={fotoId:up.fotoId,hash:up.hash,dataUrl,ocr:o};vFormulario(null,o);
+  }catch(e){toast(e.message,true);ACT.vCom({id:c.ID})}
+},
+vEditar(d){const r=VT.det.recibos.find(x=>x.ID===d.id);if(!r)return;VT.foto={fotoId:r.FotoId,ocr:{leido:true}};vFormulario(r,{leido:true,sugerencia:null})},
+async vGuardar(){
+  const c=VT.det.comision,ed=VT.editId;
+  const p={comisionId:c.ID,id:ed||'',fotoId:VT.foto.fotoId,hash:VT.foto.hash||'',categoria:val('vf_cat'),fecha:val('vf_fecha'),hora:val('vf_hora'),valor:val('vf_valor'),proveedor:val('vf_prov'),nit:val('vf_nit'),factura:val('vf_fac'),obs:val('vf_obs'),valorOcr:(VT.foto.ocr&&VT.foto.ocr.sugerencia)?VT.foto.ocr.sugerencia.valor:0};
+  try{const r=await api('guardarRecibo',p);
+    toast(r.alertas.some(a=>a.sev==='R')?'Guardado con alertas: el administrador lo revisará':'Recibo guardado');
+    if(r.alertas.length)alert('Avisos del sistema:\n\n'+r.alertas.map(a=>(a.sev==='R'?'🔴 ':'🟡 ')+a.txt).join('\n\n'));
+    ACT.vCom({id:c.ID});
+  }catch(e){toast(e.message,true)}
+},
+async vAnular(d){if(!confirm('¿Quitar este recibo de la comisión? Queda anulado en el historial.'))return;try{await api('anularRecibo',{id:d.id});ACT.vCom({id:VT.com})}catch(e){toast(e.message,true)}},
+async vEnviar(){if(!confirm('¿Enviar la legalización? Después no podrás cambiar los recibos.'))return;try{await api('enviarLegalizacion',{id:VT.com});toast('Legalización enviada');ACT.vCom({id:VT.com})}catch(e){toast(e.message,true)}},
+async vFoto(d){
+  modal('<div class="mut">Cargando foto…</div>');
+  try{const r=await api('verFoto',{fotoId:d.f});modal(`<img src="${r.dataUrl}" style="width:100%;border-radius:8px"><button class="btn ghost" style="width:100%;margin-top:10px" data-act="vVolver">Volver</button>`)}catch(e){toast(e.message,true);ACT.vVolver()}
+},
+vVolver(){if(VT.com)ACT.vCom({id:VT.com});else closeModal()},
+/* —— administrador —— */
+async vNueva(d){
+  let lista=A.data.escoltas||[];
+  if(!lista.length){try{lista=(await api('listarEscoltas')).escoltas||[]}catch(e){}}
+  lista=lista.filter(e=>String(e.Activo)!=='NO');
+  const c=d&&d.id?(A.data.vc||[]).find(x=>x.ID===d.id):null;
+  modal(`<h2 style="margin-top:0">${c?'Editar':'Nueva'} comisión</h2><label>Escolta</label><select id="vn_esc" ${c?'disabled':''}>${lista.map(e=>`<option value="${esc(e.ID)}" ${c&&String(c.EscoltaID)===String(e.ID)?'selected':''}>${esc(e.Nombre)}</option>`).join('')}</select>
+  <label>Destino / orden de servicio</label><input id="vn_dest" value="${esc(c?c.Destino:'')}" placeholder="Ej: BARRANCABERMEJA – CARAVANA 123">
+  <div class="grid2"><div><label>Desde</label><input type="date" id="vn_d" value="${esc(c?c.Desde:hoyL())}"></div><div><label>Hasta</label><input type="date" id="vn_h" value="${esc(c?c.Hasta:hoyL())}"></div></div>
+  <label>Anticipo entregado ($)</label><input id="vn_ant" inputmode="numeric" value="${esc(c?c.Anticipo:'')}" placeholder="500000">
+  <div class="grid2"><div><label>Vehículo a cargo</label><select id="vn_tv">${['SIN','MOTO','CARRO'].map(x=>`<option value="${x}" ${c&&c.TipoVeh===x?'selected':''}>${x==='SIN'?'Sin vehículo':x==='MOTO'?'Moto':'Carro'}</option>`).join('')}</select></div><div><label>Placa</label><input id="vn_pl" value="${esc(c?c.Vehiculo:'')}" maxlength="8"></div></div>
+  <p class="mut" style="font-size:13px">Gasolina y lavada solo se aceptan si hay vehículo a cargo.</p>
+  <div class="row"><button class="btn" data-act="vNuevaOk" data-id="${esc(c?c.ID:'')}">Guardar</button><button class="btn ghost" data-act="cerrarModal">Cancelar</button></div>`);
+},
+async vNuevaOk(d){
+  try{await api('guardarComision',{id:d.id||'',escoltaId:val('vn_esc'),destino:val('vn_dest'),desde:val('vn_d'),hasta:val('vn_h'),anticipo:val('vn_ant'),tipoVeh:val('vn_tv'),vehiculo:val('vn_pl')});closeModal();toast('Comisión guardada');irTab('viaticos')}catch(e){toast(e.message,true)}
+},
+async vDecidir(d){
+  const r=VT.det.recibos.find(x=>x.ID===d.id);if(!r)return;
+  modal(`<h2 style="margin-top:0">Revisar recibo N.º ${r.orden}</h2><div class="item"><b>${esc(vCat(r.Categoria))}</b> · ${esc(r.Fecha)} ${esc(r.Hora||'')}<br>${esc(r.Proveedor||'')} ${r.NIT?'· NIT '+esc(r.NIT):''} ${r.Factura?'· Fac. '+esc(r.Factura):''}<br>Digitado <b>${vP(r.Valor)}</b>${r.ValorOCR?` · leído en la foto ${vP(r.ValorOCR)}`:''}${vAlertasHtml(r.Alertas)}</div>
+  <button class="btn ghost sm" data-act="vFoto" data-f="${esc(r.FotoId)}">📷 Ver foto</button>
+  <label>Valor que aprueba ($)</label><input id="vd_val" inputmode="numeric" value="${r.Valor}">
+  <label>Nota (obligatoria si rechaza o si hay alerta roja)</label><input id="vd_nota" value="${esc(r.Revision||'')}">
+  <div class="row" style="margin-top:10px"><button class="btn ok" data-act="vDecidirOk" data-id="${esc(r.ID)}" data-d="APROBADO">Aprobar</button><button class="btn bad" data-act="vDecidirOk" data-id="${esc(r.ID)}" data-d="RECHAZADO">Rechazar</button><button class="btn ghost" data-act="vCom" data-id="${esc(VT.com)}">Volver</button></div>`);
+},
+async vDecidirOk(d){try{await api('decidirRecibo',{id:d.id,decision:d.d,valorAprob:val('vd_val'),nota:val('vd_nota')});ACT.vCom({id:VT.com})}catch(e){toast(e.message,true)}},
+async vLimpios(){try{const r=await api('aprobarLimpios',{id:VT.com});toast(r.aprobados+' recibo(s) aprobados');ACT.vCom({id:VT.com})}catch(e){toast(e.message,true)}},
+async vFisicos(){try{const r=await api('marcarFisico',{comisionId:VT.com});toast(r.n+' recibos marcados como recibidos en físico');ACT.vCom({id:VT.com})}catch(e){toast(e.message,true)}},
+vCerrar(){
+  const q=VT.det.comision.cuadre;
+  modal(`<h2 style="margin-top:0">Cerrar comisión</h2><p>${q.accion==='DEVOLVER'?`El escolta debe devolver <b>${vP(q.monto)}</b>.`:q.accion==='REEMBOLSAR'?`Debes reembolsarle <b>${vP(q.monto)}</b>.`:'Cuenta cuadrada.'}</p>
+  <label>Valor que devolvió ($)</label><input id="vc_dev" inputmode="numeric" value="${q.accion==='DEVOLVER'?q.monto:0}"><label>Valor que se le reembolsó ($)</label><input id="vc_rei" inputmode="numeric" value="${q.accion==='REEMBOLSAR'?q.monto:0}">
+  <p class="mut" style="font-size:13px">Al cerrar ya no se pueden cambiar recibos (puedes reabrirla; queda en el registro).</p>
+  <div class="row"><button class="btn ok" data-act="vCerrarOk">Cerrar comisión</button><button class="btn ghost" data-act="vCom" data-id="${esc(VT.com)}">Volver</button></div>`);
+},
+async vCerrarOk(){try{const r=await api('cerrarComision',{id:VT.com,devuelto:val('vc_dev'),reembolsado:val('vc_rei')});if(r.nota)alert(r.nota);ACT.vCom({id:VT.com})}catch(e){toast(e.message,true)}},
+async vReabrir(){if(!confirm('¿Reabrir la comisión?'))return;try{await api('reabrirComision',{id:VT.com});ACT.vCom({id:VT.com})}catch(e){toast(e.message,true)}},
+vImprimir(){
+  const r=VT.det,c=r.comision,q=c.cuadre,w=window.open('','_blank');if(!w)return toast('Permite ventanas emergentes',true);
+  w.document.write(`<html><head><title>${esc(c.Codigo)}</title><style>body{font:13px Arial;margin:20px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #444;padding:4px 6px;text-align:left}h2{margin:0 0 6px}</style></head><body><h2>Legalización de viáticos ${esc(c.Codigo)}</h2><div>${esc(c.Escolta)} · ${esc(c.Destino)} · ${esc(c.Desde)} a ${esc(c.Hasta)} ${esc(c.Vehiculo||'')}</div><br>
+  <table><tr><th>N.º</th><th>Categoría</th><th>Fecha</th><th>Proveedor</th><th>NIT</th><th>Factura</th><th>Valor</th><th>Aprobado</th><th>Estado</th></tr>${r.recibos.map(x=>`<tr><td>${x.orden}</td><td>${esc(vCat(x.Categoria))}</td><td>${esc(x.Fecha)}</td><td>${esc(x.Proveedor)}</td><td>${esc(x.NIT)}</td><td>${esc(x.Factura)}</td><td>${vP(x.Valor)}</td><td>${x.Estado==='APROBADO'?vP(x.ValorAprob):'—'}</td><td>${esc(vEstTxt[x.Estado]||x.Estado)}</td></tr>`).join('')}</table><br>
+  <div>Anticipo: <b>${vP(q.anticipo)}</b> · Gastos aprobados: <b>${vP(q.total.aprobado)}</b> · ${q.accion==='DEVOLVER'?'A devolver':q.accion==='REEMBOLSAR'?'A reembolsar':'Cuadrado'}: <b>${vP(q.monto)}</b></div><br><br><div style="display:flex;gap:60px"><div>_____________________<br>Escolta</div><div>_____________________<br>Coordinador de seguridad</div></div></body></html>`);
+  w.document.close();w.focus();w.print();
+},
+async vCsv(d){
+  try{const r=await api('exportarViaticos',{ids:d&&d.id?[d.id]:[]});const q=x=>'"'+String(x??'').replace(/"/g,'""')+'"';
+    descargar('viaticos_'+hoyL()+'.csv','﻿'+[r.cabecera].concat(r.filas).map(f=>f.map(q).join(';')).join('\n'))}catch(e){toast(e.message,true)}
+},
+async vRepuesto(d){try{await api('marcarRepuesto',{ids:[d.id]});toast('Marcada como repuesta');irTab('viaticos')}catch(e){toast(e.message,true)}},
+async vCfg(){
+  const k=A.cfg||(await api('verConfig')).config;A.cfg=k;
+  const f=(id,t)=>`<label>${t}</label><input id="vk_${id}" value="${esc(k[id]||'')}">`;
+  modal(`<h2 style="margin-top:0">Reglas de viáticos</h2>${f('viat_fondo','Fondo fijo ($)')}${f('viat_dias_legalizar','Días para legalizar tras el regreso')}${f('viat_tolerancia','% tolerado entre lo leído y lo digitado')}
+  ${f('viat_tope_desayuno','Tope desayuno ($)')}${f('viat_tope_almuerzo','Tope almuerzo ($)')}${f('viat_tope_cena','Tope cena ($)')}${f('viat_tope_hospedaje','Tope hospedaje por noche ($)')}${f('viat_tope_lavada','Tope lavada ($)')}${f('viat_tope_gasolina','Tope gasolina por recibo ($)')}
+  ${f('viat_licor','Palabras extra de licor (separadas por coma)')}${f('viat_aseo','Palabras extra de aseo (separadas por coma)')}
+  <div class="row" style="margin-top:10px"><button class="btn" data-act="vCfgOk">Guardar</button><button class="btn ghost" data-act="cerrarModal">Cancelar</button></div>`);
+},
+async vCfgOk(){const c={};['viat_fondo','viat_dias_legalizar','viat_tolerancia','viat_tope_desayuno','viat_tope_almuerzo','viat_tope_cena','viat_tope_hospedaje','viat_tope_lavada','viat_tope_gasolina','viat_licor','viat_aseo'].forEach(x=>c[x]=val('vk_'+x));try{const r=await api('guardarConfig',{config:c});A.cfg=r.config;closeModal();toast('Reglas guardadas');irTab('viaticos')}catch(e){toast(e.message,true)}}
+});
+function vAdminBotones(c,r){
+  const q=c.cuadre;
+  return `<div class="row" style="margin-top:12px;flex-wrap:wrap">${c.Estado!=='CERRADA'?`<button class="btn ok sm" data-act="vLimpios">Aprobar todos los sin alerta roja</button><button class="btn ghost sm" data-act="vFisicos">Marcar físicos recibidos</button><button class="btn sm" data-act="vCerrar">Cerrar comisión</button>`:`<button class="btn ghost sm" data-act="vReabrir">Reabrir</button>`}<button class="btn ghost sm" data-act="vImprimir">🖨 Imprimir</button><button class="btn ghost sm" data-act="vCsv" data-id="${esc(c.ID)}">CSV</button>${c.Estado!=='CERRADA'?`<button class="btn ghost sm" data-act="vNueva" data-id="${esc(c.ID)}">Editar comisión</button>`:''}</div>`;
+}
+function vFormulario(r,o){
+  const sg=(o&&o.sugerencia)||{},cats=VT.cats,v=(a,b)=>r?r[a]:(sg[b]||'');
+  VT.editId=r?r.ID:'';
+  const aviso=!o.leido?`<div class="banner warn">${esc(o.motivo||'No se pudo leer la foto.')} Escribe los datos a mano.</div>`:o.vacio?'<div class="banner warn">La foto salió borrosa o sin texto. Revisa los datos o toma otra foto.</div>':'<div class="banner ok">Leímos el recibo. <b>Confirma que los datos coincidan con la foto.</b></div>';
+  const rojo=[].concat((o.licor||[]).length?[`🔴 Parece incluir LICOR/cigarrillos (${o.licor.slice(0,3).join(', ')}).`]:[],(o.aseo||[]).length?[`🔴 Parece incluir elementos de ASEO/personales (${o.aseo.slice(0,3).join(', ')}).`]:[]);
+  modal(`<h2 style="margin-top:0">${r?'Editar recibo':'Nuevo recibo'}</h2>${r?'':`<img src="${VT.foto.dataUrl}" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px">`}${aviso}${rojo.map(x=>`<div class="banner bad">${esc(x)}<br><span style="font-size:13px">Esto no se paga con viáticos. Si pagaste otra cosa en el mismo recibo, sepárala o explícalo en la nota.</span></div>`).join('')}
+  <label>Categoría *</label><select id="vf_cat"><option value="">— elegir —</option>${cats.map(c=>`<option value="${c}" ${v('Categoria','categoria')===c?'selected':''}>${esc(vCat(c))}</option>`).join('')}</select>
+  <div class="grid2"><div><label>Fecha *</label><input type="date" id="vf_fecha" value="${esc(v('Fecha','fecha'))}"></div><div><label>Hora</label><input type="time" id="vf_hora" value="${esc(v('Hora','hora'))}"></div></div>
+  <label>Valor total del recibo ($) *</label><input id="vf_valor" inputmode="numeric" value="${esc(v('Valor','valor')||'')}">
+  <label>Proveedor / establecimiento</label><input id="vf_prov" value="${esc(v('Proveedor','proveedor'))}">
+  <div class="grid2"><div><label>NIT</label><input id="vf_nit" value="${esc(v('NIT','nit'))}"></div><div><label>N.º factura</label><input id="vf_fac" value="${esc(v('Factura','factura'))}"></div></div>
+  <label>Nota (opcional)</label><input id="vf_obs" value="${esc(r?r.Obs||'':'')}" placeholder="Ej: almuerzo de 2 personas">
+  <div class="row" style="margin-top:12px"><button class="btn ok" data-act="vGuardar">Guardar recibo</button><button class="btn ghost" data-act="vCom" data-id="${esc(VT.com)}">Cancelar</button></div>`);
+}
+function vComprimir(file){
+  return new Promise((ok,bad)=>{const u=URL.createObjectURL(file),im=new Image();
+    im.onload=()=>{const M=1600,k=Math.min(1,M/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',.72))};
+    im.onerror=()=>{URL.revokeObjectURL(u);bad(new Error('No se pudo abrir la foto'))};im.src=u});
+}
+VISTAS.viaticos=async function(){
+  const [l,f]=await Promise.all([api('listarComisiones',{}),api('verFondo',{})]);A.data.vc=l.comisiones;
+  const por=e=>l.comisiones.filter(c=>e.includes(c.Estado));
+  const fila=c=>`<div class="item"><div class="row"><div class="grow"><b>${esc(c.Codigo)}</b> · ${esc(c.Escolta)}<br><span class="mut">${esc(c.Destino)} · ${esc(c.Desde)} a ${esc(c.Hasta)}</span><br>Anticipo ${vP(c.Anticipo)} · gastado ${vP(c.cuadre.total.declarado)} · ${c.cuadre.accion==='DEVOLVER'?'devolver '+vP(c.cuadre.monto):c.cuadre.accion==='REEMBOLSAR'?'reembolsar '+vP(c.cuadre.monto):'cuadrado'}${c.vencida?' <span class="badge bad">vencida</span>':''}${c.cuadre.total.pendientes?` <span class="badge warn">${c.cuadre.total.pendientes} por revisar</span>`:''}</div>${vBadge(c.Estado)}</div><div class="row" style="margin-top:6px"><button class="btn sm" data-act="vCom" data-id="${esc(c.ID)}">Abrir</button>${c.Estado==='CERRADA'&&c.Repuesto!=='SI'?`<button class="btn ghost sm" data-act="vRepuesto" data-id="${esc(c.ID)}">Marcar repuesta al fondo</button>`:''}</div></div>`;
+  const sec=(t,x)=>`<div class="card"><h2>${t} (${x.length})</h2>${x.length?x.map(fila).join(''):'<p class="mut">Nada por aquí.</p>'}</div>`;
+  $('vista').innerHTML=`<div class="card"><div class="row"><h2 class="grow" style="margin:0">🧾 Viáticos y legalización</h2><button class="btn sm" data-act="vNueva">+ Nueva comisión</button><button class="btn ghost sm" data-act="vCfg">Reglas</button><button class="btn ghost sm" data-act="vCsv">CSV</button></div>
+  ${f.configurado?`<div class="grid2" style="margin-top:10px"><div class="item"><span class="mut">Fondo fijo</span><br><b>${vP(f.fondo)}</b></div><div class="item"><span class="mut">Efectivo esperado en caja</span><br><b>${vP(f.efectivoEsperado)}</b></div><div class="item"><span class="mut">En poder de escoltas</span><br><b>${vP(f.enPoderDeEscoltas)}</b></div><div class="item"><span class="mut">Por reponer (${f.comisionesPorReponer})</span><br><b>${vP(f.porReponer)}</b></div></div><p class="mut" style="font-size:13px">${esc(f.nota)}</p>`:'<p class="mut">Configura el valor del fondo fijo en «Reglas» para ver el cuadre de caja.</p>'}</div>
+  ${sec('Por revisar',por(['POR_REVISAR']))}${sec('Abiertas (escolta cargando recibos)',por(['ABIERTA']))}${sec('Cerradas',por(['CERRADA']).slice(0,30))}`;
+};
+
 ACT.imprimir=()=>window.print();
 
 document.addEventListener('click',e=>{
