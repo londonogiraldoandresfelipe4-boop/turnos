@@ -273,7 +273,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.12-c';
+const APP_VERSION='2026.11.12-d';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -1668,7 +1668,7 @@ function vAdminBotones(c,r){
 function vFormulario(r,o){
   const sg=(o&&o.sugerencia)||{},cats=VT.cats,v=(a,b)=>r?r[a]:(sg[b]||'');
   VT.editId=r?r.ID:'';
-  const aviso=!o.leido?`<div class="banner warn">${esc(o.motivo||'No se pudo leer la foto.')} Escribe los datos a mano.</div>`:o.vacio?'<div class="banner warn">La foto salió borrosa o sin texto. Revisa los datos o toma otra foto.</div>':'<div class="banner ok">Leímos el recibo. <b>Confirma que los datos coincidan con la foto.</b></div>';
+  const aviso=!o.leido?`<div class="banner warn">${esc(o.motivo||'No se pudo leer la foto.')}</div>`:o.vacio?'<div class="banner warn">La foto salió borrosa o sin texto. Revisa los datos o toma otra foto.</div>':'<div class="banner ok">Leímos el recibo. <b>Confirma que los datos coincidan con la foto.</b></div>';
   const rojo=[].concat((o.licor||[]).length?[`🔴 Parece incluir LICOR/cigarrillos (${o.licor.slice(0,3).join(', ')}).`]:[],(o.aseo||[]).length?[`🔴 Parece incluir elementos de ASEO/personales (${o.aseo.slice(0,3).join(', ')}).`]:[]);
   modal(`<h2 style="margin-top:0">${r?'Editar recibo':'Nuevo recibo'}</h2>${r?'':`<img src="${VT.foto.dataUrl}" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px">`}${aviso}${rojo.map(x=>`<div class="banner bad">${esc(x)}<br><span style="font-size:13px">Esto no se paga con viáticos. Si pagaste otra cosa en el mismo recibo, sepárala o explícalo en la nota.</span></div>`).join('')}
   <label>Categoría *</label><select id="vf_cat"><option value="">— elegir —</option>${cats.map(c=>`<option value="${c}" ${v('Categoria','categoria')===c?'selected':''}>${esc(vCat(c))}</option>`).join('')}</select>
