@@ -273,7 +273,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.12-d';
+const APP_VERSION='2026.11.12-e';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -1454,8 +1454,11 @@ const vBadge=e=>`<span class="badge ${vEstCls[e]||''}">${esc(vEstTxt[e]||e)}</sp
 function vAlertasHtml(a){return a?String(a).split(' | ').map(x=>`<div style="font-size:13px;margin-top:3px">${esc(x)}</div>`).join(''):''}
 function vResumen(c){
   const q=c.cuadre,t=q.total,cats=Object.entries(q.porCategoria).filter(([k,v])=>v.n);
-  const acc=q.accion==='DEVOLVER'?`<div class="banner warn">💵 <b>Debe devolver ${vP(q.monto)}</b> (anticipo ${vP(q.anticipo)} − gastos aprobados ${vP(t.aprobado)})${t.pendientes?`<br><span style="font-size:13px">Estimado con lo digitado: ${vP(q.saldoEstimado)}. Hay ${t.pendientes} recibo(s) sin revisar.</span>`:''}</div>`
-   :q.accion==='REEMBOLSAR'?`<div class="banner warn">💵 <b>Se le debe reembolsar ${vP(q.monto)}</b> (gastó más que el anticipo).</div>`:`<div class="banner ok">✅ Cuadrado: gastos = anticipo.</div>`;
+  const alr=(q.alertas||[]).map(a=>`<div class="banner ${a.sev==='R'?'bad':'warn'}">${a.sev==='R'?'🔴':'🟡'} ${esc(a.txt)}</div>`).join('');
+  const prov=t.pendientes&&q.excede>0;
+  const acc=alr+(prov?`<div class="banner warn">💵 Pendiente de revisión: con lo digitado, se le reembolsarían <b>${vP(q.excede)}</b> si el administrador aprueba todo.</div>`
+   :q.accion==='DEVOLVER'?`<div class="banner warn">💵 <b>Debe devolver ${vP(q.monto)}</b> (anticipo ${vP(q.anticipo)} − gastos aprobados ${vP(t.aprobado)})${t.pendientes?`<br><span style="font-size:13px">Estimado con lo digitado: ${q.saldoEstimado>=0?'devolver '+vP(q.saldoEstimado):'reembolsar '+vP(-q.saldoEstimado)}. Hay ${t.pendientes} recibo(s) sin revisar.</span>`:''}</div>`
+   :q.accion==='REEMBOLSAR'?`<div class="banner warn">💵 <b>Se le debe reembolsar ${vP(q.monto)}</b> (gastó más que el anticipo).</div>`:`<div class="banner ok">✅ Cuadrado: gastos = anticipo.</div>`);
   return `<div class="grid2"><div class="item"><span class="mut">Anticipo</span><br><b>${vP(q.anticipo)}</b></div><div class="item"><span class="mut">Gastado (digitado)</span><br><b>${vP(t.declarado)}</b></div><div class="item"><span class="mut">Aprobado</span><br><b>${vP(t.aprobado)}</b></div><div class="item"><span class="mut">Rechazado</span><br><b>${vP(t.rechazado)}</b></div></div>${acc}
   ${cats.length?`<div class="scroll"><table><tr><th>Categoría</th><th>N.º</th><th>Valor</th><th>Aprobado</th></tr>${cats.map(([k,v])=>`<tr><td>${esc(vCat(k))}</td><td>${v.n}</td><td>${vP(v.declarado)}</td><td>${vP(v.aprobado)}</td></tr>`).join('')}</table></div>`:''}`;
 }
@@ -1590,7 +1593,7 @@ async vNueva(d){
   <div class="row"><button class="btn" data-act="vNuevaOk" data-id="${esc(c?c.ID:'')}">Guardar</button><button class="btn ghost" data-act="cerrarModal">Cancelar</button></div>`);
 },
 async vNuevaOk(d){
-  try{await api('guardarComision',{id:d.id||'',escoltaId:val('vn_esc'),destino:val('vn_dest'),desde:val('vn_d'),hasta:val('vn_h'),anticipo:val('vn_ant'),tipoVeh:val('vn_tv'),vehiculo:val('vn_pl'),adelantoId:$('vn_ad')?$('vn_ad').value:''});closeModal();toast('Comisión guardada');irTab('viaticos')}catch(e){toast(e.message,true)}
+  try{const r=await api('guardarComision',{id:d.id||'',escoltaId:val('vn_esc'),destino:val('vn_dest'),desde:val('vn_d'),hasta:val('vn_h'),anticipo:val('vn_ant'),tipoVeh:val('vn_tv'),vehiculo:val('vn_pl'),adelantoId:$('vn_ad')?$('vn_ad').value:''});closeModal();toast('Comisión guardada');if(r&&r.aviso)alert('⚠ '+r.aviso);irTab('viaticos')}catch(e){toast(e.message,true)}
 },
 async vDecidir(d){
   const r=VT.det.recibos.find(x=>x.ID===d.id);if(!r)return;
@@ -1687,7 +1690,7 @@ function vComprimir(file){
 VISTAS.viaticos=async function(){
   const [l,f]=await Promise.all([api('listarComisiones',{}),api('verFondo',{})]);A.data.vc=l.comisiones;VT.ads=f.adelantos||[];
   const por=e=>l.comisiones.filter(c=>e.includes(c.Estado));
-  const fila=c=>`<div class="item"><div class="row"><div class="grow"><b>${esc(c.Codigo)}</b> · ${esc(c.Escolta)}<br><span class="mut">${esc(c.Destino)} · ${esc(c.Desde)} a ${esc(c.Hasta)}</span><br>Anticipo ${vP(c.Anticipo)} · gastado ${vP(c.cuadre.total.declarado)} · ${c.cuadre.accion==='DEVOLVER'?'devolver '+vP(c.cuadre.monto):c.cuadre.accion==='REEMBOLSAR'?'reembolsar '+vP(c.cuadre.monto):'cuadrado'}${c.vencida?' <span class="badge bad">vencida</span>':''}${c.cuadre.total.pendientes?` <span class="badge warn">${c.cuadre.total.pendientes} por revisar</span>`:''}</div>${vBadge(c.Estado)}</div><div class="row" style="margin-top:6px"><button class="btn sm" data-act="vCom" data-id="${esc(c.ID)}">Abrir</button>${c.Estado==='CERRADA'&&c.Repuesto!=='SI'?`<button class="btn ghost sm" data-act="vRepuesto" data-id="${esc(c.ID)}">Marcar repuesta al fondo</button>`:''}</div></div>`;
+  const fila=c=>`<div class="item"><div class="row"><div class="grow"><b>${esc(c.Codigo)}</b> · ${esc(c.Escolta)}<br><span class="mut">${esc(c.Destino)} · ${esc(c.Desde)} a ${esc(c.Hasta)}</span><br>Anticipo ${vP(c.Anticipo)} · gastado ${vP(c.cuadre.total.declarado)} · ${c.cuadre.accion==='DEVOLVER'?'devolver '+vP(c.cuadre.monto):c.cuadre.accion==='REEMBOLSAR'?'reembolsar '+vP(c.cuadre.monto):'cuadrado'}${c.vencida?' <span class="badge bad">vencida</span>':''}${c.cuadre.excede>0?` <span class="badge bad">excede anticipo +${vP(c.cuadre.excede)}</span>`:''}${c.cuadre.total.pendientes?` <span class="badge warn">${c.cuadre.total.pendientes} por revisar</span>`:''}</div>${vBadge(c.Estado)}</div><div class="row" style="margin-top:6px"><button class="btn sm" data-act="vCom" data-id="${esc(c.ID)}">Abrir</button>${c.Estado==='CERRADA'&&c.Repuesto!=='SI'?`<button class="btn ghost sm" data-act="vRepuesto" data-id="${esc(c.ID)}">Marcar repuesta al fondo</button>`:''}</div></div>`;
   const sec=(t,x)=>`<div class="card"><h2>${t} (${x.length})</h2>${x.length?x.map(fila).join(''):'<p class="mut">Nada por aquí.</p>'}</div>`;
   $('vista').innerHTML=`<div class="card"><div class="row"><h2 class="grow" style="margin:0">🧾 Viáticos y legalización</h2><button class="btn sm" data-act="vNueva">+ Nueva comisión</button><button class="btn ghost sm" data-act="vCfg">Reglas</button><button class="btn ghost sm" data-act="vCsv">CSV</button></div>
   ${f.configurado?`<div class="grid2" style="margin-top:10px"><div class="item"><span class="mut">Fondo fijo</span><br><b>${vP(f.fondo)}</b></div><div class="item"><span class="mut">Efectivo esperado en caja</span><br><b>${vP(f.efectivoEsperado)}</b></div><div class="item"><span class="mut">En poder de escoltas</span><br><b>${vP(f.enPoderDeEscoltas)}</b></div><div class="item"><span class="mut">Por reponer (${f.comisionesPorReponer})</span><br><b>${vP(f.porReponer)}</b></div></div><p class="mut" style="font-size:13px">${esc(f.nota)}</p>`:'<p class="mut">Configura el valor del fondo fijo en «Reglas» para ver el cuadre de caja.</p>'}</div>
