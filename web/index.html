@@ -273,7 +273,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.12-b';
+const APP_VERSION='2026.11.12-c';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -1487,6 +1487,7 @@ async vCom(d){
     ${r.vencida?'<div class="banner bad">⏰ Pasó el plazo para legalizar: envía los recibos ya.</div>':''}${vResumen(c)}
     ${ab?`<input type="file" id="v_file" accept="image/*" capture="environment" data-chg="vfoto" hidden><button class="btn big" style="width:100%;margin:10px 0" data-act="vPick">📷 Agregar recibo</button>`:''}
     <h3 style="margin:12px 0 0">Recibos en orden de entrega</h3><div class="mut" style="font-size:13px">Escribe el N.º a lápiz en cada recibo físico y entrégalos en este orden.</div>${vListaRecibos(r,admin)}
+    ${r.recibos.length?'<button class="btn ghost" style="width:100%;margin-top:10px" data-act="vLista">📄 Descargar lista de facturas por orden (Excel)</button>':''}
     ${r.recibos.some(x=>x.FotoId)?'<button class="btn ghost" style="width:100%;margin-top:10px" data-act="vImagenes">🖼 Descargar recibos agrupados (1 imagen por grupo)</button>':''}
     ${admin?vAdminBotones(c,r):(c.Estado==='ABIERTA'?'<button class="btn big ok" style="width:100%;margin-top:12px" data-act="vEnviar">Enviar legalización</button>':'')}
     <button class="btn ghost" style="width:100%;margin-top:10px" data-act="${admin?'cerrarModal':'vMis'}">${admin?'Cerrar':'← Mis comisiones'}</button>`);
@@ -1582,13 +1583,14 @@ async vNueva(d){
   modal(`<h2 style="margin-top:0">${c?'Editar':'Nueva'} comisión</h2><label>Escolta</label><select id="vn_esc" ${c?'disabled':''}>${lista.map(e=>`<option value="${esc(e.ID)}" ${c&&String(c.EscoltaID)===String(e.ID)?'selected':''}>${esc(e.Nombre)}</option>`).join('')}</select>
   <label>Destino / orden de servicio</label><input id="vn_dest" value="${esc(c?c.Destino:'')}" placeholder="Ej: BARRANCABERMEJA – CARAVANA 123">
   <div class="grid2"><div><label>Desde</label><input type="date" id="vn_d" value="${esc(c?c.Desde:hoyL())}"></div><div><label>Hasta</label><input type="date" id="vn_h" value="${esc(c?c.Hasta:hoyL())}"></div></div>
+  ${!c&&(VT.ads||[]).some(a=>a.Estado==='ABIERTO')||c&&(VT.ads||[]).some(a=>a.Estado==='ABIERTO'||a.ID===c.AdelantoID)?`<label>El anticipo sale de</label><select id="vn_ad"><option value="">Fondo fijo</option>${(VT.ads||[]).filter(a=>a.Estado==='ABIERTO'||(c&&a.ID===c.AdelantoID)).map(a=>`<option value="${esc(a.ID)}" ${c&&c.AdelantoID===a.ID?'selected':''}>Adelanto ${esc(a.Fecha)} · ${vP(a.Monto)}</option>`).join('')}</select>`:''}
   <label>Anticipo entregado ($)</label><input id="vn_ant" inputmode="numeric" value="${esc(c?c.Anticipo:'')}" placeholder="500000">
   <div class="grid2"><div><label>Vehículo a cargo</label><select id="vn_tv">${['BLINDADA','SIN'].concat(c&&(c.TipoVeh==='MOTO'||c.TipoVeh==='CARRO')?[c.TipoVeh]:[]).map(x=>`<option value="${x}" ${(c?c.TipoVeh===x:x==='BLINDADA')?'selected':''}>${x==='SIN'?'Sin vehículo':x==='BLINDADA'?'Camioneta blindada':x==='MOTO'?'Moto':'Carro'}</option>`).join('')}</select></div><div><label>Placa</label><input id="vn_pl" value="${esc(c?c.Vehiculo:'')}" maxlength="8"></div></div>
   <p class="mut" style="font-size:13px">Gasolina y lavada solo se aceptan si hay vehículo a cargo.</p>
   <div class="row"><button class="btn" data-act="vNuevaOk" data-id="${esc(c?c.ID:'')}">Guardar</button><button class="btn ghost" data-act="cerrarModal">Cancelar</button></div>`);
 },
 async vNuevaOk(d){
-  try{await api('guardarComision',{id:d.id||'',escoltaId:val('vn_esc'),destino:val('vn_dest'),desde:val('vn_d'),hasta:val('vn_h'),anticipo:val('vn_ant'),tipoVeh:val('vn_tv'),vehiculo:val('vn_pl')});closeModal();toast('Comisión guardada');irTab('viaticos')}catch(e){toast(e.message,true)}
+  try{await api('guardarComision',{id:d.id||'',escoltaId:val('vn_esc'),destino:val('vn_dest'),desde:val('vn_d'),hasta:val('vn_h'),anticipo:val('vn_ant'),tipoVeh:val('vn_tv'),vehiculo:val('vn_pl'),adelantoId:$('vn_ad')?$('vn_ad').value:''});closeModal();toast('Comisión guardada');irTab('viaticos')}catch(e){toast(e.message,true)}
 },
 async vDecidir(d){
   const r=VT.det.recibos.find(x=>x.ID===d.id);if(!r)return;
@@ -1621,6 +1623,33 @@ async vCsv(d){
   try{const r=await api('exportarViaticos',{ids:d&&d.id?[d.id]:[]});const q=x=>'"'+String(x??'').replace(/"/g,'""')+'"';
     descargar('viaticos_'+hoyL()+'.csv','﻿'+[r.cabecera].concat(r.filas).map(f=>f.map(q).join(';')).join('\n'))}catch(e){toast(e.message,true)}
 },
+vCsvOrden(nombre,filas){const q=x=>'"'+String(x??'').replace(/"/g,'""')+'"';descargar(nombre,'\ufeff'+filas.map(f=>f.map(q).join(';')).join('\n'))},
+vLista(){
+  const d=VT.det,c=d.comision,rs=d.recibos.filter(x=>x.Estado!=='ANULADO');let tot=0,apr=0;
+  const f=[['N.º','Categoría','Fecha','Hora','Proveedor','NIT','Factura','Valor','Valor aprobado','Estado']];
+  rs.forEach(x=>{tot+=+x.Valor||0;if(x.Estado==='APROBADO')apr+=+x.ValorAprob||0;f.push([x.orden,vCat(x.Categoria),x.Fecha,x.Hora||'',x.Proveedor||'',x.NIT||'',x.Factura||'',+x.Valor||0,x.Estado==='APROBADO'?+x.ValorAprob||0:'',vEstTxt[x.Estado]||x.Estado])});
+  f.push(['','TOTAL','','','','','',tot,apr,'']);
+  ACT.vCsvOrden(c.Codigo+'_facturas_por_orden.csv',f);
+},
+async vAdLista(d){
+  try{const r=await api('exportarViaticos',{adelantoId:d.id});if(!r.filas.length)return toast('Ese adelanto aún no tiene recibos',true);ACT.vCsvOrden('adelanto_'+hoyL()+'_facturas_por_orden.csv',[r.cabecera].concat(r.filas))}catch(e){toast(e.message,true)}
+},
+vAdNuevo(d){
+  const a=d&&d.id?(VT.ads||[]).find(x=>x.ID===d.id):null;
+  modal(`<h2 style="margin-top:0">${a?'Editar':'Registrar'} adelanto</h2><p class="mut" style="font-size:13px">Dinero que te adelantan cuando se acaba el fondo fijo. Después debes legalizarlo con los recibos de las comisiones que salgan de él.</p>
+  <label>Valor recibido ($)</label><input id="va_m" inputmode="numeric" value="${esc(a?a.Monto:'2000000')}"><label>Fecha</label><input type="date" id="va_f" value="${esc(a?a.Fecha:hoyL())}">
+  <label>Concepto</label><input id="va_c" value="${esc(a?a.Concepto:'Adelanto para viáticos')}"><label>Nota (opcional)</label><input id="va_o" value="${esc(a?a.Obs||'':'')}">
+  <div class="row" style="margin-top:10px"><button class="btn" data-act="vAdOk" data-id="${esc(a?a.ID:'')}">Guardar</button><button class="btn ghost" data-act="cerrarModal">Cancelar</button></div>`);
+},
+async vAdOk(d){try{await api('guardarAdelanto',{id:d.id||'',monto:val('va_m'),fecha:val('va_f'),concepto:val('va_c'),obs:val('va_o')});closeModal();toast('Adelanto guardado');irTab('viaticos')}catch(e){toast(e.message,true)}},
+vAdCerrar(d){
+  const a=(VT.ads||[]).find(x=>x.ID===d.id);if(!a)return;
+  modal(`<h2 style="margin-top:0">Legalizar adelanto de ${vP(a.Monto)}</h2><div class="item">Gastos aprobados (comisiones cerradas): <b>${vP(a.gastosLegalizados)}</b><br>Efectivo que debería quedarte: <b>${vP(a.efectivoEsperado)}</b><br>Por justificar: <b>${vP(a.porLegalizar)}</b></div>
+  <label>Valor que devuelves a la empresa ($)</label><input id="vl_d" inputmode="numeric" value="${Math.max(0,a.porLegalizar)}"><label>Nota (obligatoria si no cuadra)</label><input id="vl_n">
+  <div class="row" style="margin-top:10px"><button class="btn ok" data-act="vAdCerrarOk" data-id="${esc(a.ID)}">Legalizar</button><button class="btn ghost" data-act="cerrarModal">Cancelar</button></div>`);
+},
+async vAdCerrarOk(d){try{const r=await api('cerrarAdelanto',{id:d.id,devuelto:val('vl_d'),nota:val('vl_n')});closeModal();toast('Adelanto legalizado');irTab('viaticos')}catch(e){toast(e.message,true)}},
+async vAdReabrir(d){if(!confirm('¿Reabrir este adelanto?'))return;try{await api('cerrarAdelanto',{id:d.id,reabrir:1});irTab('viaticos')}catch(e){toast(e.message,true)}},
 async vRepuesto(d){try{await api('marcarRepuesto',{ids:[d.id]});toast('Marcada como repuesta');irTab('viaticos')}catch(e){toast(e.message,true)}},
 async vCfg(){
   const k=A.cfg||(await api('verConfig')).config;A.cfg=k;
@@ -1656,12 +1685,13 @@ function vComprimir(file){
     im.onerror=()=>{URL.revokeObjectURL(u);bad(new Error('No se pudo abrir la foto'))};im.src=u});
 }
 VISTAS.viaticos=async function(){
-  const [l,f]=await Promise.all([api('listarComisiones',{}),api('verFondo',{})]);A.data.vc=l.comisiones;
+  const [l,f]=await Promise.all([api('listarComisiones',{}),api('verFondo',{})]);A.data.vc=l.comisiones;VT.ads=f.adelantos||[];
   const por=e=>l.comisiones.filter(c=>e.includes(c.Estado));
   const fila=c=>`<div class="item"><div class="row"><div class="grow"><b>${esc(c.Codigo)}</b> · ${esc(c.Escolta)}<br><span class="mut">${esc(c.Destino)} · ${esc(c.Desde)} a ${esc(c.Hasta)}</span><br>Anticipo ${vP(c.Anticipo)} · gastado ${vP(c.cuadre.total.declarado)} · ${c.cuadre.accion==='DEVOLVER'?'devolver '+vP(c.cuadre.monto):c.cuadre.accion==='REEMBOLSAR'?'reembolsar '+vP(c.cuadre.monto):'cuadrado'}${c.vencida?' <span class="badge bad">vencida</span>':''}${c.cuadre.total.pendientes?` <span class="badge warn">${c.cuadre.total.pendientes} por revisar</span>`:''}</div>${vBadge(c.Estado)}</div><div class="row" style="margin-top:6px"><button class="btn sm" data-act="vCom" data-id="${esc(c.ID)}">Abrir</button>${c.Estado==='CERRADA'&&c.Repuesto!=='SI'?`<button class="btn ghost sm" data-act="vRepuesto" data-id="${esc(c.ID)}">Marcar repuesta al fondo</button>`:''}</div></div>`;
   const sec=(t,x)=>`<div class="card"><h2>${t} (${x.length})</h2>${x.length?x.map(fila).join(''):'<p class="mut">Nada por aquí.</p>'}</div>`;
   $('vista').innerHTML=`<div class="card"><div class="row"><h2 class="grow" style="margin:0">🧾 Viáticos y legalización</h2><button class="btn sm" data-act="vNueva">+ Nueva comisión</button><button class="btn ghost sm" data-act="vCfg">Reglas</button><button class="btn ghost sm" data-act="vCsv">CSV</button></div>
   ${f.configurado?`<div class="grid2" style="margin-top:10px"><div class="item"><span class="mut">Fondo fijo</span><br><b>${vP(f.fondo)}</b></div><div class="item"><span class="mut">Efectivo esperado en caja</span><br><b>${vP(f.efectivoEsperado)}</b></div><div class="item"><span class="mut">En poder de escoltas</span><br><b>${vP(f.enPoderDeEscoltas)}</b></div><div class="item"><span class="mut">Por reponer (${f.comisionesPorReponer})</span><br><b>${vP(f.porReponer)}</b></div></div><p class="mut" style="font-size:13px">${esc(f.nota)}</p>`:'<p class="mut">Configura el valor del fondo fijo en «Reglas» para ver el cuadre de caja.</p>'}</div>
+  <div class="card"><div class="row"><h2 class="grow" style="margin:0">💵 Adelantos (cuando se acaba el fondo)</h2><button class="btn sm" data-act="vAdNuevo">+ Registrar adelanto</button></div>${VT.ads.length?VT.ads.map(a=>`<div class="item"><div class="row"><div class="grow"><b>${vP(a.Monto)}</b> · ${esc(a.Fecha)} · ${esc(a.Concepto)}<br><span class="mut">${a.comisiones} comisión(es) · anticipos entregados ${vP(a.anticipos)} · gastos aprobados ${vP(a.gastosLegalizados)}</span><br>Efectivo esperado: <b>${vP(a.efectivoEsperado)}</b> · Por legalizar: <b>${vP(a.porLegalizar)}</b>${a.comisionesAbiertas?` <span class="badge warn">${a.comisionesAbiertas} abierta(s)</span>`:''}</div><span class="badge ${a.Estado==='ABIERTO'?'warn':'ok'}">${a.Estado==='ABIERTO'?'Por legalizar':'Legalizado'}</span></div><div class="row" style="margin-top:6px;flex-wrap:wrap">${a.Estado==='ABIERTO'?`<button class="btn sm" data-act="vAdCerrar" data-id="${esc(a.ID)}">Legalizar</button><button class="btn ghost sm" data-act="vAdNuevo" data-id="${esc(a.ID)}">Editar</button>`:`<button class="btn ghost sm" data-act="vAdReabrir" data-id="${esc(a.ID)}">Reabrir</button>`}<button class="btn ghost sm" data-act="vAdLista" data-id="${esc(a.ID)}">📄 Lista de facturas por orden</button></div></div>`).join(''):'<p class="mut">Sin adelantos. Regístralo cuando te den el dinero y al crear cada comisión elige que el anticipo sale de ese adelanto.</p>'}</div>
   ${sec('Por revisar',por(['POR_REVISAR']))}${sec('Abiertas (escolta cargando recibos)',por(['ABIERTA']))}${sec('Cerradas',por(['CERRADA']).slice(0,30))}`;
 };
 
