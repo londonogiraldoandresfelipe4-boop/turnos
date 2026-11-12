@@ -273,7 +273,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.12-a';
+const APP_VERSION='2026.11.12-b';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -1483,10 +1483,11 @@ async vCom(d){
   const id=d.id||(VT.com&&VT.com),admin=S.rol==='A';VT.com=id;
   try{const r=await api('verComision',{id});VT.det=r;VT.cats=r.categorias;VT.nom=r.nombres;
     const c=r.comision,ab=c.Estado==='ABIERTA'||(admin&&c.Estado==='POR_REVISAR');
-    modal(`<div class="row"><h2 style="margin:0" class="grow">${esc(c.Codigo)} · ${esc(c.Destino)}</h2>${vBadge(c.Estado)}</div><div class="mut" style="margin:4px 0 10px">${esc(c.Escolta)} · ${esc(c.Desde)} a ${esc(c.Hasta)}${c.Vehiculo?' · '+esc(c.Vehiculo):''}${c.TipoVeh&&c.TipoVeh!=='SIN'?' ('+c.TipoVeh.toLowerCase()+')':''}</div>
+    modal(`<div class="row"><h2 style="margin:0" class="grow">${esc(c.Codigo)} · ${esc(c.Destino)}</h2>${vBadge(c.Estado)}</div><div class="mut" style="margin:4px 0 10px">${esc(c.Escolta)} · ${esc(c.Desde)} a ${esc(c.Hasta)}${c.Vehiculo?' · '+esc(c.Vehiculo):''}${c.TipoVeh&&c.TipoVeh!=='SIN'?' ('+(c.TipoVeh==='BLINDADA'?'camioneta blindada':c.TipoVeh.toLowerCase())+')':''}</div>
     ${r.vencida?'<div class="banner bad">⏰ Pasó el plazo para legalizar: envía los recibos ya.</div>':''}${vResumen(c)}
     ${ab?`<input type="file" id="v_file" accept="image/*" capture="environment" data-chg="vfoto" hidden><button class="btn big" style="width:100%;margin:10px 0" data-act="vPick">📷 Agregar recibo</button>`:''}
     <h3 style="margin:12px 0 0">Recibos en orden de entrega</h3><div class="mut" style="font-size:13px">Escribe el N.º a lápiz en cada recibo físico y entrégalos en este orden.</div>${vListaRecibos(r,admin)}
+    ${r.recibos.some(x=>x.FotoId)?'<button class="btn ghost" style="width:100%;margin-top:10px" data-act="vImagenes">🖼 Descargar recibos agrupados (1 imagen por grupo)</button>':''}
     ${admin?vAdminBotones(c,r):(c.Estado==='ABIERTA'?'<button class="btn big ok" style="width:100%;margin-top:12px" data-act="vEnviar">Enviar legalización</button>':'')}
     <button class="btn ghost" style="width:100%;margin-top:10px" data-act="${admin?'cerrarModal':'vMis'}">${admin?'Cerrar':'← Mis comisiones'}</button>`);
   }catch(e){toast(e.message,true)}
@@ -1519,6 +1520,58 @@ async vFoto(d){
   modal('<div class="mut">Cargando foto…</div>');
   try{const r=await api('verFoto',{fotoId:d.f});modal(`<img src="${r.dataUrl}" style="width:100%;border-radius:8px"><button class="btn ghost" style="width:100%;margin-top:10px" data-act="vVolver">Volver</button>`)}catch(e){toast(e.message,true);ACT.vVolver()}
 },
+async vImagenes(){
+  const d=VT.det,c=d.comision,cats=VT.cats||[];
+  const rs=d.recibos.filter(r=>r.FotoId&&r.Estado!=='RECHAZADO');
+  if(!rs.length)return toast('No hay fotos para descargar',true);
+  const g={};rs.forEach(r=>(g[r.Categoria]=g[r.Categoria]||[]).push(r));
+  const claves=Object.keys(g).sort((a,b)=>{const ia=cats.indexOf?cats.indexOf(a):-1,ib=cats.indexOf?cats.indexOf(b):-1;return (ia<0?99:ia)-(ib<0?99:ib)});
+  const carga=u=>new Promise((ok,ko)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>ko(new Error('Foto dañada'));i.src=u});
+  const total=rs.length;let hechas=0,archivos=[];
+  try{
+    for(const k of claves){
+      const imgs=[];
+      for(const r of g[k]){
+        modal(`<h2 style="margin-top:0">Preparando imágenes…</h2><p class="mut">Foto ${++hechas} de ${total}. No cierres esta ventana.</p>`);
+        const f=await api('verFoto',{fotoId:r.FotoId});imgs.push({r,im:await carga(f.dataUrl)});
+      }
+      const COLW=880,PAD=20,HEAD=70,LAB=34,MAXH=2200,MAXPART=6000;
+      const cols=Math.min(2,imgs.length),W=cols*COLW+(cols+1)*PAD;
+      const celdas=imgs.map(x=>{let w=COLW,h=x.im.naturalHeight*w/x.im.naturalWidth;if(h>MAXH){h=MAXH;w=x.im.naturalWidth*h/x.im.naturalHeight}return{...x,w,h}});
+      const partes=[];let fila=[],hf=0,acum=0,cur=[];
+      for(let i=0;i<celdas.length;i+=cols){
+        const par=celdas.slice(i,i+cols),h=Math.max(...par.map(p=>p.h))+LAB+PAD;
+        if(cur.length&&acum+h>MAXPART){partes.push(cur);cur=[];acum=0}
+        cur.push(par);acum+=h;
+      }
+      if(cur.length)partes.push(cur);
+      partes.forEach((filas,pi)=>{
+        const H=HEAD+filas.reduce((s,p)=>s+Math.max(...p.map(x=>x.h))+LAB+PAD,0)+PAD;
+        const cv=document.createElement('canvas');cv.width=W;cv.height=H;const x=cv.getContext('2d');
+        x.fillStyle='#fff';x.fillRect(0,0,W,H);x.fillStyle='#111';x.font='bold 32px Arial';
+        x.fillText(`${c.Codigo} · ${vCat(k).toUpperCase()}${partes.length>1?` · parte ${pi+1}/${partes.length}`:''} · ${g[k].length} recibo(s)`,PAD,46);
+        let y=HEAD;
+        filas.forEach(par=>{
+          const hm=Math.max(...par.map(p=>p.h));
+          par.forEach((p,ci)=>{
+            const xx=PAD+ci*(COLW+PAD);
+            x.fillStyle='#111';x.font='bold 24px Arial';x.fillText('N.º '+p.r.orden+(p.r.Fecha?'  ·  '+p.r.Fecha:'')+(p.r.Valor?'  ·  '+vP(p.r.Valor):''),xx,y+24);
+            x.drawImage(p.im,xx+(COLW-p.w)/2,y+LAB,p.w,p.h);
+            x.strokeStyle='#bbb';x.strokeRect(xx+(COLW-p.w)/2,y+LAB,p.w,p.h);
+          });
+          y+=hm+LAB+PAD;
+        });
+        archivos.push({nombre:`${c.Codigo}_${String(vCat(k)).replace(/[^A-Za-z0-9]+/g,'_')}${partes.length>1?'_parte'+(pi+1):''}.jpg`,cv});
+      });
+    }
+    for(const a of archivos){
+      const b=await new Promise(ok=>a.cv.toBlob(ok,'image/jpeg',.9));
+      const l=document.createElement('a');l.href=URL.createObjectURL(b);l.download=a.nombre;document.body.appendChild(l);l.click();
+      await new Promise(ok=>setTimeout(ok,700));l.remove();URL.revokeObjectURL(l.href);
+    }
+    modal(`<h2 style="margin-top:0">Listo</h2><p>Se descargaron <b>${archivos.length}</b> imagen(es), una por grupo de recibos:</p><ul>${archivos.map(a=>`<li>${esc(a.nombre)}</li>`).join('')}</ul><p class="mut" style="font-size:13px">Si el navegador pide permiso para descargar varios archivos, acéptalo.</p><button class="btn" style="width:100%" data-act="vVolver">Volver</button>`);
+  }catch(e){toast(e.message,true);ACT.vVolver()}
+},
 vVolver(){if(VT.com)ACT.vCom({id:VT.com});else closeModal()},
 /* —— administrador —— */
 async vNueva(d){
@@ -1530,7 +1583,7 @@ async vNueva(d){
   <label>Destino / orden de servicio</label><input id="vn_dest" value="${esc(c?c.Destino:'')}" placeholder="Ej: BARRANCABERMEJA – CARAVANA 123">
   <div class="grid2"><div><label>Desde</label><input type="date" id="vn_d" value="${esc(c?c.Desde:hoyL())}"></div><div><label>Hasta</label><input type="date" id="vn_h" value="${esc(c?c.Hasta:hoyL())}"></div></div>
   <label>Anticipo entregado ($)</label><input id="vn_ant" inputmode="numeric" value="${esc(c?c.Anticipo:'')}" placeholder="500000">
-  <div class="grid2"><div><label>Vehículo a cargo</label><select id="vn_tv">${['SIN','MOTO','CARRO'].map(x=>`<option value="${x}" ${c&&c.TipoVeh===x?'selected':''}>${x==='SIN'?'Sin vehículo':x==='MOTO'?'Moto':'Carro'}</option>`).join('')}</select></div><div><label>Placa</label><input id="vn_pl" value="${esc(c?c.Vehiculo:'')}" maxlength="8"></div></div>
+  <div class="grid2"><div><label>Vehículo a cargo</label><select id="vn_tv">${['BLINDADA','SIN'].concat(c&&(c.TipoVeh==='MOTO'||c.TipoVeh==='CARRO')?[c.TipoVeh]:[]).map(x=>`<option value="${x}" ${(c?c.TipoVeh===x:x==='BLINDADA')?'selected':''}>${x==='SIN'?'Sin vehículo':x==='BLINDADA'?'Camioneta blindada':x==='MOTO'?'Moto':'Carro'}</option>`).join('')}</select></div><div><label>Placa</label><input id="vn_pl" value="${esc(c?c.Vehiculo:'')}" maxlength="8"></div></div>
   <p class="mut" style="font-size:13px">Gasolina y lavada solo se aceptan si hay vehículo a cargo.</p>
   <div class="row"><button class="btn" data-act="vNuevaOk" data-id="${esc(c?c.ID:'')}">Guardar</button><button class="btn ghost" data-act="cerrarModal">Cancelar</button></div>`);
 },
