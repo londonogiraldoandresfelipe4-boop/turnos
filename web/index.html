@@ -273,7 +273,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.13-b';
+const APP_VERSION='2026.11.13-c';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -1492,7 +1492,7 @@ async vCom(d){
     ${ab?`<input type="file" id="v_file" accept="image/*" capture="environment" data-chg="vfoto" hidden><button class="btn big" style="width:100%;margin:10px 0" data-act="vPick">📷 Agregar recibo</button>`:''}
     <h3 style="margin:12px 0 0">Recibos en orden de entrega</h3><div class="mut" style="font-size:13px">Escribe el N.º a lápiz en cada recibo físico y entrégalos en este orden.</div>${vListaRecibos(r,admin)}
     ${r.recibos.length?'<button class="btn ghost" style="width:100%;margin-top:10px" data-act="vLista">📄 Descargar lista de facturas por orden (Excel)</button>':''}
-    ${r.recibos.some(x=>x.FotoId)?'<button class="btn ghost" style="width:100%;margin-top:10px" data-act="vImagenes">🖼 Descargar recibos: Alimentación · Hospedaje · Otros</button>':''}
+    ${r.recibos.some(x=>x.FotoId)?'<button class="btn ghost" style="width:100%;margin-top:10px" data-act="vImagenes">🖼 Descargar recibos: Alimentación · Hospedaje · Peajes · Otros</button>':''}
     ${admin?vAdminBotones(c,r):(c.Estado==='ABIERTA'?'<button class="btn big ok" style="width:100%;margin-top:12px" data-act="vEnviar">Enviar legalización</button>':'')}
     <button class="btn ghost" style="width:100%;margin-top:10px" data-act="${admin?'cerrarModal':'vMis'}">${admin?'Cerrar':'← Mis comisiones'}</button>`);
   }catch(e){toast(e.message,true)}
@@ -1529,7 +1529,7 @@ async vImagenes(){
   const d=VT.det,c=d.comision;
   const rs=d.recibos.filter(r=>r.FotoId&&r.Estado!=='RECHAZADO'&&r.Estado!=='ANULADO');
   if(!rs.length)return toast('No hay fotos para descargar',true);
-  const GR=[['ALIMENTACION','Alimentación',['DESAYUNO','ALMUERZO','CENA']],['HOSPEDAJE','Hospedaje',['HOSPEDAJE']],['OTROS','Otros (peajes, lavada, gasolina)',null]];
+  const GR=[['ALIMENTACION','Alimentación',['DESAYUNO','ALMUERZO','CENA']],['HOSPEDAJE','Hospedaje',['HOSPEDAJE']],['PEAJES','Peajes',['PEAJES']],['OTROS','Lavada de carro y otros',null]];
   const grupoDe=cat=>{for(const g of GR)if(g[2]&&g[2].includes(cat))return g[0];return 'OTROS'};
   const ordCat={DESAYUNO:1,ALMUERZO:2,CENA:3};
   const carga=u=>new Promise((ok,ko)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>ko(new Error('Foto dañada'));i.src=u});
@@ -1556,13 +1556,13 @@ async vImagenes(){
     for(const [clave,titulo] of GR){
       const lst=rs.filter(r=>grupoDe(r.Categoria)===clave).sort((a,b)=>(ordCat[a.Categoria]||0)-(ordCat[b.Categoria]||0)||(a.orden-b.orden));
       if(!lst.length)continue;
-      const sumG=lst.reduce((t,r)=>t+(+r.Valor||0),0);resumen.push([titulo,lst.length,sumG]);
+      const sumG=lst.reduce((t,r)=>t+(+r.Valor||0),0);const porC={};lst.forEach(r=>porC[r.Categoria]=(porC[r.Categoria]||0)+(+r.Valor||0));const sub=Object.keys(porC).map(k=>vCat(k)+' '+vP(porC[k])).join('   ·   ');resumen.push([titulo,lst.length,sumG]);
       const imgs=[];
       for(const r of lst){
         modal(`<h2 style="margin-top:0">Preparando imágenes…</h2><p class="mut">Foto ${++hechas} de ${total}. No cierres esta ventana.</p>`);
         const f=await api('verFoto',{fotoId:r.FotoId});imgs.push({r,c:recortar(await carga(f.dataUrl))});
       }
-      const NC=imgs.length>=7?3:(imgs.length>=2?2:1),COLW=NC===3?620:780,PAD=16,HEAD=64,LAB=30,MAXH=1700,MAXPART=5600;
+      const NC=imgs.length>=7?3:(imgs.length>=2?2:1),COLW=NC===3?620:780,PAD=16,HEAD=90,LAB=30,MAXH=1700,MAXPART=5600;
       const cel=imgs.map(x=>{let w=COLW,h=x.c.sh*w/x.c.sw;if(h>MAXH){h=MAXH;w=x.c.sw*h/x.c.sh}return{...x,w,h,alto:h+LAB+PAD}});
       const hojas=[];let cur=null;
       const nueva=()=>{cur={cols:Array.from({length:NC},()=>({y:0,it:[]}))};hojas.push(cur)};
@@ -1577,6 +1577,7 @@ async vImagenes(){
         const cv=document.createElement('canvas');cv.width=W;cv.height=H;const x=cv.getContext('2d');
         x.fillStyle='#fff';x.fillRect(0,0,W,H);x.fillStyle='#111';x.font='bold 30px Arial';
         x.fillText(`${c.Codigo} · ${titulo.toUpperCase()}${hojas.length>1?` · parte ${hi+1}/${hojas.length}`:''} · ${lst.length} recibo(s) · TOTAL ${vP(sumG)}`,PAD,44);
+        x.font='22px Arial';x.fillText(sub,PAD,76);
         hj.cols.filter(q=>q.it.length).forEach((q,ci)=>{
           const xx=PAD+ci*(COLW+PAD);
           q.it.forEach(({p,y})=>{
@@ -1594,7 +1595,7 @@ async vImagenes(){
       const l=document.createElement('a');l.href=URL.createObjectURL(b);l.download=a.nombre;document.body.appendChild(l);l.click();
       await new Promise(ok=>setTimeout(ok,700));l.remove();URL.revokeObjectURL(l.href);
     }
-    modal(`<h2 style="margin-top:0">Listo</h2><p>Se descargaron <b>${archivos.length}</b> imagen(es): alimentación (desayuno, almuerzo y cena juntos), hospedaje y otros, con los recibos recortados y ordenados:</p><ul>${archivos.map(a=>`<li>${esc(a.nombre)}</li>`).join('')}</ul><div class="scroll"><table><tr><th>Grupo</th><th>Recibos</th><th>Total</th></tr>${resumen.map(x=>`<tr><td>${esc(x[0])}</td><td>${x[1]}</td><td><b>${vP(x[2])}</b></td></tr>`).join('')}<tr><td><b>TOTAL</b></td><td>${resumen.reduce((t,x)=>t+x[1],0)}</td><td><b>${vP(resumen.reduce((t,x)=>t+x[2],0))}</b></td></tr></table></div><p class="mut" style="font-size:13px">Si el navegador pide permiso para descargar varios archivos, acéptalo.</p><button class="btn" style="width:100%" data-act="vVolver">Volver</button>`);
+    modal(`<h2 style="margin-top:0">Listo</h2><p>Se descargaron <b>${archivos.length}</b> imagen(es): alimentación (desayuno, almuerzo y cena juntos), hospedaje, peajes y lavada/otros, con los recibos recortados y ordenados:</p><ul>${archivos.map(a=>`<li>${esc(a.nombre)}</li>`).join('')}</ul><div class="scroll"><table><tr><th>Grupo</th><th>Recibos</th><th>Total</th></tr>${resumen.map(x=>`<tr><td>${esc(x[0])}</td><td>${x[1]}</td><td><b>${vP(x[2])}</b></td></tr>`).join('')}<tr><td><b>TOTAL</b></td><td>${resumen.reduce((t,x)=>t+x[1],0)}</td><td><b>${vP(resumen.reduce((t,x)=>t+x[2],0))}</b></td></tr></table></div><p class="mut" style="font-size:13px">Si el navegador pide permiso para descargar varios archivos, acéptalo.</p><button class="btn" style="width:100%" data-act="vVolver">Volver</button>`);
   }catch(e){toast(e.message,true);ACT.vVolver()}
 },
 vVolver(){if(VT.com)ACT.vCom({id:VT.com});else closeModal()},
