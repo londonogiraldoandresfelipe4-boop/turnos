@@ -273,7 +273,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.12-e';
+const APP_VERSION='2026.11.12-f';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -820,7 +820,8 @@ async prog(){
     $('vista').innerHTML=`<div class="card"><label>Fecha</label><input type="date" id="pf" value="${f}" data-chg="pf"></div>${dcCard}<div class="card"><h2>Programación ${fecha(f)}</h2>${pr.programacion.map(x=>`<div class="item"><b>${esc(nombreCorto(x.Escolta))}</b> · ${esc(x.Hora)} · ${esc(x.Punto)} ${esc(x.Placa)} <span class="badge">${esc(TIPOS[x.Tipo||'TAT'])}</span> ${opxB((pr.caravana||{})[x.EscoltaID])} ${x.Estado==='CONFIRMADA'?'<span class="badge ok">confirmó</span>':'<span class="badge warn">pendiente</span>'}${x.Tipo==='DISPONIBLE'?` <button class="btn ghost sm" data-act="dcCancelar" data-id="${esc(x.ID)}">Quitar</button>`:''}</div>`).join('')||'<p class="mut" style="margin:0">Sin programación para esa fecha.</p>'}</div>`;return;
   }
   A.data.escoltas=es.escoltas;
-  const act=es.escoltas.filter(e=>e.Activo!=='NO');
+  const hayFijo=es.escoltas.some(e=>'Fijo' in e);  // si el script aún no está actualizado, no se filtra
+  const act=es.escoltas.filter(e=>e.Activo!=='NO'&&(!hayFijo||e.Fijo==='SI'||pr.programacion.some(p=>p.EscoltaID===e.ID)));  // solo fijos (y a quien ya tenga programación ese día)
   $('vista').innerHTML=`<div class="card"><h2>Fecha a programar</h2><label>Fecha</label><input type="date" id="pf" value="${f}" data-chg="pf"><p class="mut">Marca a quienes trabajan ese día. Los que no marques quedan en descanso. Cada escolta recibe un botón CONFIRMAR y tú ves quién ya confirmó.</p></div>
   ${dcCard}
   <div class="card" id="cvCard"><h2 style="margin-top:0">🚚 Caravana · ¿quién puede ir?</h2><p class="mut" style="margin-top:0">REPCO la pide, tú le das los nombres. Elige la salida y la app te dice quién está disponible de verdad: sin pasar el tope de horas, con su descanso, sin dejar el TAT sin cubrir, rotando la carga.</p>
