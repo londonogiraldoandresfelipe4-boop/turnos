@@ -273,7 +273,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.13-c';
+const APP_VERSION='2026.11.14-a';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -661,6 +661,7 @@ function descansoCard(d,f){
   <p class="mut" style="margin-top:0">Escoltas sin turno ese día (${d.ocupados} ya están programados o en caravana). Marca a quienes necesitas, escribe la hora y el punto de llegada: quedan programados como <b>Disponible Prosegur</b> y te sale el botón de WhatsApp para avisarles.</p>
   <div class="grid2"><div><label>Hora</label><input type="time" id="dc_h" value="${esc(RP.get().dh||'07:30')}">${chipsHora('dc_h')}</div><div><label>Punto de llegada</label><input id="dc_p" value="${esc(RP.get().dp||'')}" placeholder="Ej: Bodega Funza" autocapitalize="characters">${chipsPunto('dc_p')}</div></div>
   <div class="row" style="margin-top:10px"><button class="btn ghost sm" data-act="dcTodos">☑ Marcar todos los libres</button><button class="btn ghost sm" data-act="dcNinguno">☐ Ninguno</button><span class="mut" id="dcCont" style="align-self:center"></span></div>
+  ${d.escoltas.length?`<div class="card" style="background:var(--bg);margin:10px 0 0"><b>📤 Enviar a REPCO la lista de escoltas libres</b><p class="mut" style="margin:4px 0 8px;font-size:12.5px">Para que el coordinador elija la programación. Sale con todos los 🟢 Libres; si marcas casillas, sale solo con los que marques.</p><div class="row"><button class="btn ghost sm" data-act="libresCopiar">📋 Copiar</button><button class="btn ok sm" data-act="libresWA">💬 WhatsApp</button><button class="btn ghost sm" data-act="libresDescargar">⬇ Descargar</button></div></div>`:''}
   <div style="margin-top:8px">${d.escoltas.map(fila).join('')||'<p class="mut">Nadie en descanso ese día.</p>'}</div>
   ${d.escoltas.length?'<div class="row" style="margin-top:10px"><button class="btn ok" data-act="dcProgramar">Programar como Disponible Prosegur y avisar</button></div>':''}</div>`}
 const tbd=k=>`<span class="badge tb tp-${k||'TAT'}">${esc(TIPOS[k||'TAT']||k)}</span>`;
@@ -1319,6 +1320,22 @@ dcContar(){const n=document.querySelectorAll('.dck:checked').length,c=$('dcCont'
 dcTodos(){document.querySelectorAll('.dck').forEach(x=>{const e=((A.data.desc||{}).escoltas||[]).find(y=>y.id===x.value);if(e&&e.estado==='LIBRE')x.checked=true});ACT.dcContar()},
 dcNinguno(){document.querySelectorAll('.dck').forEach(x=>x.checked=false);ACT.dcContar()},
 dcSig(d,b){const c=(A.data.dcCola||[]);if(!c.length){toast('Ya los avisaste a todos');return}const x=c.shift();window.open(x.url,'_blank','noopener');if(b)b.textContent=c.length?`▶ Siguiente (${c.length} faltan)`:'✓ Todos avisados';if(!c.length&&b)b.disabled=true},
+/* Lista de escoltas libres para que el coordinador de REPCO elija la programación (solo nombres: él decide hora y punto) */
+libresTexto(){
+  const d=A.data.desc,f=A.data.pf;if(!d||!f)return '';
+  const marc=new Set([...document.querySelectorAll('.dck:checked')].map(x=>x.value));
+  const l=(d.escoltas||[]).filter(e=>marc.size?marc.has(e.id):e.estado==='LIBRE').sort((a,b)=>nombreCorto(a.nombre).localeCompare(nombreCorto(b.nombre),'es'));
+  if(!l.length)return '';
+  const op=(S.cfg&&S.cfg.operacion)||'REPCO';
+  return `*ESCOLTAS LIBRES PARA PROGRAMACIÓN — ${fecha(f).toUpperCase()}*\nProsegur · ${op}\n\n`+l.map((e,i)=>`${i+1}. ${nombreCorto(e.nombre)}`).join('\n')+`\n\nTotal: ${l.length} escolta(s) disponible(s).\nPor favor indícame cuáles necesitas, con hora y punto de llegada.`
+},
+async libresCopiar(){const t=ACT.libresTexto();if(!t)return toast('No hay escoltas libres para enviar',true);try{await navigator.clipboard.writeText(t);toast('Lista copiada: pégala en el chat con el coordinador de REPCO')}catch(e){prompt('Copia esta lista:',t)}},
+libresWA(){const t=ACT.libresTexto();if(!t)return toast('No hay escoltas libres para enviar',true);window.open(wa('',t),'_blank','noopener')},
+libresDescargar(){
+  const t=ACT.libresTexto();if(!t)return toast('No hay escoltas libres para enviar',true);
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t.replace(/\*/g,'').replace(/\n/g,'\r\n')],{type:'text/plain;charset=utf-8'}));
+  a.download='escoltas_libres_'+A.data.pf+'.txt';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);toast('Archivo descargado')
+},
 async dcCopiarTodos(){const t=A.data.dcTexto||'';try{await navigator.clipboard.writeText(t);toast('Mensaje copiado: pégalo en el grupo de WhatsApp')}catch(e){prompt('Copia este mensaje:',t)}},
 pgTodos(){document.querySelectorAll('#progTabla .pk').forEach(x=>{if(!x.closest('tr').classList.contains('enop'))x.checked=true});ACT.pgContar()},
 pgNinguno(){document.querySelectorAll('#progTabla .pk').forEach(x=>x.checked=false);ACT.pgContar()},
