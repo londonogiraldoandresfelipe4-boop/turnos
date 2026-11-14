@@ -273,7 +273,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.14-b';
+const APP_VERSION='2026.11.14-c';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -656,7 +656,7 @@ function descansoCard(d,f){
   if(!d)return '<div class="card"><h2 style="margin-top:0">🛌 Personal en descanso</h2><p class="mut" style="margin:0">No se pudo cargar la lista. Intenta de nuevo.</p></div>';
   const fila=e=>{const [c,t]=DC_EST[e.estado]||DC_EST.LIBRE;
     const ult=e.ultimo?`último turno ${fecha(e.ultimo)}${e.diasLibres>0?` · ${e.diasLibres} día(s) libre(s)`:''}`:'sin turnos recientes';
-    return `<div class="item dcrow" data-id="${esc(e.id)}" style="display:flex;gap:10px;align-items:flex-start"><input type="checkbox" class="dck" value="${esc(e.id)}" style="width:22px;height:22px;margin-top:2px"><div class="grow"><b>${esc(nombreCorto(e.nombre))}</b> <span class="badge ${c}">${t}</span><br><span class="mut" style="font-size:12.5px">${e.horasSemana==null?'—':f1(e.horasSemana)} / ${e.tope} h en la semana · ${esc(ult)}${e.razones.length?'<br>'+e.razones.map(esc).join(' · '):''}</span></div>${e.tel?`<button class="btn ghost sm" data-act="dcPreguntar" data-id="${esc(e.id)}">💬 Preguntar</button>`:'<span class="mut" style="font-size:12px">sin celular</span>'}</div>`};
+    return `<div class="item dcrow" data-id="${esc(e.id)}" style="display:flex;gap:10px;align-items:flex-start"><input type="checkbox" class="dck" value="${esc(e.id)}" style="width:22px;height:22px;margin-top:2px"><div class="grow"><b>${esc(e.nombre)}</b> <span class="badge ${c}">${t}</span><br><span class="mut" style="font-size:12.5px">${e.horasSemana==null?'—':f1(e.horasSemana)} / ${e.tope} h en la semana · ${esc(ult)}${e.razones.length?'<br>'+e.razones.map(esc).join(' · '):''}</span></div>${e.tel?`<button class="btn ghost sm" data-act="dcPreguntar" data-id="${esc(e.id)}">💬 Preguntar</button>`:'<span class="mut" style="font-size:12px">sin celular</span>'}</div>`};
   return `<div class="card" id="dcCard"><h2 style="margin-top:0">🛌 Personal en descanso · ${fecha(f)} <span class="badge">${d.escoltas.length}</span></h2>
   <p class="mut" style="margin-top:0">Escoltas sin turno ese día (${d.ocupados} ya están programados o en caravana). Marca a quienes necesitas, escribe la hora y el punto de llegada: quedan programados como <b>Disponible Prosegur</b> y te sale el botón de WhatsApp para avisarles.</p>
   <div class="grid2"><div><label>Hora</label><input type="time" id="dc_h" value="${esc(RP.get().dh||'07:30')}">${chipsHora('dc_h')}</div><div><label>Punto de llegada</label><input id="dc_p" value="${esc(RP.get().dp||'')}" placeholder="Ej: Bodega Funza" autocapitalize="characters">${chipsPunto('dc_p')}</div></div>
@@ -1332,10 +1332,10 @@ dcSig(d,b){const c=(A.data.dcCola||[]);if(!c.length){toast('Ya los avisaste a to
 libresTexto(){
   const d=A.data.desc,f=A.data.pf;if(!d||!f)return '';
   const marc=new Set([...document.querySelectorAll('.dck:checked')].map(x=>x.value));
-  const l=(d.escoltas||[]).filter(e=>marc.size?marc.has(e.id):e.estado==='LIBRE').sort((a,b)=>{const ca=/^DISPONIBLE PROSEGUR$/i.test(a.nombre),cb=/^DISPONIBLE PROSEGUR$/i.test(b.nombre);return ca-cb||nombreCorto(a.nombre).localeCompare(nombreCorto(b.nombre),'es')});
+  const l=(d.escoltas||[]).filter(e=>marc.size?marc.has(e.id):e.estado==='LIBRE').sort((a,b)=>{const ca=/^DISPONIBLE PROSEGUR$/i.test(a.nombre),cb=/^DISPONIBLE PROSEGUR$/i.test(b.nombre);return ca-cb||String(a.nombre).localeCompare(String(b.nombre),'es')});
   if(!l.length)return '';
   const op=(S.cfg&&S.cfg.operacion)||'REPCO';
-  return `*ESCOLTAS LIBRES PARA PROGRAMACIÓN — ${fecha(f).toUpperCase()}*\nProsegur · ${op}\n\n`+l.map((e,i)=>`${i+1}. ${nombreCorto(e.nombre)}`).join('\n')+`\n\nTotal: ${l.length} escolta(s) disponible(s).\nPor favor indícame cuáles necesitas, con hora y punto de llegada.`
+  return `*ESCOLTAS LIBRES PARA PROGRAMACIÓN — ${fecha(f).toUpperCase()}*\nProsegur · ${op}\n\n`+l.map((e,i)=>`${i+1}. ${String(e.nombre||'').trim()}`).join('\n')+`\n\nTotal: ${l.length} escolta(s) disponible(s).\nPor favor indícame cuáles necesitas, con hora y punto de llegada.`
 },
 async libresCopiar(){const t=ACT.libresTexto();if(!t)return toast('No hay escoltas libres para enviar',true);try{await navigator.clipboard.writeText(t);toast('Lista copiada: pégala en el chat con el coordinador de REPCO')}catch(e){prompt('Copia esta lista:',t)}},
 libresWA(){const t=ACT.libresTexto();if(!t)return toast('No hay escoltas libres para enviar',true);window.open(wa('',t),'_blank','noopener')},
