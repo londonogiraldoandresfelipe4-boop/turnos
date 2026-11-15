@@ -273,7 +273,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.14-c';
+const APP_VERSION='2026.11.15-a';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -816,12 +816,16 @@ async prog(){
   const dscP=api('listarDescanso',{fecha:f}).catch(()=>null);
   const [pr,es]=await Promise.all(calls);A.data.prog=pr.programacion;
   const dsc=await dscP;
-  /* Fechas futuras: un turno abierto HOY no ocupa a nadie mañana. Se completa la lista con los fijos activos (y el comodín DISPONIBLE PROSEGUR) que no tengan programación ni caravana ese día. */
-  if(dsc&&Array.isArray(dsc.escoltas)&&f>hoyL()){try{
+  /* Solo fijos activos + el comodín DISPONIBLE PROSEGUR: los refuerzos de Prosegur no salen para asignar. Además, en fechas futuras un turno abierto HOY no ocupa a nadie mañana: se completa con los fijos que no tengan programación ni caravana ese día. */
+  if(dsc&&Array.isArray(dsc.escoltas)){try{
     const lista=es?es.escoltas:(await api('listarEscoltas')).escoltas;
-    const hayF=lista.some(e=>'Fijo' in e),ocu=new Set([...pr.programacion.map(p=>p.EscoltaID),...Object.keys(pr.caravana||{})]),ya=new Set(dsc.escoltas.map(e=>e.id));
-    const esCom=e=>/^DISPONIBLE PROSEGUR$/i.test(String(e.Nombre||'').trim()),tope=(dsc.escoltas[0]&&dsc.escoltas[0].tope)||60;
-    lista.filter(e=>e.Activo!=='NO'&&(esCom(e)||(hayF?e.Fijo==='SI':e.Refuerzo!=='SI'))&&!ocu.has(e.ID)&&!ya.has(e.ID)).forEach(e=>dsc.escoltas.push({id:e.ID,nombre:e.Nombre,tel:e.Telefono||'',estado:'LIBRE',razones:[],horasSemana:null,tope,ultimo:'',diasLibres:0}));
+    const hayF=lista.some(e=>'Fijo' in e),esCom=e=>/^DISPONIBLE PROSEGUR$/i.test(String(e.Nombre||'').trim()),esFijo=e=>esCom(e)||(hayF?e.Fijo==='SI':e.Refuerzo!=='SI');
+    const fuera=new Set(lista.filter(e=>!esFijo(e)).map(e=>e.ID));
+    dsc.escoltas=dsc.escoltas.filter(e=>!fuera.has(e.id));
+    if(f>hoyL()){
+      const ocu=new Set([...pr.programacion.map(p=>p.EscoltaID),...Object.keys(pr.caravana||{})]),ya=new Set(dsc.escoltas.map(e=>e.id)),tope=(dsc.escoltas[0]&&dsc.escoltas[0].tope)||60;
+      lista.filter(e=>e.Activo!=='NO'&&esFijo(e)&&!ocu.has(e.ID)&&!ya.has(e.ID)).forEach(e=>dsc.escoltas.push({id:e.ID,nombre:e.Nombre,tel:e.Telefono||'',estado:'LIBRE',razones:[],horasSemana:null,tope,ultimo:'',diasLibres:0}));
+    }
   }catch(e){}}
   A.data.desc=dsc;if(dsc){A.data.tel=Object.assign(A.data.tel||{},Object.fromEntries((dsc.escoltas||[]).map(e=>[e.id,e.tel])))}
   const dcCard=descansoCard(dsc,f);
@@ -830,7 +834,7 @@ async prog(){
   }
   A.data.escoltas=es.escoltas;
   const hayFijo=es.escoltas.some(e=>'Fijo' in e);  // si el script aún no está actualizado, no se filtra
-  const act=es.escoltas.filter(e=>e.Activo!=='NO'&&(!hayFijo||e.Fijo==='SI'||pr.programacion.some(p=>p.EscoltaID===e.ID)));  // solo fijos (y a quien ya tenga programación ese día)
+  const act=es.escoltas.filter(e=>e.Activo!=='NO'&&((hayFijo?e.Fijo==='SI':e.Refuerzo!=='SI')||pr.programacion.some(p=>p.EscoltaID===e.ID)));  // solo fijos (y a quien ya tenga programación ese día)
   $('vista').innerHTML=`<div class="card"><h2>Fecha a programar</h2><label>Fecha</label><input type="date" id="pf" value="${f}" data-chg="pf"><p class="mut">Marca a quienes trabajan ese día. Los que no marques quedan en descanso. Cada escolta recibe un botón CONFIRMAR y tú ves quién ya confirmó.</p></div>
   ${dcCard}
   <div class="card" id="cvCard"><h2 style="margin-top:0">🚚 Caravana · ¿quién puede ir?</h2><p class="mut" style="margin-top:0">REPCO la pide, tú le das los nombres. Elige la salida y la app te dice quién está disponible de verdad: sin pasar el tope de horas, con su descanso, sin dejar el TAT sin cubrir, rotando la carga.</p>
