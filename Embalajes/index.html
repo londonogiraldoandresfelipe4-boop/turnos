@@ -198,7 +198,7 @@ function modal(h){closeModal();const m=document.createElement('div');m.className
 function closeModal(){const m=$('modal');if(m)m.remove()}
 function descargar(n,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download=n;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},500)}
 
-const VERSION='2026-10-27 · destinos v15 localidad fuera del furgón';
+const VERSION='2026-11-16 · destinos v16 pegado: detecta títulos de tabla dinámica';
 const LOGO=`<svg width="34" height="34" style="flex:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b2545"/><path d="M256 92c-66 0-118 51-118 114 0 84 118 214 118 214s118-130 118-214c0-63-52-114-118-114z" fill="#fff"/><circle cx="256" cy="206" r="78" fill="#188a4b"/><path d="M222 208l26 27 46-54" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><circle cx="392" cy="392" r="38" fill="#e8a317"/><circle cx="392" cy="392" r="16" fill="#0b2545"/></svg>`;
 /* ---- estado y conexión ---- */
 let S=(()=>{try{return JSON.parse(LS('em_s'))||{}}catch(e){return{}}})();
@@ -772,7 +772,12 @@ async cargarPF(d){
   S.ocultas=Object.keys(PF.sel).filter(i=>!PF.sel[i]).map(i=>norm(PF.head[i]));save();
   if(await enviaCarga(textoPF(),true,d.rep==='1')){PF.rows=[];$('pv').innerHTML='';$('pf').value='';const ad=$('adm');if(ad)ad.open=false}
 },
-async cargar(d){const t=$('tx').value;if(!t.trim())return toast('Pega primero la lista',true);
+async cargar(d){let t=$('tx').value;if(!t.trim())return toast('Pega primero la lista',true);
+ /* lo que se copia de una tabla dinámica trae la fila de títulos (PLACA, Suma de PESO, BARRIO 1…): se detecta sola, sin depender de la casilla; y se quitan líneas vacías y «Total general» */
+ let ls=t.replace(/\r/g,'').split('\n').filter(l=>l.replace(/[\t\s]/g,'')&&!/^\s*total( general)?\b/i.test(l));
+ const p1=ls[0]||'',tit=/\b(placa|vehiculo|vehículo)\b/i.test(p1)&&!PLACA_RE.test(p1.replace(/placa/ig,''));
+ if(tit&&!$('enc').checked){$('enc').checked=true;toast('Detecté la fila de títulos y la usé como encabezado')}
+ t=ls.join('\n');
  if(d.rep==='1'&&!confirm('Se borra la lista de ese día (con sus marcas) y se carga la nueva. ¿Continuar?'))return;
  if(await enviaCarga(t,$('enc').checked,d.rep==='1'))$('tx').value=''},
 async borrar(){if(!confirm('¿Borrar toda la lista de este día?'))return;try{EM.d=await api('borrar',{fecha:S.fecha});pinta();toast('Día borrado')}catch(e){toast(e.message,true)}},
