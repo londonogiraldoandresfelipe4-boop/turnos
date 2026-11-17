@@ -273,7 +273,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.16-a';
+const APP_VERSION='2026.11.17-a';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -606,7 +606,7 @@ function formTipos(){return Object.entries(TIPOS).map(([k,n])=>`<option value="$
 
 /* ================= ADMIN / CENTRAL ================= */
 const A={tab:'tablero',data:{},cfg:null};
-const TABS_A=[['ejecutivo','Ejecutivo'],['tablero','Tablero'],['turnos','Turnos'],['prog','Programación'],['horas','Horas'],['peso','Peso movido'],['punt','Puntualidad'],['solic','Solicitudes'],['escoltas','Escoltas'],['viaticos','Viáticos'],['export','Exportar'],['ajustes','Ajustes']];
+const TABS_A=[['ejecutivo','Ejecutivo'],['tablero','Tablero'],['turnos','Turnos'],['prog','Programación'],['horas','Horas'],['peso','Peso movido'],['punt','Puntualidad'],['solic','Solicitudes'],['escoltas','Escoltas'],['viaticos','Viáticos'],['caja','Caja'],['export','Exportar'],['ajustes','Ajustes']];
 const TABS_C=[['ejecutivo','Ejecutivo'],['tablero','Tablero'],['peso','Peso movido'],['prog','Programación'],['solic','Solicitar personal']];
 function vistaAdmin(){
   A.tab='tablero';
@@ -1477,6 +1477,7 @@ function mostrarPins(l){
 /* ================= VIÁTICOS (recibos por comisión) ================= */
 const VT={com:null,det:null,foto:null,cats:[],nom:{}};
 const vP=n=>'$'+Math.round(+n||0).toLocaleString('es-CO');
+function vVerValor(){const e=$('vf_vista'),i=$('vf_valor');if(!e||!i)return;const n=parseInt(String(i.value).replace(/[^\d]/g,''),10);e.textContent=n>0?vP(n)+' pesos':''}
 const vCat=c=>VT.nom[c]||c;
 const vEstCls={ABIERTA:'warn',POR_REVISAR:'warn',CERRADA:'ok',PENDIENTE:'warn',OBSERVADO:'bad',APROBADO:'ok',RECHAZADO:'bad'};
 const vEstTxt={ABIERTA:'Abierta',POR_REVISAR:'En revisión',CERRADA:'Cerrada',PENDIENTE:'Pendiente',OBSERVADO:'Observado',APROBADO:'Aprobado',RECHAZADO:'Rechazado'};
@@ -1508,7 +1509,7 @@ Object.assign(ACT,{
 async vMis(){
   modal('<div class="mut">Cargando…</div>');
   try{const r=await api('verMisComisiones');VT.cats=r.categorias;VT.nom=r.nombres;
-    modal(`<h2 style="margin-top:0">🧾 Mis viáticos</h2>${r.comisiones.length?r.comisiones.map(c=>`<div class="item"><div class="row"><div class="grow"><b>${esc(c.Codigo)}</b> · ${esc(c.Destino)}<br><span class="mut">${esc(c.Desde)} a ${esc(c.Hasta)} · anticipo ${vP(c.Anticipo)}</span></div>${vBadge(c.Estado)}</div><button class="btn sm" style="margin-top:6px" data-act="vCom" data-id="${esc(c.ID)}">Abrir y cargar recibos</button></div>`).join(''):'<p class="mut">No tienes comisiones. Cuando te entreguen un anticipo, el administrador crea tu comisión y aparece aquí.</p>'}<button class="btn ghost" style="width:100%;margin-top:10px" data-act="cerrarModal">Cerrar</button>`);
+    modal(`<h2 style="margin-top:0">🧾 Mis viáticos</h2>${r.comisiones.length?r.comisiones.map(c=>`<div class="item"><div class="row"><div class="grow"><b>${esc(c.Codigo)}</b> · ${esc(c.Destino)}<br><span class="mut">${esc(c.Desde)} a ${esc(c.Hasta)} · anticipo ${vP(c.Anticipo)}</span></div>${vBadge(c.Estado)}</div><button class="btn sm" style="margin-top:6px" data-act="vCom" data-id="${esc(c.ID)}">Abrir y cargar recibos</button></div>`).join(''):'<p class="mut">No tienes comisiones. Cuando te entreguen un anticipo, el administrador crea tu comisión y aparece aquí.</p>'}<button class="btn" style="width:100%;margin-top:10px" data-act="cjMis">💵 Dinero que me entregaron</button><button class="btn ghost" style="width:100%;margin-top:10px" data-act="cerrarModal">Cerrar</button>`);
   }catch(e){closeModal();toast(e.message,true)}
 },
 cerrarModal(){closeModal()},
@@ -1526,6 +1527,7 @@ async vCom(d){
     <button class="btn ghost" style="width:100%;margin-top:10px" data-act="${admin?'cerrarModal':'vMis'}">${admin?'Cerrar':'← Mis comisiones'}</button>`);
   }catch(e){toast(e.message,true)}
 },
+vChip(d){const i=$('vf_valor');if(i){i.value=d.v;vVerValor()}},
 vPick(){const f=$('v_file');if(f){f.value='';f.click()}},
 async chg_vfoto(){
   const f=$('v_file').files[0];if(!f)return;
@@ -1541,7 +1543,8 @@ async chg_vfoto(){
 vEditar(d){const r=VT.det.recibos.find(x=>x.ID===d.id);if(!r)return;VT.foto={fotoId:r.FotoId,ocr:{leido:true}};vFormulario(r,{leido:true,sugerencia:null})},
 async vGuardar(){
   const c=VT.det.comision,ed=VT.editId;
-  const p={comisionId:c.ID,id:ed||'',fotoId:VT.foto.fotoId,hash:VT.foto.hash||'',categoria:val('vf_cat'),fecha:val('vf_fecha'),hora:val('vf_hora'),valor:val('vf_valor'),proveedor:val('vf_prov'),nit:val('vf_nit'),factura:val('vf_fac'),obs:val('vf_obs'),valorOcr:(VT.foto.ocr&&VT.foto.ocr.sugerencia)?VT.foto.ocr.sugerencia.valor:0};
+  const p={comisionId:c.ID,id:ed||'',fotoId:VT.foto.fotoId,hash:VT.foto.hash||'',categoria:val('vf_cat'),fecha:val('vf_fecha'),hora:val('vf_hora'),valor:val('vf_valor'),proveedor:val('vf_prov'),nit:val('vf_nit'),factura:val('vf_fac'),obs:val('vf_obs')};
+  if(!ed&&$('vf_ok')&&!$('vf_ok').checked){toast('Marca la casilla: confirma que el valor coincide con la foto',true);return}
   try{const r=await api('guardarRecibo',p);
     toast(r.alertas.some(a=>a.sev==='R')?'Guardado con alertas: el administrador lo revisará':'Recibo guardado');
     if(r.alertas.length)alert('Avisos del sistema:\n\n'+r.alertas.map(a=>(a.sev==='R'?'🔴 ':'🟡 ')+a.txt).join('\n\n'));
@@ -1708,12 +1711,12 @@ async vRepuesto(d){try{await api('marcarRepuesto',{ids:[d.id]});toast('Marcada c
 async vCfg(){
   const k=A.cfg||(await api('verConfig')).config;A.cfg=k;
   const f=(id,t)=>`<label>${t}</label><input id="vk_${id}" value="${esc(k[id]||'')}">`;
-  modal(`<h2 style="margin-top:0">Reglas de viáticos</h2>${f('viat_fondo','Fondo fijo ($)')}${f('viat_dias_legalizar','Días para legalizar tras el regreso')}${f('viat_tolerancia','% tolerado entre lo leído y lo digitado')}
+  modal(`<h2 style="margin-top:0">Reglas de viáticos</h2>${f('viat_fondo','Fondo fijo ($)')}${f('viat_dias_legalizar','Días para legalizar tras el regreso')}${f('viat_tol_ocr','% tolerado entre lo leído y lo digitado (0 = exacto)')}
   ${f('viat_tope_desayuno','Tope desayuno ($)')}${f('viat_tope_almuerzo','Tope almuerzo ($)')}${f('viat_tope_cena','Tope cena ($)')}${f('viat_tope_hospedaje','Tope hospedaje por noche ($)')}${f('viat_tope_lavada','Tope lavada ($)')}${f('viat_tope_gasolina','Tope gasolina por recibo ($)')}
   ${f('viat_licor','Palabras extra de licor (separadas por coma)')}${f('viat_aseo','Palabras extra de aseo (separadas por coma)')}
   <div class="row" style="margin-top:10px"><button class="btn" data-act="vCfgOk">Guardar</button><button class="btn ghost" data-act="cerrarModal">Cancelar</button></div>`);
 },
-async vCfgOk(){const c={};['viat_fondo','viat_dias_legalizar','viat_tolerancia','viat_tope_desayuno','viat_tope_almuerzo','viat_tope_cena','viat_tope_hospedaje','viat_tope_lavada','viat_tope_gasolina','viat_licor','viat_aseo'].forEach(x=>c[x]=val('vk_'+x));try{const r=await api('guardarConfig',{config:c});A.cfg=r.config;closeModal();toast('Reglas guardadas');irTab('viaticos')}catch(e){toast(e.message,true)}}
+async vCfgOk(){const c={};['viat_fondo','viat_dias_legalizar','viat_tol_ocr','viat_tope_desayuno','viat_tope_almuerzo','viat_tope_cena','viat_tope_hospedaje','viat_tope_lavada','viat_tope_gasolina','viat_licor','viat_aseo'].forEach(x=>c[x]=val('vk_'+x));try{const r=await api('guardarConfig',{config:c});A.cfg=r.config;closeModal();toast('Reglas guardadas');irTab('viaticos')}catch(e){toast(e.message,true)}}
 });
 function vAdminBotones(c,r){
   const q=c.cuadre;
@@ -1722,16 +1725,21 @@ function vAdminBotones(c,r){
 function vFormulario(r,o){
   const sg=(o&&o.sugerencia)||{},cats=VT.cats,v=(a,b)=>r?r[a]:(sg[b]||'');
   VT.editId=r?r.ID:'';
-  const aviso=!o.leido?`<div class="banner warn">${esc(o.motivo||'No se pudo leer la foto.')}</div>`:o.vacio?'<div class="banner warn">La foto salió borrosa o sin texto. Revisa los datos o toma otra foto.</div>':'<div class="banner ok">Leímos el recibo. <b>Confirma que los datos coincidan con la foto.</b></div>';
+  const cf=sg.confianza||'',cand=(sg.candidatos||[]);
+  const chips=cand.length&&!r?`<div class="chips">${cand.map(c=>`<button type="button" class="chip" data-act="vChip" data-v="${c.v}">${vP(c.v)}</button>`).join('')}</div><div class="mut" style="font-size:12px">Valores que aparecen en la foto: toca uno solo si es el TOTAL del recibo.</div>`:'';
+  const aviso=!o.leido?`<div class="banner warn">${esc(o.motivo||'No se pudo leer la foto.')} Digita el valor mirando el recibo.</div>`:o.vacio?'<div class="banner warn">La foto salió borrosa o sin texto. Toma otra foto más cerca y con buena luz.</div>':
+    (r?'':(cf==='ALTA'?`<div class="banner ok">Leí el total: <b>${vP(sg.valor)}</b>. Compáralo con la foto antes de guardar.</div>`:cf==='MEDIA'?`<div class="banner warn">Lectura probable del total: <b>${vP(sg.valor)}</b>. <b>Verifica en la foto</b> que sea exacto (cada cifra).</div>`:`<div class="banner bad"><b>No pude leer el total con seguridad.</b> ${esc(sg.motivo||'')} Mira el recibo y escribe el valor tú mismo.</div>${chips}`));
   const rojo=[].concat((o.licor||[]).length?[`🔴 Parece incluir LICOR/cigarrillos (${o.licor.slice(0,3).join(', ')}).`]:[],(o.aseo||[]).length?[`🔴 Parece incluir elementos de ASEO/personales (${o.aseo.slice(0,3).join(', ')}).`]:[]);
   modal(`<h2 style="margin-top:0">${r?'Editar recibo':'Nuevo recibo'}</h2>${r?'':`<img src="${VT.foto.dataUrl}" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px">`}${aviso}${rojo.map(x=>`<div class="banner bad">${esc(x)}<br><span style="font-size:13px">Esto no se paga con viáticos. Si pagaste otra cosa en el mismo recibo, sepárala o explícalo en la nota.</span></div>`).join('')}
   <label>Categoría *</label><select id="vf_cat"><option value="">— elegir —</option>${cats.map(c=>`<option value="${c}" ${v('Categoria','categoria')===c?'selected':''}>${esc(vCat(c))}</option>`).join('')}</select>
   <div class="grid2"><div><label>Fecha *</label><input type="date" id="vf_fecha" value="${esc(v('Fecha','fecha'))}"></div><div><label>Hora</label><input type="time" id="vf_hora" value="${esc(v('Hora','hora'))}"></div></div>
-  <label>Valor total del recibo ($) *</label><input id="vf_valor" inputmode="numeric" value="${esc(v('Valor','valor')||'')}">
+  <label>Valor total del recibo ($) *</label><input id="vf_valor" inputmode="numeric" value="${esc(v('Valor','valor')||'')}"><div id="vf_vista" style="font-size:22px;font-weight:700;margin:2px 0 6px"></div>
+  ${r?'':`<label style="display:flex;gap:8px;align-items:flex-start;font-weight:600"><input type="checkbox" id="vf_ok" style="width:auto;margin-top:4px"><span>Verifiqué en la foto que el valor total es <u>exactamente</u> el que escribí (cada cifra y cada cero).</span></label>`}
   <label>Proveedor / establecimiento</label><input id="vf_prov" value="${esc(v('Proveedor','proveedor'))}">
   <div class="grid2"><div><label>NIT</label><input id="vf_nit" value="${esc(v('NIT','nit'))}"></div><div><label>N.º factura</label><input id="vf_fac" value="${esc(v('Factura','factura'))}"></div></div>
   <label>Nota (opcional)</label><input id="vf_obs" value="${esc(r?r.Obs||'':'')}" placeholder="Ej: almuerzo de 2 personas">
   <div class="row" style="margin-top:12px"><button class="btn ok" data-act="vGuardar">Guardar recibo</button><button class="btn ghost" data-act="vCom" data-id="${esc(VT.com)}">Cancelar</button></div>`);
+  vVerValor();
 }
 function vComprimir(file){
   return new Promise((ok,bad)=>{const u=URL.createObjectURL(file),im=new Image();
@@ -1749,12 +1757,71 @@ VISTAS.viaticos=async function(){
   ${sec('Por revisar',por(['POR_REVISAR']))}${sec('Abiertas (escolta cargando recibos)',por(['ABIERTA']))}${sec('Cerradas',por(['CERRADA']).slice(0,30))}`;
 };
 
+
+/* ===== Libro de caja: préstamos de Luz, entregas a escoltas, pagos y arqueo ===== */
+const CJ={d:null,foto:null,tipo:'ENTREGA'};
+const CJ_T={INGRESO:'Ingreso (fondo fijo / anticipo)',PRESTAMO:'Préstamo recibido',ENTREGA:'Entrega a escolta',PAGO:'Pago de préstamo',ARQUEO:'Arqueo'};
+const CJ_F={FONDO_FIJO:'Fondo fijo',ANTICIPO:'Anticipo',OTRO:'Otro'};
+const cjSop=m=>m.soporte==='FOTO'?'<span class="badge ok">📎 foto</span>':m.soporte==='ACUSE'?'<span class="badge ok">✔ recibido por el escolta</span>':m.soporte==='FALTA'?'<span class="badge bad">sin soporte</span>':'';
+VISTAS.caja=async function(){
+  const r=await api('verCaja',{desde:(A.data.cjd||''),hasta:(A.data.cjh||'')});CJ.d=r;const s=r.saldos;
+  const deudas=Object.keys(s.deuda).filter(k=>s.deuda[k]!==0).map(k=>`${esc(k)}: <b>${vP(s.deuda[k])}</b>`).join(' · ')||'sin deudas';
+  const fila=m=>`<div class="item" style="${m.Estado==='ANULADO'?'opacity:.55;text-decoration:line-through':''}"><div class="row"><div class="grow"><b>${esc(CJ_T[m.Tipo]||m.Tipo)}</b> · ${m.Tipo==='ARQUEO'?'contado '+vP(m.Contado)+' / libro '+vP(m.Saldo):'<b>'+vP(m.Monto)+'</b> · '+esc(m.Medio)}<br><span class="mut">${esc(m.Fecha)}${m.Tercero?' · '+esc(m.Tercero):''}${m.Codigo?' · '+esc(m.Codigo):''}${m.Fuente?' · '+esc(CJ_F[m.Fuente]||m.Fuente):''}${m.Ref?' · ref '+esc(m.Ref):''}</span>${m.Concepto?`<br><span class="mut">${esc(m.Concepto)}</span>`:''}${m.Estado==='ANULADO'?`<br><span class="mut">ANULADO: ${esc(m.MotivoAnulado)} (${esc(m.Anulado)})</span>`:''}</div><div style="text-align:right">${m.Estado==='ANULADO'?'':cjSop(m)}</div></div>
+    ${m.Estado!=='ANULADO'?`<div class="row" style="margin-top:4px">${m.tieneFoto?`<button class="btn ghost sm" data-act="cjVerFoto" data-f="${esc(m.FotoId)}">Ver soporte</button>`:''}${m.Tipo!=='ARQUEO'?`<button class="btn ghost sm" data-act="cjAnular" data-id="${esc(m.ID)}">Anular</button>`:''}</div>`:''}</div>`;
+  $('vista').innerHTML=`<div class="card"><div class="row"><h2 class="grow" style="margin:0">💰 Caja: préstamos, entregas y pagos</h2><button class="btn sm" data-act="cjNuevo">+ Movimiento</button><button class="btn ghost sm" data-act="cjArqueo">Arqueo</button><button class="btn ghost sm" data-act="cjCsv">CSV</button><button class="btn ghost sm" data-act="imprimir">Imprimir</button></div>
+  <div class="grid2" style="margin-top:10px"><div class="item"><span class="mut">Efectivo que debería tener en mano</span><br><b style="font-size:20px">${vP(s.efectivoEnMano)}</b></div><div class="item"><span class="mut">Debo (préstamos sin pagar)</span><br><b style="font-size:20px">${vP(s.deudaTotal)}</b><br><span class="mut" style="font-size:12px">${deudas}</span></div>
+  <div class="item"><span class="mut">Entregado a escoltas</span><br><b>${vP(s.entregado)}</b>${s.entregasSinSoporte?`<br><span class="badge bad">${s.entregasSinSoporte} entrega(s) sin soporte</span>`:''}</div><div class="item"><span class="mut">Pagado a préstamos</span><br><b>${vP(s.pagado)}</b><br><span class="mut" style="font-size:12px">Fondo fijo ${vP(s.pagadoPorFuente.FONDO_FIJO)} · Anticipo ${vP(s.pagadoPorFuente.ANTICIPO)}${s.pagadoPorFuente.OTRO?' · Otro '+vP(s.pagadoPorFuente.OTRO):''}</span></div></div>
+  <p class="mut" style="margin-top:8px">Nada se borra: un movimiento equivocado se <b>anula con motivo</b> y queda visible. Cada entrega o pago lleva foto del comprobante o la confirmación del escolta.</p>
+  <div class="row"><div><label>Desde</label><input type="date" id="cj_d" value="${esc(A.data.cjd||'')}"></div><div><label>Hasta</label><input type="date" id="cj_h" value="${esc(A.data.cjh||'')}"></div><button class="btn ghost sm" data-act="cjFiltrar" style="align-self:flex-end">Filtrar</button></div></div>
+  <div class="card"><h2>Movimientos (${r.movimientos.length})</h2>${r.movimientos.length?r.movimientos.map(fila).join(''):'<p class="mut">Aún no hay movimientos. Empieza registrando el ingreso del fondo fijo o el préstamo de Luz.</p>'}</div>`;
+};
+Object.assign(ACT,{
+cjFiltrar(){A.data.cjd=val('cj_d');A.data.cjh=val('cj_h');irTab('caja')},
+async cjCsv(){try{const r=await api('exportarCaja',{desde:A.data.cjd||'',hasta:A.data.cjh||''});const q=x=>'"'+String(x??'').replace(/"/g,'""')+'"';descargar('caja_'+hoyL()+'.csv','﻿'+[r.cabecera].concat(r.filas).map(f=>f.map(q).join(';')).join('\n'))}catch(e){toast(e.message,true)}},
+async cjVerFoto(d){try{const r=await api('fotoCaja',{fotoId:d.f});modal(`<h2 style="margin-top:0">Soporte</h2><img src="${r.dataUrl}" style="width:100%;border-radius:8px"><button class="btn ghost" style="width:100%;margin-top:10px" data-act="cerrarModal">Cerrar</button>`)}catch(e){toast(e.message,true)}},
+cjNuevo(d){
+  CJ.foto=null;const r=CJ.d,t=(d&&d.t)||CJ.tipo;CJ.tipo=t;
+  const opt=(a,sel,tx)=>a.map(x=>`<option value="${x}" ${x===sel?'selected':''}>${esc(tx?tx[x]||x:x)}</option>`).join('');
+  const ent=t==='ENTREGA',pag=t==='PAGO',pre=t==='PRESTAMO',ing=t==='INGRESO';
+  modal(`<h2 style="margin-top:0">Nuevo movimiento de caja</h2>
+  <label>Tipo *</label><select id="cj_tipo" data-chg="cjtipo">${['ENTREGA','PRESTAMO','PAGO','INGRESO'].map(x=>`<option value="${x}" ${x===t?'selected':''}>${esc(CJ_T[x])}</option>`).join('')}</select>
+  <div class="grid2"><div><label>Fecha *</label><input type="date" id="cj_f" value="${hoyL()}"></div><div><label>Valor ($) *</label><input id="cj_m" inputmode="numeric"></div></div>
+  <label>Medio *</label><select id="cj_med">${opt(r.medios,'EFECTIVO')}</select>
+  ${ent?`<label>Escolta que recibe *</label><select id="cj_esc" data-chg="cjesc"><option value="">— elegir —</option>${r.escoltas.map(e=>`<option value="${esc(e.ID)}">${esc(e.Nombre)}</option>`).join('')}</select><label>Comisión (opcional)</label><select id="cj_com"><option value="">— ninguna —</option></select>`:''}
+  ${(pre||pag)?`<label>${pre?'Quién presta':'A quién se paga'} *</label><input id="cj_ter" value="LUZ">`:''}
+  ${(pag||ing)?`<label>${pag?'Sale de':'Origen'} *</label><select id="cj_fue"><option value="">— elegir —</option>${opt(r.fuentes,'',CJ_F)}</select>`:''}
+  <label>Referencia del comprobante ${ent?'(obligatoria en transferencia/Nequi)':''}</label><input id="cj_ref" placeholder="Nº de transacción">
+  <label>Concepto</label><input id="cj_con" placeholder="Ej: viáticos caravana Honda">
+  <label>Soporte (foto del comprobante / recibo firmado) ${(pag||ent)?'*':''}</label><input type="file" accept="image/*" id="cj_file" data-chg="cjfoto"><div id="cj_fs" class="mut" style="font-size:13px">${ent?'En efectivo puedes dejarlo sin foto y pedir al escolta que confirme "Recibí" en su app.':''}</div>
+  <div class="row" style="margin-top:12px"><button class="btn ok" data-act="cjGuardar">Guardar movimiento</button><button class="btn ghost" data-act="cerrarModal">Cancelar</button></div>`);
+},
+chg_cjtipo(){ACT.cjNuevo({t:val('cj_tipo')})},
+chg_cjesc(){const id=val('cj_esc'),s=$('cj_com');if(!s)return;const cs=(CJ.d.comisiones||[]).filter(c=>c.EscoltaID===id&&c.Estado!=='CERRADA');s.innerHTML='<option value="">— ninguna —</option>'+cs.map(c=>`<option value="${esc(c.ID)}">${esc(c.Codigo)} · ${esc(c.Destino)} (anticipo ${vP(c.Anticipo)})</option>`).join('')},
+async chg_cjfoto(){const f=$('cj_file').files[0];if(!f)return;$('cj_fs').textContent='Subiendo soporte…';try{const du=await vComprimir(f);const up=await api('subirSoporteCaja',{foto:du});CJ.foto=up;$('cj_fs').innerHTML='<span class="badge ok">📎 soporte cargado</span>'}catch(e){CJ.foto=null;$('cj_fs').textContent='';toast(e.message,true)}},
+async cjGuardar(){
+  const t=val('cj_tipo'),m=val('cj_m'),n=parseInt(String(m).replace(/[^\d]/g,''),10)||0;
+  if(!n){toast('Escribe el valor',true);return}
+  const resumen=`${CJ_T[t]}: ${vP(n)} por ${val('cj_med')}`+(t==='ENTREGA'&&$('cj_esc')?' a '+$('cj_esc').selectedOptions[0].text:'');
+  if(!confirm('Confirma el movimiento:\n\n'+resumen+'\n\n¿El valor es exacto?'))return;
+  const p={tipo:t,fecha:val('cj_f'),monto:n,medio:val('cj_med'),terceroId:val('cj_esc')||'',comisionId:val('cj_com')||'',tercero:val('cj_ter')||'',fuente:val('cj_fue')||'',ref:val('cj_ref'),concepto:val('cj_con'),fotoId:CJ.foto?CJ.foto.fotoId:'',hash:CJ.foto?CJ.foto.hash:''};
+  try{let r;try{r=await api('guardarCaja',p)}catch(e){if(/Solo hay \$/.test(e.message)&&confirm(e.message+'\n\n¿Registrar igual (la caja quedará en negativo hasta que registres el ingreso o préstamo que la cubre)?'))r=await api('guardarCaja',Object.assign(p,{sobregiro:'SI'}));else throw e}
+    closeModal();toast(r.soporte==='FALTA'&&t==='ENTREGA'?'Guardado. Falta el soporte: pide al escolta que confirme "Recibí" o sube la foto':'Movimiento guardado');irTab('caja')}catch(e){toast(e.message,true)}
+},
+async cjAnular(d){const mo=prompt('Motivo de la anulación (el movimiento NO se borra, queda visible):');if(mo===null)return;try{await api('anularCaja',{id:d.id,motivo:mo});toast('Anulado');irTab('caja')}catch(e){toast(e.message,true)}},
+cjArqueo(){const s=CJ.d.saldos;modal(`<h2 style="margin-top:0">Arqueo de caja</h2><p>El libro dice que deberías tener <b>${vP(s.efectivoEnMano)}</b> en efectivo.</p><label>Efectivo que contaste ($) *</label><input id="aq_c" inputmode="numeric"><label>Si hay diferencia, explícala</label><input id="aq_n" placeholder="Ej: faltan 20.000 de un peaje sin recibo"><div class="row" style="margin-top:12px"><button class="btn ok" data-act="cjArqueoOk">Registrar arqueo</button><button class="btn ghost" data-act="cerrarModal">Cancelar</button></div>`)},
+async cjArqueoOk(){try{const r=await api('arqueoCaja',{contado:val('aq_c'),nota:val('aq_n')});closeModal();toast(r.diferencia===0?'Caja cuadrada ✔':'Arqueo registrado con diferencia de '+vP(r.diferencia));irTab('caja')}catch(e){toast(e.message,true)}},
+/* escolta: dinero que le entregaron */
+async cjMis(){modal('<div class="mut">Cargando…</div>');try{const r=await api('verMiCaja');modal(`<h2 style="margin-top:0">💵 Dinero que me entregaron</h2>${r.entregas.length?r.entregas.map(e=>`<div class="item"><div class="row"><div class="grow"><b>${vP(e.Monto)}</b> · ${esc(e.Medio)}<br><span class="mut">${esc(e.Fecha)}${e.Codigo?' · '+esc(e.Codigo):''}${e.Ref?' · ref '+esc(e.Ref):''}</span>${e.Concepto?`<br><span class="mut">${esc(e.Concepto)}</span>`:''}</div>${e.Acuse==='SI'?'<span class="badge ok">✔ recibido</span>':`<button class="btn sm ok" data-act="cjAcuse" data-id="${esc(e.ID)}" data-m="${e.Monto}">Recibí este dinero</button>`}</div></div>`).join(''):'<p class="mut">No tienes entregas registradas en los últimos 45 días.</p>'}<button class="btn ghost" style="width:100%;margin-top:10px" data-act="cerrarModal">Cerrar</button>`)}catch(e){closeModal();toast(e.message,true)}},
+async cjAcuse(d){if(!confirm('¿Confirmas que recibiste '+vP(d.m)+'? Esto queda registrado como tu firma.'))return;try{await api('acuseCaja',{id:d.id});toast('Gracias, quedó confirmado');ACT.cjMis()}catch(e){toast(e.message,true)}}
+});
+
 ACT.imprimir=()=>window.print();
 
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b)return;
   const f=ACT[b.dataset.act];if(!f)return;e.preventDefault();f(b.dataset,b);
 });
+document.addEventListener('input',e=>{if(e.target&&e.target.id==='vf_valor')vVerValor()});
 document.addEventListener('change',e=>{if(e.target.classList){if(e.target.classList.contains('pk'))ACT.pgContar();if(e.target.classList.contains('dck'))ACT.dcContar()}const c=e.target.dataset&&e.target.dataset.chg;if(c&&ACT['chg_'+c])ACT['chg_'+c]()});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lg_pin')ACT.entrarE();if(e.key==='Enter'&&e.target.id==='lg_clave')LOGIN.rol==='A'?ACT.entrarA():ACT.entrarC()});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.token){sinLeer=0;document.title='Registro de Turnos';if(S.rol!=='E')pulsoAdm();if(S.rol==='E'){flush();cargaEsc(true)}else if(A.tab==='tablero')irTab('tablero')}});
