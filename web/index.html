@@ -273,7 +273,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.17-a';
+const APP_VERSION='2026.11.18-a';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -1762,6 +1762,7 @@ VISTAS.viaticos=async function(){
 const CJ={d:null,foto:null,tipo:'ENTREGA'};
 const CJ_T={INGRESO:'Ingreso (fondo fijo / anticipo)',PRESTAMO:'Préstamo recibido',ENTREGA:'Entrega a escolta',PAGO:'Pago de préstamo',ARQUEO:'Arqueo'};
 const CJ_F={FONDO_FIJO:'Fondo fijo',ANTICIPO:'Anticipo',OTRO:'Otro'};
+const CJ_DEN=[100000,50000,20000,10000,5000,2000,1000,500,200,100,50];
 const cjSop=m=>m.soporte==='FOTO'?'<span class="badge ok">📎 foto</span>':m.soporte==='ACUSE'?'<span class="badge ok">✔ recibido por el escolta</span>':m.soporte==='FALTA'?'<span class="badge bad">sin soporte</span>':'';
 VISTAS.caja=async function(){
   const r=await api('verCaja',{desde:(A.data.cjd||''),hasta:(A.data.cjh||'')});CJ.d=r;const s=r.saldos;
@@ -1808,8 +1809,22 @@ async cjGuardar(){
     closeModal();toast(r.soporte==='FALTA'&&t==='ENTREGA'?'Guardado. Falta el soporte: pide al escolta que confirme "Recibí" o sube la foto':'Movimiento guardado');irTab('caja')}catch(e){toast(e.message,true)}
 },
 async cjAnular(d){const mo=prompt('Motivo de la anulación (el movimiento NO se borra, queda visible):');if(mo===null)return;try{await api('anularCaja',{id:d.id,motivo:mo});toast('Anulado');irTab('caja')}catch(e){toast(e.message,true)}},
-cjArqueo(){const s=CJ.d.saldos;modal(`<h2 style="margin-top:0">Arqueo de caja</h2><p>El libro dice que deberías tener <b>${vP(s.efectivoEnMano)}</b> en efectivo.</p><label>Efectivo que contaste ($) *</label><input id="aq_c" inputmode="numeric"><label>Si hay diferencia, explícala</label><input id="aq_n" placeholder="Ej: faltan 20.000 de un peaje sin recibo"><div class="row" style="margin-top:12px"><button class="btn ok" data-act="cjArqueoOk">Registrar arqueo</button><button class="btn ghost" data-act="cerrarModal">Cancelar</button></div>`)},
-async cjArqueoOk(){try{const r=await api('arqueoCaja',{contado:val('aq_c'),nota:val('aq_n')});closeModal();toast(r.diferencia===0?'Caja cuadrada ✔':'Arqueo registrado con diferencia de '+vP(r.diferencia));irTab('caja')}catch(e){toast(e.message,true)}},
+cjArqueo(){const s=CJ.d.saldos;
+  modal(`<h2 style="margin-top:0">Arqueo de caja</h2><p>El libro dice que deberías tener <b>${vP(s.efectivoEnMano)}</b> en efectivo.</p>
+  <p class="mut" style="font-size:13px;margin-top:-6px">Cuenta billete por billete y moneda por moneda: escribe cuántos hay de cada uno.</p>
+  <div id="aq_tab">${CJ_DEN.map(d=>`<div class="row" style="align-items:center;margin-bottom:4px"><div style="width:90px"><b>${vP(d)}</b></div><div style="width:24px;text-align:center">×</div><input class="aqd" data-v="${d}" inputmode="numeric" placeholder="0" style="width:80px"><div class="grow" style="text-align:right"><span class="mut" id="aq_s${d}">$0</span></div></div>`).join('')}</div>
+  <div class="grid2" style="margin-top:10px"><div class="item"><span class="mut">Contado</span><br><b id="aq_tot" style="font-size:20px">$0</b></div><div class="item"><span class="mut">Diferencia vs libro</span><br><b id="aq_dif" style="font-size:20px" data-libro="${Math.round(+s.efectivoEnMano||0)}">${vP(-(+s.efectivoEnMano||0))}</b></div></div>
+  <label>Si hay diferencia, explícala</label><input id="aq_n" placeholder="Ej: faltan 20.000 de un peaje sin recibo">
+  <div class="row" style="margin-top:12px"><button class="btn ok" data-act="cjArqueoOk">Registrar arqueo</button><button class="btn ghost" data-act="cerrarModal">Cancelar</button></div>`)},
+cjArqueoCalc(){let t=0;document.querySelectorAll('#aq_tab .aqd').forEach(i=>{const d=+i.dataset.v,n=parseInt(String(i.value).replace(/[^\d]/g,''),10)||0,sub=d*n;t+=sub;const e=$('aq_s'+d);if(e)e.textContent=vP(sub)});
+  $('aq_tot').textContent=vP(t);const lb=+$('aq_dif').dataset.libro||0,df=t-lb;$('aq_dif').textContent=(df>0?'+':'')+vP(df);$('aq_dif').style.color=df===0?'#1e9e57':'#d93025';return t},
+async cjArqueoOk(){
+  const t=ACT.cjArqueoCalc(),lb=+$('aq_dif').dataset.libro||0,df=t-lb;
+  const det=[];document.querySelectorAll('#aq_tab .aqd').forEach(i=>{const n=parseInt(String(i.value).replace(/[^\d]/g,''),10)||0;if(n)det.push(vP(i.dataset.v).replace('$','')+'×'+n)});
+  if(!det.length&&!confirm('No escribiste ningún billete ni moneda: el arqueo quedará en $0. ¿Continuar?'))return;
+  if(!confirm('Confirma el arqueo:\n\nContado: '+vP(t)+'\nLibro: '+vP(lb)+'\nDiferencia: '+(df>0?'+':'')+vP(df)+'\n\n¿Registrar?'))return;
+  const nota=('Conteo: '+(det.join(' · ')||'sin efectivo')+(val('aq_n')?' | '+val('aq_n'):''));
+  try{const r=await api('arqueoCaja',{contado:t,nota});closeModal();toast(r.diferencia===0?'Caja cuadrada ✔':'Arqueo registrado con diferencia de '+vP(r.diferencia));irTab('caja')}catch(e){toast(e.message,true)}},
 /* escolta: dinero que le entregaron */
 async cjMis(){modal('<div class="mut">Cargando…</div>');try{const r=await api('verMiCaja');modal(`<h2 style="margin-top:0">💵 Dinero que me entregaron</h2>${r.entregas.length?r.entregas.map(e=>`<div class="item"><div class="row"><div class="grow"><b>${vP(e.Monto)}</b> · ${esc(e.Medio)}<br><span class="mut">${esc(e.Fecha)}${e.Codigo?' · '+esc(e.Codigo):''}${e.Ref?' · ref '+esc(e.Ref):''}</span>${e.Concepto?`<br><span class="mut">${esc(e.Concepto)}</span>`:''}</div>${e.Acuse==='SI'?'<span class="badge ok">✔ recibido</span>':`<button class="btn sm ok" data-act="cjAcuse" data-id="${esc(e.ID)}" data-m="${e.Monto}">Recibí este dinero</button>`}</div></div>`).join(''):'<p class="mut">No tienes entregas registradas en los últimos 45 días.</p>'}<button class="btn ghost" style="width:100%;margin-top:10px" data-act="cerrarModal">Cerrar</button>`)}catch(e){closeModal();toast(e.message,true)}},
 async cjAcuse(d){if(!confirm('¿Confirmas que recibiste '+vP(d.m)+'? Esto queda registrado como tu firma.'))return;try{await api('acuseCaja',{id:d.id});toast('Gracias, quedó confirmado');ACT.cjMis()}catch(e){toast(e.message,true)}}
@@ -1821,7 +1836,7 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b)return;
   const f=ACT[b.dataset.act];if(!f)return;e.preventDefault();f(b.dataset,b);
 });
-document.addEventListener('input',e=>{if(e.target&&e.target.id==='vf_valor')vVerValor()});
+document.addEventListener('input',e=>{if(e.target&&e.target.id==='vf_valor')vVerValor();if(e.target&&e.target.classList&&e.target.classList.contains('aqd'))ACT.cjArqueoCalc()});
 document.addEventListener('change',e=>{if(e.target.classList){if(e.target.classList.contains('pk'))ACT.pgContar();if(e.target.classList.contains('dck'))ACT.dcContar()}const c=e.target.dataset&&e.target.dataset.chg;if(c&&ACT['chg_'+c])ACT['chg_'+c]()});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lg_pin')ACT.entrarE();if(e.key==='Enter'&&e.target.id==='lg_clave')LOGIN.rol==='A'?ACT.entrarA():ACT.entrarC()});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.token){sinLeer=0;document.title='Registro de Turnos';if(S.rol!=='E')pulsoAdm();if(S.rol==='E'){flush();cargaEsc(true)}else if(A.tab==='tablero')irTab('tablero')}});
