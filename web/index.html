@@ -275,7 +275,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.19-b';
+const APP_VERSION='2026.11.19-c';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -1625,8 +1625,16 @@ async chg_vfoto(){
   const c=VT.det.comision;
   modal('<h2 style="margin-top:0">Leyendo recibo…</h2><p class="mut">Comprimiendo la foto y leyendo el texto. Unos segundos.</p>');
   try{
-    const dataUrl=await vComprimir(f);
+    const dataUrl=await vComprimir(f,true);VT.fotoFile=f;
     const up=await api('subirFotoRecibo',{comisionId:c.ID,foto:dataUrl});
+    let o={leido:false,motivo:''};try{o=await api('verOcr',{comisionId:c.ID,fotoId:up.fotoId})}catch(e){o={leido:false,motivo:e.message}}
+    VT.foto={fotoId:up.fotoId,hash:up.hash,dataUrl,ocr:o};vFormulario(null,o);
+  }catch(e){toast(e.message,true);ACT.vCom({id:c.ID})}
+},
+async vFotoCompleta(){
+  const f=VT.fotoFile,c=VT.det.comision;if(!f)return;
+  modal('<h2 style="margin-top:0">Usando la foto completa…</h2>');
+  try{const dataUrl=await vComprimir(f,false);const up=await api('subirFotoRecibo',{comisionId:c.ID,foto:dataUrl});
     let o={leido:false,motivo:''};try{o=await api('verOcr',{comisionId:c.ID,fotoId:up.fotoId})}catch(e){o={leido:false,motivo:e.message}}
     VT.foto={fotoId:up.fotoId,hash:up.hash,dataUrl,ocr:o};vFormulario(null,o);
   }catch(e){toast(e.message,true);ACT.vCom({id:c.ID})}
@@ -1659,25 +1667,7 @@ async vImagenes(){
   const grupoDe=cat=>{for(const g of GR)if(g[2]&&g[2].includes(cat))return g[0];return 'OTROS'};
   const ordCat={DESAYUNO:1,ALMUERZO:2,CENA:3,HIDRATACION:4};
   const carga=u=>new Promise((ok,ko)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>ko(new Error('Foto dañada'));i.src=u});
-  /* recorta el fondo: busca el papel del recibo; si no lo encuentra usa el contraste con los bordes; si tampoco, deja la foto completa */
-  const recortar=im=>{
-    const w=im.naturalWidth,h=im.naturalHeight,s=Math.min(1,360/Math.max(w,h)),sw=Math.max(8,Math.round(w*s)),sh=Math.max(8,Math.round(h*s));
-    const t=document.createElement('canvas');t.width=sw;t.height=sh;const g=t.getContext('2d',{willReadFrequently:true});g.drawImage(im,0,0,sw,sh);
-    const D=g.getImageData(0,0,sw,sh).data;
-    const bb=vPapelBBox(D,sw,sh)||vBordeBBox(D,sw,sh);
-    if(!bb)return{im,sx:0,sy:0,sw:w,sh:h};
-    if(bb.rot){   /* recibo inclinado: se endereza y se recorta sin esquinas de fondo */
-      const r=bb.rot,mg=2,u0=r.u0-mg,u1=r.u1+mg,v0=r.v0-mg,v1=r.v1+mg,ow=Math.round((u1-u0)/s),oh=Math.round((v1-v0)/s);
-      if(ow>=40&&oh>=40&&ow*oh<=36e6&&ow*oh>=.1*w*h){
-        const o=document.createElement('canvas');o.width=ow;o.height=oh;const x=o.getContext('2d'),c=Math.cos(r.th),sn=Math.sin(r.th);
-        x.fillStyle='#fff';x.fillRect(0,0,ow,oh);x.setTransform(c,-sn,sn,c,-u0/s,-v0/s);x.drawImage(im,0,0);x.setTransform(1,0,0,1,0,0);
-        return{im:o,sx:0,sy:0,sw:ow,sh:oh};
-      }
-    }
-    const mx=Math.min(.006,.01*(bb.x1-bb.x0)/sw),my=Math.min(.006,.01*(bb.y1-bb.y0)/sh),fx0=Math.max(0,bb.x0/sw-mx),fy0=Math.max(0,bb.y0/sh-my),fx1=Math.min(1,bb.x1/sw+mx),fy1=Math.min(1,bb.y1/sh+my);
-    if((fx1-fx0)*(fy1-fy0)<.1)return{im,sx:0,sy:0,sw:w,sh:h};
-    return{im,sx:fx0*w,sy:fy0*h,sw:(fx1-fx0)*w,sh:(fy1-fy0)*h};
-  };
+  const recortar=im=>vRecortarIm(im);
   const total=rs.length;let hechas=0;const archivos=[],resumen=[];
   try{
     for(const [clave,titulo] of GR){
@@ -1851,12 +1841,41 @@ function vFormulario(r,o){
   <label>Proveedor / establecimiento</label><input id="vf_prov" value="${esc(v('Proveedor','proveedor'))}">
   <div class="grid2"><div><label>NIT</label><input id="vf_nit" value="${esc(v('NIT','nit'))}"></div><div><label>N.º factura</label><input id="vf_fac" value="${esc(v('Factura','factura'))}"></div></div>
   <label>Nota (opcional)</label><input id="vf_obs" value="${esc(r?r.Obs||'':'')}" placeholder="Ej: almuerzo de 2 personas">
-  <div class="row" style="margin-top:12px"><button class="btn ok" data-act="vGuardar">Guardar recibo</button><button class="btn ghost" data-act="vCom" data-id="${esc(VT.com)}">Cancelar</button></div>`);
+  <div class="row" style="margin-top:12px"><button class="btn ok" data-act="vGuardar">Guardar recibo</button><button class="btn ghost" data-act="vCom" data-id="${esc(VT.com)}">Cancelar</button></div>${r||!VT.fotoFile?'':`<button class="btn ghost sm" style="margin-top:8px" data-act="vFotoCompleta">✂️ ¿Recorte mal hecho? Usar la foto completa</button>`}`);
   vVerValor();
 }
-function vComprimir(file){
+/* Recorte tipo escáner: busca el papel del recibo, lo endereza y quita el fondo. Trabaja sobre una miniatura (rápido) y entrega una imagen de máx. maxSide px. */
+  /* recorta el fondo: busca el papel del recibo; si no lo encuentra usa el contraste con los bordes; si tampoco, deja la foto completa */
+function vRecortarIm(im,maxSide){
+    const w=im.naturalWidth,h=im.naturalHeight,s=Math.min(1,360/Math.max(w,h)),sw=Math.max(8,Math.round(w*s)),sh=Math.max(8,Math.round(h*s));
+    const t=document.createElement('canvas');t.width=sw;t.height=sh;const g=t.getContext('2d',{willReadFrequently:true});g.drawImage(im,0,0,sw,sh);
+    const D=g.getImageData(0,0,sw,sh).data;
+    const bb=vPapelBBox(D,sw,sh)||vBordeBBox(D,sw,sh);
+    if(!bb)return{im,sx:0,sy:0,sw:w,sh:h};
+    if(bb.rot){   /* recibo inclinado: se endereza y se recorta sin esquinas de fondo */
+      const r=bb.rot,mg=2,u0=r.u0-mg,u1=r.u1+mg,v0=r.v0-mg,v1=r.v1+mg,ow=Math.round((u1-u0)/s),oh=Math.round((v1-v0)/s);
+      if(ow>=40&&oh>=40&&ow*oh<=36e6&&ow*oh>=.1*w*h){
+        const k=maxSide?Math.min(1,maxSide/Math.max(ow,oh)):1,cw=Math.max(1,Math.round(ow*k)),ch=Math.max(1,Math.round(oh*k));
+        const o=document.createElement('canvas');o.width=cw;o.height=ch;const x=o.getContext('2d'),c=Math.cos(r.th),sn=Math.sin(r.th);
+        x.fillStyle='#fff';x.fillRect(0,0,cw,ch);x.setTransform(c*k,-sn*k,sn*k,c*k,-u0/s*k,-v0/s*k);x.drawImage(im,0,0);x.setTransform(1,0,0,1,0,0);
+        return{im:o,sx:0,sy:0,sw:cw,sh:ch};
+      }
+    }
+    const mx=Math.min(.006,.01*(bb.x1-bb.x0)/sw),my=Math.min(.006,.01*(bb.y1-bb.y0)/sh),fx0=Math.max(0,bb.x0/sw-mx),fy0=Math.max(0,bb.y0/sh-my),fx1=Math.min(1,bb.x1/sw+mx),fy1=Math.min(1,bb.y1/sh+my);
+    if((fx1-fx0)*(fy1-fy0)<.1)return{im,sx:0,sy:0,sw:w,sh:h};
+    return{im,sx:fx0*w,sy:fy0*h,sw:(fx1-fx0)*w,sh:(fy1-fy0)*h};
+  }
+
+function vComprimir(file,recorte){
   return new Promise((ok,bad)=>{const u=URL.createObjectURL(file),im=new Image();
-    im.onload=()=>{const M=1600,k=Math.min(1,M/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',.72))};
+    im.onload=()=>{try{
+      const M=1600;let r=null;
+      if(recorte){try{r=vRecortarIm(im,M*1.0)}catch(e){r=null}}
+      const src=r||{im,sx:0,sy:0,sw:im.naturalWidth||im.width,sh:im.naturalHeight||im.height},k=Math.min(1,M/Math.max(src.sw,src.sh)),c=document.createElement('canvas');
+      c.width=Math.max(1,Math.round(src.sw*k));c.height=Math.max(1,Math.round(src.sh*k));
+      const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(src.im,src.sx,src.sy,src.sw,src.sh,0,0,c.width,c.height);
+      const recortada=!!r&&(Math.abs(src.sw-(im.naturalWidth||im.width))>2||Math.abs(src.sh-(im.naturalHeight||im.height))>2||src.im!==im);
+      URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',.72));void recortada}catch(e){URL.revokeObjectURL(u);bad(e)}};
     im.onerror=()=>{URL.revokeObjectURL(u);bad(new Error('No se pudo abrir la foto'))};im.src=u});
 }
 VISTAS.viaticos=async function(){
