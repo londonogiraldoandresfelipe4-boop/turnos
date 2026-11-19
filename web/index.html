@@ -275,7 +275,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.19-c';
+const APP_VERSION='2026.11.19-d';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -1479,6 +1479,7 @@ function mostrarPins(l){
 /* ================= VIÁTICOS (recibos por comisión) ================= */
 const VT={com:null,det:null,foto:null,cats:[],nom:{}};
 const vP=n=>'$'+Math.round(+n||0).toLocaleString('es-CO');
+const vNum=n=>String(Math.round(+n||0)).replace(/\B(?=(\d{3})+(?!\d))/g,'.');   /* 1250000 → 1.250.000 (para nombres de archivo) */
 /* Monto en pesos desde lo digitado o leído: «28.908,00» = 28908 (los centavos NO son dos ceros más); «28.908» = 28908; «$ 1,250,000.00» = 1250000 */
 const vMonto=t=>{let x=String(t==null?'':t).replace(/[^\d.,]/g,'');if(!x)return 0;const m=x.match(/^(.*\d)[.,](\d{1,2})$/);if(m)x=m[1];x=x.replace(/[.,]/g,'');return parseInt(x,10)||0};
 function vVerValor(){const e=$('vf_vista'),i=$('vf_valor');if(!e||!i)return;const n=vMonto(i.value);e.textContent=n>0?vP(n)+' pesos':''}
@@ -1497,7 +1498,7 @@ const vPapelBBox=(D,sw,sh)=>{
   const cand=thr=>{
     let bc=0,bn=0;const pb=(x,y)=>{bn++;if(L[y*sw+x]>thr)bc++};
     for(let x=0;x<sw;x++){pb(x,0);pb(x,sh-1)}for(let y=1;y<sh-1;y++){pb(0,y);pb(sw-1,y)}
-    const claro=bc/bn<.5;                       /* borde oscuro → el papel es lo claro (y al revés) */
+    const claro=true;                           /* el recibo es papel claro; nunca se toma la banda oscura del fondo como si fuera el papel */
     const m=new Uint8Array(n);for(let i=0;i<n;i++)m[i]=(claro?L[i]>thr:L[i]<=thr)?1:0;
     let bestL=0,bestN=0;
     for(let i=0;i<n;i++){
@@ -1538,7 +1539,35 @@ const vPapelBBox=(D,sw,sh)=>{
   const g0=be.th*180/Math.PI;
   for(let g=g0-.75;g<=g0+.75;g+=.25){const e=ext(g*Math.PI/180);if(e.area<be.area)be=e}
   const rot=(Math.abs(be.th)>=1.5*Math.PI/180&&be.area<e0.area*.92)?be:null;
-  return{x0:c.x0,y0:c.y0,x1:c.x1,y1:c.y1,rot};
+  /* Ajuste fino de bordes: el papel casi nunca es un rectángulo perfecto (hoja doblada, borde ondulado, sombra o fondo pegado a una esquina).
+     Se mide, fila por fila y columna por columna, dónde empieza y dónde termina el papel, y se recorta hacia adentro hasta que el 98 % de cada lado sea papel. */
+  const th=rot?rot.th:0,co=Math.cos(th),sn=Math.sin(th),big=1e9;
+  const rMin=new Float32Array(nb).fill(big),rMax=new Float32Array(nb).fill(-big),rN=new Int32Array(nb),cMin=new Float32Array(nb).fill(big),cMax=new Float32Array(nb).fill(-big),cN=new Int32Array(nb);
+  let a0=big,a1=-big,b0=big,b1=-big;
+  for(let i=0;i<n;i++)if(lab[i]===c.bestL){
+    const x=i%sw,y=(i/sw)|0,u=x*co+y*sn,v=-x*sn+y*co,ri=Math.round(v)+off,ci=Math.round(u)+off;
+    if(u<rMin[ri])rMin[ri]=u;if(u>rMax[ri])rMax[ri]=u;rN[ri]++;
+    if(v<cMin[ci])cMin[ci]=v;if(v>cMax[ci])cMax[ci]=v;cN[ci]++;
+    if(u<a0)a0=u;if(u>a1)a1=u;if(v<b0)b0=v;if(v>b1)b1=v;
+  }
+  const pct=(arr,p)=>{arr.sort((p1,p2)=>p1-p2);return arr[Math.min(arr.length-1,Math.max(0,Math.floor(p*(arr.length-1))))]};
+  let u0=Math.floor(a0),u1=Math.ceil(a1)+1,v0=Math.floor(b0),v1=Math.ceil(b1)+1;
+  const ini=[u0,u1,v0,v1];
+  for(let it=0;it<4;it++){
+    const Ls=[],Rs=[],Ts=[],Bs=[];
+    for(let v=v0;v<v1;v++){const k=v+off;if(rN[k]>1){Ls.push(rMin[k]);Rs.push(rMax[k])}}
+    if(Ls.length<8)break;
+    const nu0=Math.ceil(pct(Ls,.98)),nu1=Math.floor(pct(Rs,.02))+1;
+    for(let u=nu0;u<nu1;u++){const k=u+off;if(cN[k]>1){Ts.push(cMin[k]);Bs.push(cMax[k])}}
+    if(Ts.length<8)break;
+    const nv0=Math.ceil(pct(Ts,.98)),nv1=Math.floor(pct(Bs,.02))+1;
+    if(nu1-nu0<8||nv1-nv0<8)break;
+    if(nu0===u0&&nu1===u1&&nv0===v0&&nv1===v1)break;
+    u0=nu0;u1=nu1;v0=nv0;v1=nv1;
+  }
+  if((u1-u0)*(v1-v0)<.55*(ini[1]-ini[0])*(ini[3]-ini[2])){u0=ini[0];u1=ini[1];v0=ini[2];v1=ini[3]}   /* recorte exagerado: se deja el cuadro original */
+  if(rot){rot.u0=u0;rot.u1=u1;rot.v0=v0;rot.v1=v1;return{x0:0,y0:0,x1:sw,y1:sh,rot}}
+  return{x0:u0,y0:v0,x1:u1,y1:v1,rot:null};
 };
 /* Respaldo: diferencia contra el color de los bordes */
 const vBordeBBox=(D,sw,sh)=>{
@@ -1704,9 +1733,10 @@ async vImagenes(){
       hojas.forEach((hj,hi)=>{
         const rw=f=>f.ids.reduce((t,i)=>t+A[i]*f.hh,0)+(f.ids.length-1)*GAP;
         const W=Math.max(1400,Math.ceil(Math.max(...hj.filas.map(rw)))+2*PAD),H=HEAD+hj.alto+PAD;
+        const totParte=hj.filas.reduce((t,f)=>t+f.ids.reduce((u,i)=>u+(+imgs[i].r.Valor||0),0),0),nParte=hj.filas.reduce((t,f)=>t+f.ids.length,0);
         const cv=document.createElement('canvas');cv.width=W;cv.height=H;const x=cv.getContext('2d');
         x.fillStyle='#fff';x.fillRect(0,0,W,H);x.fillStyle='#111';x.font='bold 30px Arial';
-        x.fillText(`${c.Codigo} · ${titulo.toUpperCase()}${hojas.length>1?` · parte ${hi+1}/${hojas.length}`:''} · ${lst.length} recibo(s) · TOTAL ${vP(sumG)}`,PAD,44);
+        x.fillText(`${c.Codigo} · ${titulo.toUpperCase()}${hojas.length>1?` · parte ${hi+1}/${hojas.length}`:''} · ${nParte} recibo(s) · TOTAL ${vP(totParte)}${hojas.length>1?' (grupo '+vP(sumG)+')':''}`,PAD,44);
         x.font='22px Arial';x.fillText(sub,PAD,76);
         hj.filas.forEach(f=>{
           let xx=PAD;const yy=HEAD+f.y;
@@ -1715,11 +1745,10 @@ async vImagenes(){
             x.fillStyle='#111';x.font='bold 20px Arial';x.fillText('N.º '+r.orden+' · '+vCat(r.Categoria),xx,yy+20,w);
             x.font='20px Arial';x.fillText((r.Fecha||'')+(r.Valor?' · '+vP(r.Valor):''),xx,yy+44,w);
             x.drawImage(cr.im,cr.sx,cr.sy,cr.sw,cr.sh,xx,yy+LAB,w,f.hh);
-            x.strokeStyle='#999';x.strokeRect(xx,yy+LAB,w,f.hh);
             xx+=w+GAP;
           });
         });
-        archivos.push({nombre:`${c.Codigo}_${clave}${hojas.length>1?'_parte'+(hi+1):''}.jpg`,cv});
+        archivos.push({nombre:`${c.Codigo}_${clave}${hojas.length>1?'_parte'+(hi+1):''}_TOTAL_${vNum(totParte)}.jpg`,cv});
       });
     }
     for(const a of archivos){
@@ -1727,7 +1756,7 @@ async vImagenes(){
       const l=document.createElement('a');l.href=URL.createObjectURL(b);l.download=a.nombre;document.body.appendChild(l);l.click();
       await new Promise(ok=>setTimeout(ok,700));l.remove();URL.revokeObjectURL(l.href);
     }
-    modal(`<h2 style="margin-top:0">Listo</h2><p>Se descargaron <b>${archivos.length}</b> imagen(es): alimentación (desayuno, almuerzo, cena e hidratación juntos), hospedaje, peajes y lavada/otros, con los recibos recortados, sin fondo y uno al lado del otro:</p><ul>${archivos.map(a=>`<li>${esc(a.nombre)}</li>`).join('')}</ul><div class="scroll"><table><tr><th>Grupo</th><th>Recibos</th><th>Total</th></tr>${resumen.map(x=>`<tr><td>${esc(x[0])}</td><td>${x[1]}</td><td><b>${vP(x[2])}</b></td></tr>`).join('')}<tr><td><b>TOTAL</b></td><td>${resumen.reduce((t,x)=>t+x[1],0)}</td><td><b>${vP(resumen.reduce((t,x)=>t+x[2],0))}</b></td></tr></table></div><p class="mut" style="font-size:13px">Si el navegador pide permiso para descargar varios archivos, acéptalo.</p><button class="btn" style="width:100%" data-act="vVolver">Volver</button>`);
+    modal(`<h2 style="margin-top:0">Listo</h2><p>Se descargaron <b>${archivos.length}</b> imagen(es): alimentación (desayuno, almuerzo, cena e hidratación juntos), hospedaje, peajes y lavada/otros, con los recibos recortados, sin fondo y uno al lado del otro. El nombre de cada imagen trae su valor total:</p><ul>${archivos.map(a=>`<li>${esc(a.nombre)}</li>`).join('')}</ul><div class="scroll"><table><tr><th>Grupo</th><th>Recibos</th><th>Total</th></tr>${resumen.map(x=>`<tr><td>${esc(x[0])}</td><td>${x[1]}</td><td><b>${vP(x[2])}</b></td></tr>`).join('')}<tr><td><b>TOTAL</b></td><td>${resumen.reduce((t,x)=>t+x[1],0)}</td><td><b>${vP(resumen.reduce((t,x)=>t+x[2],0))}</b></td></tr></table></div><p class="mut" style="font-size:13px">Si el navegador pide permiso para descargar varios archivos, acéptalo.</p><button class="btn" style="width:100%" data-act="vVolver">Volver</button>`);
   }catch(e){toast(e.message,true);ACT.vVolver()}
 },
 vVolver(){if(VT.com)ACT.vCom({id:VT.com});else closeModal()},
@@ -1853,7 +1882,7 @@ function vRecortarIm(im,maxSide){
     const bb=vPapelBBox(D,sw,sh)||vBordeBBox(D,sw,sh);
     if(!bb)return{im,sx:0,sy:0,sw:w,sh:h};
     if(bb.rot){   /* recibo inclinado: se endereza y se recorta sin esquinas de fondo */
-      const r=bb.rot,mg=2,u0=r.u0-mg,u1=r.u1+mg,v0=r.v0-mg,v1=r.v1+mg,ow=Math.round((u1-u0)/s),oh=Math.round((v1-v0)/s);
+      const r=bb.rot,mgu=.004*(r.u1-r.u0)+.8,mgv=.004*(r.v1-r.v0)+.8,u0=r.u0+mgu,u1=r.u1-mgu,v0=r.v0+mgv,v1=r.v1-mgv,ow=Math.round((u1-u0)/s),oh=Math.round((v1-v0)/s);
       if(ow>=40&&oh>=40&&ow*oh<=36e6&&ow*oh>=.1*w*h){
         const k=maxSide?Math.min(1,maxSide/Math.max(ow,oh)):1,cw=Math.max(1,Math.round(ow*k)),ch=Math.max(1,Math.round(oh*k));
         const o=document.createElement('canvas');o.width=cw;o.height=ch;const x=o.getContext('2d'),c=Math.cos(r.th),sn=Math.sin(r.th);
@@ -1861,7 +1890,7 @@ function vRecortarIm(im,maxSide){
         return{im:o,sx:0,sy:0,sw:cw,sh:ch};
       }
     }
-    const mx=Math.min(.006,.01*(bb.x1-bb.x0)/sw),my=Math.min(.006,.01*(bb.y1-bb.y0)/sh),fx0=Math.max(0,bb.x0/sw-mx),fy0=Math.max(0,bb.y0/sh-my),fx1=Math.min(1,bb.x1/sw+mx),fy1=Math.min(1,bb.y1/sh+my);
+    const ix=(.004*(bb.x1-bb.x0)+.8)/sw,iy=(.004*(bb.y1-bb.y0)+.8)/sh,fx0=Math.max(0,bb.x0/sw+ix),fy0=Math.max(0,bb.y0/sh+iy),fx1=Math.min(1,bb.x1/sw-ix),fy1=Math.min(1,bb.y1/sh-iy);
     if((fx1-fx0)*(fy1-fy0)<.1)return{im,sx:0,sy:0,sw:w,sh:h};
     return{im,sx:fx0*w,sy:fy0*h,sw:(fx1-fx0)*w,sh:(fy1-fy0)*h};
   }
