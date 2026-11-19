@@ -275,7 +275,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.19-g';
+const APP_VERSION='2026.11.19-h';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -1556,7 +1556,8 @@ const vNum=n=>String(Math.round(+n||0)).replace(/\B(?=(\d{3})+(?!\d))/g,'.');   
 const vEstCls={ABIERTA:'warn',POR_REVISAR:'warn',CERRADA:'ok',PENDIENTE:'warn',OBSERVADO:'bad',APROBADO:'ok',RECHAZADO:'bad'};
 const vEstTxt={ABIERTA:'Abierta',POR_REVISAR:'En revisión',CERRADA:'Cerrada',PENDIENTE:'Pendiente',OBSERVADO:'Observado',APROBADO:'Aprobado',RECHAZADO:'Rechazado'};
 const vBadge=e=>`<span class="badge ${vEstCls[e]||''}">${esc(vEstTxt[e]||e)}</span>`;
-function vAlertasHtml(a){return a?String(a).split(' | ').map(x=>`<div style="font-size:13px;margin-top:3px">${esc(x)}</div>`).join(''):''}
+/* El servidor guardó en cada recibo un aviso de «gastos superan el anticipo» sumando TODAS las comisiones; ese total es incorrecto, así que no se muestra. El cuadre real de la comisión está arriba. */
+function vAlertasHtml(a){return a?String(a).split(' | ').filter(x=>!/Con este recibo los gastos \(\$\d+\) superan el anticipo/.test(x)).map(x=>`<div style="font-size:13px;margin-top:3px">${esc(x)}</div>`).join(''):''}
 function vResumen(c){
   const q=c.cuadre,t=q.total,cats=Object.entries(q.porCategoria).filter(([k,v])=>v.n);
   const alr=(q.alertas||[]).map(a=>`<div class="banner ${a.sev==='R'?'bad':'warn'}">${a.sev==='R'?'🔴':'🟡'} ${esc(a.txt)}</div>`).join('');
