@@ -243,8 +243,10 @@ const fh=h=>{h=+h||0;const m=Math.round(h*60);return `${Math.floor(m/60)} h ${pa
 const f1=h=>(+h||0).toFixed(1);
 const nombreCorto=n=>{const p=String(n||'').split(' ').filter(Boolean);return p.length>=3?p[0]+' '+p[2]:p.slice(0,2).join(' ')};
 function toast(t,err){const d=document.createElement('div');d.textContent=t;if(err)d.className='err';$('toast').appendChild(d);setTimeout(()=>d.remove(),err?6000:3200)}
-function modal(html){closeModal();const m=document.createElement('div');m.className='modal';m.id='modal';m.innerHTML='<div>'+html+'</div>';m.addEventListener('click',e=>{if(e.target===m)closeModal()});document.body.appendChild(m)}
-function closeModal(){const m=$('modal');if(m)m.remove()}
+/* MBACK: a dónde vuelve «Cerrar/Cancelar» o tocar afuera (p. ej. del recibo a la comisión). Sin destino = cierra y queda donde estaba. */
+let MBACK=null,PB=null;   /* PB: destino de regreso que se anota justo antes de abrir la ventana */
+function modal(html){const pb=PB;PB=null;closeModal();MBACK=pb;const m=document.createElement('div');m.className='modal';m.id='modal';m.innerHTML='<div>'+html+'</div>';m.addEventListener('click',e=>{if(e.target===m)closeModal(true)});document.body.appendChild(m)}
+function closeModal(volver){const m=$('modal');if(m)m.remove();const f=MBACK;MBACK=null;if(volver&&f){try{f()}catch(e){}}}
 function compBloque(total,tope){
   const c=EST&&EST.comp;
   if(c){const ok=c.Estado==='ACEPTADA',no=c.Estado==='NEGADA';return `<div class="banner ${ok?'ok':no?'bad':'warn'}" style="margin-top:10px">🛌 Día compensatorio ${esc(fecha(c.Fecha))}: <b>${ok?'APROBADO':no?'NEGADO':'pendiente de respuesta'}</b>${c.Respuesta?'<br>'+esc(c.Respuesta):''}</div>`+(no?`<button class="btn ghost sm" style="margin-top:8px" data-act="abrirComp">Pedir otra fecha</button>`:'')}
@@ -273,7 +275,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.18-e';
+const APP_VERSION='2026.11.19-b';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -1100,7 +1102,7 @@ async sos(){
     modal(`<h2 style="margin-top:0">🆘 Alerta enviada</h2><p>La Central y el administrador ya fueron avisados. Si puedes, llama ahora.</p>${tc?`<a class="btn bad big" href="tel:${esc(tc)}">📞 Llamar a la Central</a><br><br>`:''}${ta?`<a class="btn ghost big" href="tel:${esc(ta)}">📞 Llamar al administrador</a><br><br>`:''}<button class="btn ghost big" data-act="cerrarModal">Cerrar</button>`)
   }catch(e){const tc=(S.cfg&&S.cfg.tel_central)||'';modal(`<h2 style="margin-top:0">No se pudo enviar</h2><p>Sin señal. Llama directamente a la Central.</p>${tc?`<a class="btn bad big" href="tel:${esc(tc)}">📞 Llamar a la Central</a>`:''}`)}
 },
-cerrarModal(){closeModal()},
+cerrarModal(){closeModal(true)},
 ntfyOk(){LS('rt_ntfy_ok','1');pintaEsc()},
 async iniciar(){
   const b=$('i_go');b.disabled=true;
@@ -1477,7 +1479,9 @@ function mostrarPins(l){
 /* ================= VIÁTICOS (recibos por comisión) ================= */
 const VT={com:null,det:null,foto:null,cats:[],nom:{}};
 const vP=n=>'$'+Math.round(+n||0).toLocaleString('es-CO');
-function vVerValor(){const e=$('vf_vista'),i=$('vf_valor');if(!e||!i)return;const n=parseInt(String(i.value).replace(/[^\d]/g,''),10);e.textContent=n>0?vP(n)+' pesos':''}
+/* Monto en pesos desde lo digitado o leído: «28.908,00» = 28908 (los centavos NO son dos ceros más); «28.908» = 28908; «$ 1,250,000.00» = 1250000 */
+const vMonto=t=>{let x=String(t==null?'':t).replace(/[^\d.,]/g,'');if(!x)return 0;const m=x.match(/^(.*\d)[.,](\d{1,2})$/);if(m)x=m[1];x=x.replace(/[.,]/g,'');return parseInt(x,10)||0};
+function vVerValor(){const e=$('vf_vista'),i=$('vf_valor');if(!e||!i)return;const n=vMonto(i.value);e.textContent=n>0?vP(n)+' pesos':''}
 const vCat=c=>VT.nom[c]||c;
 /* Recorte de recibos: encuentra el papel (zona clara conectada más grande) y descarta el fondo. D = RGBA reducido (sw×sh). Devuelve {x0,y0,x1,y1} o null */
 const vPapelBBox=(D,sw,sh)=>{
@@ -1562,14 +1566,31 @@ function vResumen(c){
   return `<div class="grid2"><div class="item"><span class="mut">Anticipo</span><br><b>${vP(q.anticipo)}</b></div><div class="item"><span class="mut">Gastado (digitado)</span><br><b>${vP(t.declarado)}</b></div><div class="item"><span class="mut">Aprobado</span><br><b>${vP(t.aprobado)}</b></div><div class="item"><span class="mut">Rechazado</span><br><b>${vP(t.rechazado)}</b></div></div>${acc}
   ${cats.length?`<div class="scroll"><table><tr><th>Categoría</th><th>N.º</th><th>Valor</th><th>Aprobado</th></tr>${cats.map(([k,v])=>`<tr><td>${esc(vCat(k))}</td><td>${v.n}</td><td>${vP(v.declarado)}</td><td>${vP(v.aprobado)}</td></tr>`).join('')}</table></div>`:''}`;
 }
+/* Reglas a cargo del escolta: máx. 3 cenas por noche (la 4.ª en adelante) y hidratación de más de $51.000 (todo el recibo). Devuelve {ID:motivo}. */
+const V_HID_MAX=51000,V_CENAS_MAX=3;
+function vCargoEscolta(rs){
+  const out={},act=(rs||[]).filter(r=>r.Estado!=='RECHAZADO'&&r.Estado!=='ANULADO');
+  const porDia={};
+  act.forEach(r=>{
+    if(r.Categoria==='HIDRATACION'&&vMonto(r.Valor)>V_HID_MAX)out[r.ID]='Hidratación de '+vP(vMonto(r.Valor))+': supera el máximo de '+vP(V_HID_MAX)+'. Lo paga el escolta.';
+    if(r.Categoria==='CENA'){(porDia[r.Fecha||'']=porDia[r.Fecha||'']||[]).push(r)}
+  });
+  Object.keys(porDia).forEach(f=>{
+    const l=porDia[f].slice().sort((a,b)=>String(a.Hora||'99').localeCompare(String(b.Hora||'99'))||((+a.orden||0)-(+b.orden||0)));
+    l.forEach((r,i)=>{if(i>=V_CENAS_MAX)out[r.ID]='Cena n.º '+(i+1)+' de la noche del '+f+': máximo '+V_CENAS_MAX+' por noche. La paga el escolta.'});
+  });
+  return out;
+}
 function vListaRecibos(d,admin){
   const abierta=d.comision.Estado==='ABIERTA',rs=d.recibos;
   if(!rs.length)return '<p class="mut">Aún no hay recibos. Toca «Agregar recibo» y fotografía cada comprobante.</p>';
   let ult='',h='';
+  const CG=vCargoEscolta(rs),cgIds=Object.keys(CG),cgTot=rs.filter(r=>CG[r.ID]).reduce((a,r)=>a+vMonto(r.Valor),0);
+  if(cgIds.length)h+=`<div class="banner bad"><b>🔴 ${cgIds.length} recibo(s) a cargo del escolta: ${vP(cgTot)}</b><br><span style="font-size:13px">Máximo 3 cenas por noche y hidratación hasta ${vP(V_HID_MAX)}. Esto no se paga con viáticos: el escolta lo debe pagar.</span></div>`;
   rs.forEach(r=>{
     if(r.Categoria!==ult){ult=r.Categoria;h+=`<div style="margin:12px 0 4px;font-weight:700">${esc(vCat(r.Categoria))}</div>`}
     const puede=admin?d.comision.Estado!=='CERRADA':(abierta&&r.Estado!=='APROBADO');
-    h+=`<div class="item"><div class="row"><div class="grow"><b>N.º ${r.orden}</b> · ${esc(r.Fecha)} ${esc(r.Hora||'')} · ${esc(r.Proveedor||'sin proveedor')}<br><b>${vP(r.Valor)}</b>${r.Estado==='APROBADO'&&r.ValorAprob!==r.Valor?` <span class="mut">(aprobado ${vP(r.ValorAprob)})</span>`:''} ${vBadge(r.Estado)}${r.Fisico==='SI'?' <span class="badge ok">físico ✔</span>':''}</div></div>${vAlertasHtml(r.Alertas)}${r.Revision?`<div class="mut" style="font-size:13px">📝 ${esc(r.Revision)}</div>`:''}
+    h+=`<div class="item"><div class="row"><div class="grow"><b>N.º ${r.orden}</b> · ${esc(r.Fecha)} ${esc(r.Hora||'')} · ${esc(r.Proveedor||'sin proveedor')}<br><b>${vP(r.Valor)}</b>${r.Estado==='APROBADO'&&r.ValorAprob!==r.Valor?` <span class="mut">(aprobado ${vP(r.ValorAprob)})</span>`:''} ${vBadge(r.Estado)}${r.Fisico==='SI'?' <span class="badge ok">físico ✔</span>':''}</div></div>${vAlertasHtml(r.Alertas)}${CG[r.ID]?`<div class="banner bad" style="margin:6px 0">🔴 ${esc(CG[r.ID])}</div>`:''}${r.Revision?`<div class="mut" style="font-size:13px">📝 ${esc(r.Revision)}</div>`:''}
     <div class="row" style="margin-top:6px"><button class="btn ghost sm" data-act="vFoto" data-f="${esc(r.FotoId)}">📷 Ver foto</button>${puede?`<button class="btn ghost sm" data-act="vEditar" data-id="${esc(r.ID)}">Editar</button><button class="btn ghost sm" data-act="vAnular" data-id="${esc(r.ID)}">Quitar</button>`:''}${admin&&d.comision.Estado!=='CERRADA'?`<button class="btn sm" data-act="vDecidir" data-id="${esc(r.ID)}">Revisar</button>`:''}</div></div>`;
   });
   return h;
@@ -1581,11 +1602,12 @@ async vMis(){
     modal(`<h2 style="margin-top:0">🧾 Mis viáticos</h2>${r.comisiones.length?r.comisiones.map(c=>`<div class="item"><div class="row"><div class="grow"><b>${esc(c.Codigo)}</b> · ${esc(c.Destino)}<br><span class="mut">${esc(c.Desde)} a ${esc(c.Hasta)} · anticipo ${vP(c.Anticipo)}</span></div>${vBadge(c.Estado)}</div><button class="btn sm" style="margin-top:6px" data-act="vCom" data-id="${esc(c.ID)}">Abrir y cargar recibos</button></div>`).join(''):'<p class="mut">No tienes comisiones. Cuando te entreguen un anticipo, el administrador crea tu comisión y aparece aquí.</p>'}<button class="btn" style="width:100%;margin-top:10px" data-act="cjMis">💵 Dinero que me entregaron</button><button class="btn ghost" style="width:100%;margin-top:10px" data-act="cerrarModal">Cerrar</button>`);
   }catch(e){closeModal();toast(e.message,true)}
 },
-cerrarModal(){closeModal()},
+cerrarModal(){closeModal(true)},
 async vCom(d){
   const id=d.id||(VT.com&&VT.com),admin=S.rol==='A';VT.com=id;
   try{const r=await api('verComision',{id});VT.det=r;VT.cats=r.categorias;VT.nom=r.nombres;
     const c=r.comision,ab=c.Estado==='ABIERTA'||(admin&&c.Estado==='POR_REVISAR');
+    PB=S.rol==='A'?null:()=>ACT.vMis();
     modal(`<div class="row"><h2 style="margin:0" class="grow">${esc(c.Codigo)} · ${esc(c.Destino)}</h2>${vBadge(c.Estado)}</div><div class="mut" style="margin:4px 0 10px">${esc(c.Escolta)} · ${esc(c.Desde)} a ${esc(c.Hasta)}${c.Vehiculo?' · '+esc(c.Vehiculo):''}${c.TipoVeh&&c.TipoVeh!=='SIN'?' ('+(c.TipoVeh==='BLINDADA'?'camioneta blindada':c.TipoVeh.toLowerCase())+')':''}</div>
     ${r.vencida?'<div class="banner bad">⏰ Pasó el plazo para legalizar: envía los recibos ya.</div>':''}${vResumen(c)}
     ${ab?`<input type="file" id="v_file" accept="image/*" capture="environment" data-chg="vfoto" hidden><button class="btn big" style="width:100%;margin:10px 0" data-act="vPick">📷 Agregar recibo</button>`:''}
@@ -1612,8 +1634,11 @@ async chg_vfoto(){
 vEditar(d){const r=VT.det.recibos.find(x=>x.ID===d.id);if(!r)return;VT.foto={fotoId:r.FotoId,ocr:{leido:true}};vFormulario(r,{leido:true,sugerencia:null})},
 async vGuardar(){
   const c=VT.det.comision,ed=VT.editId;
-  const p={comisionId:c.ID,id:ed||'',fotoId:VT.foto.fotoId,hash:VT.foto.hash||'',categoria:val('vf_cat'),fecha:val('vf_fecha'),hora:val('vf_hora'),valor:val('vf_valor'),proveedor:val('vf_prov'),nit:val('vf_nit'),factura:val('vf_fac'),obs:val('vf_obs')};
+  const p={comisionId:c.ID,id:ed||'',fotoId:VT.foto.fotoId,hash:VT.foto.hash||'',categoria:val('vf_cat'),fecha:val('vf_fecha'),hora:val('vf_hora'),valor:String(vMonto(val('vf_valor'))),proveedor:val('vf_prov'),nit:val('vf_nit'),factura:val('vf_fac'),obs:val('vf_obs')};
   if(!ed&&$('vf_ok')&&!$('vf_ok').checked){toast('Marca la casilla: confirma que el valor coincide con la foto',true);return}
+  { const n=vMonto(p.valor), ant=+(c.Anticipo)||0; if(!(n>0)){toast('Escribe el valor total del recibo',true);return}
+    { const sim=(VT.det.recibos||[]).filter(x=>x.ID!==ed).concat([{ID:'__nuevo',Categoria:p.categoria,Fecha:p.fecha,Hora:p.hora||'',Valor:n,Estado:'PENDIENTE',orden:999}]); const mot=vCargoEscolta(sim)['__nuevo']; if(mot&&!confirm('⚠ '+mot+'\n\n¿Guardar de todas formas? Quedará marcado como a cargo del escolta.'))return }
+    if(ant>0&&n>ant&&!confirm('Este recibo es de '+vP(n)+' y el anticipo de la comisión es de '+vP(ant)+'.\n\n¿Es correcto? Revisa la foto: si dice «'+vP(n/100)+'» con centavos «,00», el valor es '+vP(n/100)+'.'))return }
   try{const r=await api('guardarRecibo',p);
     toast(r.alertas.some(a=>a.sev==='R')?'Guardado con alertas: el administrador lo revisará':'Recibo guardado');
     if(r.alertas.length)alert('Avisos del sistema:\n\n'+r.alertas.map(a=>(a.sev==='R'?'🔴 ':'🟡 ')+a.txt).join('\n\n'));
@@ -1624,7 +1649,7 @@ async vAnular(d){if(!confirm('¿Quitar este recibo de la comisión? Queda anulad
 async vEnviar(){if(!confirm('¿Enviar la legalización? Después no podrás cambiar los recibos.'))return;try{await api('enviarLegalizacion',{id:VT.com});toast('Legalización enviada');ACT.vCom({id:VT.com})}catch(e){toast(e.message,true)}},
 async vFoto(d){
   modal('<div class="mut">Cargando foto…</div>');
-  try{const r=await api('verFoto',{fotoId:d.f});modal(`<img src="${r.dataUrl}" style="width:100%;border-radius:8px"><button class="btn ghost" style="width:100%;margin-top:10px" data-act="vVolver">Volver</button>`)}catch(e){toast(e.message,true);ACT.vVolver()}
+  try{const r=await api('verFoto',{fotoId:d.f});PB=()=>ACT.vVolver();modal(`<img src="${r.dataUrl}" style="width:100%;border-radius:8px"><button class="btn ghost" style="width:100%;margin-top:10px" data-act="vVolver">Volver</button>`)}catch(e){toast(e.message,true);ACT.vVolver()}
 },
 async vImagenes(){
   const d=VT.det,c=d.comision;
@@ -1736,10 +1761,12 @@ async vNuevaOk(d){
 },
 async vDecidir(d){
   const r=VT.det.recibos.find(x=>x.ID===d.id);if(!r)return;
+  PB=()=>ACT.vCom({id:VT.com});
+  const CGm=vCargoEscolta(VT.det.recibos)[r.ID]||'';
   modal(`<h2 style="margin-top:0">Revisar recibo N.º ${r.orden}</h2><div class="item"><b>${esc(vCat(r.Categoria))}</b> · ${esc(r.Fecha)} ${esc(r.Hora||'')}<br>${esc(r.Proveedor||'')} ${r.NIT?'· NIT '+esc(r.NIT):''} ${r.Factura?'· Fac. '+esc(r.Factura):''}<br>Digitado <b>${vP(r.Valor)}</b>${r.ValorOCR?` · leído en la foto ${vP(r.ValorOCR)}`:''}${vAlertasHtml(r.Alertas)}</div>
   <button class="btn ghost sm" data-act="vFoto" data-f="${esc(r.FotoId)}">📷 Ver foto</button>
-  <label>Valor que aprueba ($)</label><input id="vd_val" inputmode="numeric" value="${r.Valor}">
-  <label>Nota (obligatoria si rechaza o si hay alerta roja)</label><input id="vd_nota" value="${esc(r.Revision||'')}">
+  ${CGm?`<div class="banner bad">🔴 ${esc(CGm)}<br><b>Valor que aprueba: $0</b> (lo paga el escolta).</div>`:''}<label>Valor que aprueba ($)</label><input id="vd_val" inputmode="numeric" value="${CGm?0:r.Valor}">
+  <label>Nota (obligatoria si rechaza o si hay alerta roja)</label><input id="vd_nota" value="${esc(r.Revision||(CGm?'A cargo del escolta: '+CGm:''))}">
   <div class="row" style="margin-top:10px"><button class="btn ok" data-act="vDecidirOk" data-id="${esc(r.ID)}" data-d="APROBADO">Aprobar</button><button class="btn bad" data-act="vDecidirOk" data-id="${esc(r.ID)}" data-d="RECHAZADO">Rechazar</button><button class="btn ghost" data-act="vCom" data-id="${esc(VT.com)}">Volver</button></div>`);
 },
 async vDecidirOk(d){try{await api('decidirRecibo',{id:d.id,decision:d.d,valorAprob:val('vd_val'),nota:val('vd_nota')});ACT.vCom({id:VT.com})}catch(e){toast(e.message,true)}},
@@ -1747,6 +1774,7 @@ async vLimpios(){try{const r=await api('aprobarLimpios',{id:VT.com});toast(r.apr
 async vFisicos(){try{const r=await api('marcarFisico',{comisionId:VT.com});toast(r.n+' recibos marcados como recibidos en físico');ACT.vCom({id:VT.com})}catch(e){toast(e.message,true)}},
 vCerrar(){
   const q=VT.det.comision.cuadre;
+  PB=()=>ACT.vCom({id:VT.com});
   modal(`<h2 style="margin-top:0">Cerrar comisión</h2><p>${q.accion==='DEVOLVER'?`El escolta debe devolver <b>${vP(q.monto)}</b>.`:q.accion==='REEMBOLSAR'?`Debes reembolsarle <b>${vP(q.monto)}</b>.`:'Cuenta cuadrada.'}</p>
   <label>Valor que devolvió ($)</label><input id="vc_dev" inputmode="numeric" value="${q.accion==='DEVOLVER'?q.monto:0}"><label>Valor que se le reembolsó ($)</label><input id="vc_rei" inputmode="numeric" value="${q.accion==='REEMBOLSAR'?q.monto:0}">
   <p class="mut" style="font-size:13px">Al cerrar ya no se pueden cambiar recibos (puedes reabrirla; queda en el registro).</p>
@@ -1809,7 +1837,7 @@ function vAdminBotones(c,r){
 }
 function vFormulario(r,o){
   const sg=(o&&o.sugerencia)||{},cats=VT.cats,v=(a,b)=>r?r[a]:(sg[b]||'');
-  VT.editId=r?r.ID:'';
+  VT.editId=r?r.ID:'';PB=()=>ACT.vCom({id:VT.com});
   const cf=sg.confianza||'',cand=(sg.candidatos||[]);
   const chips=cand.length&&!r?`<div class="chips">${cand.map(c=>`<button type="button" class="chip" data-act="vChip" data-v="${c.v}">${vP(c.v)}</button>`).join('')}</div><div class="mut" style="font-size:12px">Valores que aparecen en la foto: toca uno solo si es el TOTAL del recibo.</div>`:'';
   const aviso=!o.leido?`<div class="banner warn">${esc(o.motivo||'No se pudo leer la foto.')} Digita el valor mirando el recibo.</div>`:o.vacio?'<div class="banner warn">La foto salió borrosa o sin texto. Toma otra foto más cerca y con buena luz.</div>':
