@@ -275,7 +275,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.19-d';
+const APP_VERSION='2026.11.19-e';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -1697,7 +1697,21 @@ async vImagenes(){
   const ordCat={DESAYUNO:1,ALMUERZO:2,CENA:3,HIDRATACION:4};
   const carga=u=>new Promise((ok,ko)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>ko(new Error('Foto dañada'));i.src=u});
   const recortar=im=>vRecortarIm(im);
-  const total=rs.length;let hechas=0;const archivos=[],resumen=[];
+  const total=rs.length;let hechas=0;const archivos=[],resumen=[],falladas=[];
+  VT.cancelImg=false;const cacheF=VT.fotosCache=VT.fotosCache||{};
+  /* ninguna espera es infinita: cada foto tiene límite de tiempo y 3 intentos; si no llega, se marca y se sigue con las demás */
+  const conTiempo=(pr,ms)=>Promise.race([pr,new Promise((_,ko)=>setTimeout(()=>ko(new Error('Tardó demasiado')),ms))]);
+  const traer=async r=>{
+    if(cacheF[r.FotoId])return cacheF[r.FotoId];
+    let ult;
+    for(let i=0;i<3;i++){
+      if(VT.cancelImg)throw new Error('cancelada');
+      try{const f=await conTiempo(api('verFoto',{fotoId:r.FotoId}),30000);const im=await conTiempo(carga(f.dataUrl),20000);cacheF[r.FotoId]=im;return im}
+      catch(e){ult=e;await new Promise(ok=>setTimeout(ok,800*(i+1)))}
+    }
+    throw ult;
+  };
+  const marcador=r=>{const cv=document.createElement('canvas');cv.width=900;cv.height=600;const x=cv.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,900,600);x.strokeStyle='#c00';x.lineWidth=6;x.strokeRect(3,3,894,594);x.fillStyle='#c00';x.textAlign='center';x.font='bold 44px Arial';x.fillText('FOTO NO DISPONIBLE',450,280);x.font='34px Arial';x.fillText('Recibo N.º '+r.orden,450,340);return{im:cv,sx:0,sy:0,sw:900,sh:600}};
   try{
     for(const [clave,titulo] of GR){
       const lst=rs.filter(r=>grupoDe(r.Categoria)===clave).sort((a,b)=>(ordCat[a.Categoria]||0)-(ordCat[b.Categoria]||0)||(a.orden-b.orden));
@@ -1705,8 +1719,14 @@ async vImagenes(){
       const sumG=lst.reduce((t,r)=>t+(+r.Valor||0),0);const porC={};lst.forEach(r=>porC[r.Categoria]=(porC[r.Categoria]||0)+(+r.Valor||0));const sub=Object.keys(porC).map(k=>vCat(k)+' '+vP(porC[k])).join('   ·   ');resumen.push([titulo,lst.length,sumG]);
       const imgs=[];
       for(const r of lst){
-        modal(`<h2 style="margin-top:0">Preparando imágenes…</h2><p class="mut">Foto ${++hechas} de ${total}. No cierres esta ventana.</p>`);
-        const f=await api('verFoto',{fotoId:r.FotoId});imgs.push({r,c:recortar(await carga(f.dataUrl))});
+        if(VT.cancelImg)throw new Error('Descarga cancelada');
+        hechas++;
+        modal(`<h2 style="margin-top:0">Preparando imágenes…</h2><p class="mut">Foto ${hechas} de ${total}. No cierres esta ventana.</p><div style="height:8px;background:rgba(128,128,128,.3);border-radius:4px;overflow:hidden"><div style="height:8px;width:${Math.round(100*(hechas-1)/total)}%;background:#2ecc71"></div></div>${falladas.length?`<p class="mut" style="font-size:13px">No se pudieron traer: N.º ${falladas.join(', ')}</p>`:''}<button class="btn ghost sm" style="margin-top:12px" data-act="vCancelarImg">Cancelar</button>`);
+        await new Promise(ok=>setTimeout(ok,0));
+        let cr;
+        try{const im=await traer(r);try{cr=recortar(im)}catch(e){cr={im,sx:0,sy:0,sw:im.naturalWidth||im.width,sh:im.naturalHeight||im.height}}}
+        catch(e){if(VT.cancelImg)throw new Error('Descarga cancelada');falladas.push(r.orden);cr=marcador(r)}
+        imgs.push({r,c:cr});
       }
       /* recibos recortados, uno AL LADO del otro en filas del mismo alto (rellenan todo el ancho, sin huecos) */
       const SHEETW=2400,PAD=16,GAP=16,HEAD=90,LAB=54,MAXPART=7200,INW=SHEETW-2*PAD;
@@ -1756,9 +1776,10 @@ async vImagenes(){
       const l=document.createElement('a');l.href=URL.createObjectURL(b);l.download=a.nombre;document.body.appendChild(l);l.click();
       await new Promise(ok=>setTimeout(ok,700));l.remove();URL.revokeObjectURL(l.href);
     }
-    modal(`<h2 style="margin-top:0">Listo</h2><p>Se descargaron <b>${archivos.length}</b> imagen(es): alimentación (desayuno, almuerzo, cena e hidratación juntos), hospedaje, peajes y lavada/otros, con los recibos recortados, sin fondo y uno al lado del otro. El nombre de cada imagen trae su valor total:</p><ul>${archivos.map(a=>`<li>${esc(a.nombre)}</li>`).join('')}</ul><div class="scroll"><table><tr><th>Grupo</th><th>Recibos</th><th>Total</th></tr>${resumen.map(x=>`<tr><td>${esc(x[0])}</td><td>${x[1]}</td><td><b>${vP(x[2])}</b></td></tr>`).join('')}<tr><td><b>TOTAL</b></td><td>${resumen.reduce((t,x)=>t+x[1],0)}</td><td><b>${vP(resumen.reduce((t,x)=>t+x[2],0))}</b></td></tr></table></div><p class="mut" style="font-size:13px">Si el navegador pide permiso para descargar varios archivos, acéptalo.</p><button class="btn" style="width:100%" data-act="vVolver">Volver</button>`);
-  }catch(e){toast(e.message,true);ACT.vVolver()}
+    modal(`<h2 style="margin-top:0">Listo</h2><p>Se descargaron <b>${archivos.length}</b> imagen(es): alimentación (desayuno, almuerzo, cena e hidratación juntos), hospedaje, peajes y lavada/otros, con los recibos recortados, sin fondo y uno al lado del otro. El nombre de cada imagen trae su valor total:</p><ul>${archivos.map(a=>`<li>${esc(a.nombre)}</li>`).join('')}</ul>${falladas.length?`<div class="banner warn">⚠ No se pudo traer la foto de los recibos N.º ${falladas.join(', ')}. En la imagen aparecen marcados como «FOTO NO DISPONIBLE». Revisa tu conexión y vuelve a descargar.</div>`:''}<div class="scroll"><table><tr><th>Grupo</th><th>Recibos</th><th>Total</th></tr>${resumen.map(x=>`<tr><td>${esc(x[0])}</td><td>${x[1]}</td><td><b>${vP(x[2])}</b></td></tr>`).join('')}<tr><td><b>TOTAL</b></td><td>${resumen.reduce((t,x)=>t+x[1],0)}</td><td><b>${vP(resumen.reduce((t,x)=>t+x[2],0))}</b></td></tr></table></div><p class="mut" style="font-size:13px">Si el navegador pide permiso para descargar varios archivos, acéptalo.</p><button class="btn" style="width:100%" data-act="vVolver">Volver</button>`);
+  }catch(e){if(VT.cancelImg)return;toast(e.message,true);ACT.vVolver()}
 },
+vCancelarImg(){VT.cancelImg=true;ACT.vVolver()},
 vVolver(){if(VT.com)ACT.vCom({id:VT.com});else closeModal()},
 /* —— administrador —— */
 async vNueva(d){
