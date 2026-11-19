@@ -275,7 +275,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.19-f';
+const APP_VERSION='2026.11.19-g';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -1552,6 +1552,7 @@ const vBordeBBox=(D,sw,sh)=>{
   for(let y=0;y<sh;y++)if(rowN[y]>sw*.04){y0=Math.min(y0,y);y1=Math.max(y1,y)}
   if(x1<0||y1<0)return null;return{x0,y0,x1:x1+1,y1:y1+1};
 };
+const vNum=n=>String(Math.round(+n||0)).replace(/\B(?=(\d{3})+(?!\d))/g,'.');   /* 1250000 → 1.250.000 (para nombres de archivo) */
 const vEstCls={ABIERTA:'warn',POR_REVISAR:'warn',CERRADA:'ok',PENDIENTE:'warn',OBSERVADO:'bad',APROBADO:'ok',RECHAZADO:'bad'};
 const vEstTxt={ABIERTA:'Abierta',POR_REVISAR:'En revisión',CERRADA:'Cerrada',PENDIENTE:'Pendiente',OBSERVADO:'Observado',APROBADO:'Aprobado',RECHAZADO:'Rechazado'};
 const vBadge=e=>`<span class="badge ${vEstCls[e]||''}">${esc(vEstTxt[e]||e)}</span>`;
@@ -1748,7 +1749,7 @@ async vImagenes(){
             xx+=w+GAP;
           });
         });
-        archivos.push({nombre:`${c.Codigo}_${clave}${hojas.length>1?'_parte'+(hi+1):''}.jpg`,cv});
+        archivos.push({nombre:`${c.Codigo}_${clave}${hojas.length>1?'_parte'+(hi+1):''}_TOTAL_${vNum(totParte)}.jpg`,cv});
       });
     }
     for(const a of archivos){
