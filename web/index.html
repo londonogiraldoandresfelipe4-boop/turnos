@@ -275,7 +275,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.19-k';
+const APP_VERSION='2026.11.19-l';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -286,7 +286,7 @@ const LECT=/^(ver|listar|listaEscoltas|pulso$|miEstado|libroEstado|resumen|repor
 let FALLAS=0;
 async function api(action,payload,publico,ms){
   if(!S.api)throw Object.assign(new Error('Falta el enlace del sistema'),{server:true});
-  const lect=LECT.test(action);if(!ms&&lect)ms=45000; /* las lecturas nunca se quedan colgadas; las escrituras no tienen tope para no duplicar */
+  const lect=LECT.test(action);if(!ms&&lect)ms=30000; /* las lecturas nunca se quedan colgadas; las escrituras no tienen tope para no duplicar */
   let r;
   for(let n=1;;n++){
     const ac=ms?new AbortController():null,tm=ac?setTimeout(()=>ac.abort(),ms):0;
@@ -294,7 +294,7 @@ async function api(action,payload,publico,ms){
       const resp=await fetch(S.api,{method:'POST',signal:ac?ac.signal:undefined,headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,token:publico?'':S.token,payload:{...(payload||{}),cl:Date.now(),dev:DEV,app:ES_APK?'apk':'web'}})});
       r=await resp.json();break;
     }catch(e){
-      if(n<2&&lect){await new Promise(z=>setTimeout(z,1200));continue} /* una lectura fallida se reintenta una vez antes de avisar */
+      if(n<2&&lect&&!(ac&&ac.signal.aborted)){await new Promise(z=>setTimeout(z,800));continue} /* una lectura fallida se reintenta una vez antes de avisar */
       if(ac&&ac.signal.aborted)throw Object.assign(new Error('El servidor tardó demasiado en responder'),{timeout:true});
       FALLAS++;if(FALLAS>=2||navigator.onLine===false){online=false;pintaEstado()} /* el aviso «Sin señal» solo sale si falla dos veces seguidas */
       throw Object.assign(new Error('Sin conexión'),{offline:true})
@@ -1488,7 +1488,7 @@ function mostrarPins(l){
   modal(`<h2 style="margin-top:0">PIN de acceso</h2><div class="banner warn">Anótalos ahora: por seguridad no se vuelven a mostrar (si se pierde uno, se genera otro con el botón PIN).</div>${l.map(x=>`<div class="item"><b>${esc(x.nombre)}</b> → <span style="font-size:22px;font-weight:700">${esc(x.pin)}</span>${x.id&&tel(x.id)?` <a class="btn ghost sm" target="_blank" rel="noopener" href="${esc(wa(tel(x.id),'Tu PIN para el registro de turnos es '+x.pin))}">WhatsApp</a>`:''}</div>`).join('')}<br><div class="row"><button class="btn" data-act="copiar" data-v="${esc(txt)}">Copiar todos</button><button class="btn ghost" data-act="imprimir">Imprimir</button></div>`);
 }
 /* ================= VIÁTICOS (recibos por comisión) ================= */
-const VT={com:null,det:null,foto:null,cats:[],nom:{}};
+const VT={com:null,det:null,foto:null,cats:[],nom:{},urls:{}};
 const vP=n=>'$'+Math.round(+n||0).toLocaleString('es-CO');
 /* Monto en pesos desde lo digitado o leído: «28.908,00» = 28908 (los centavos NO son dos ceros más); «28.908» = 28908; «$ 1,250,000.00» = 1250000 */
 const vMonto=t=>{let x=String(t==null?'':t).replace(/[^\d.,]/g,'');if(!x)return 0;const m=x.match(/^(.*\d)[.,](\d{1,2})$/);if(m)x=m[1];x=x.replace(/[.,]/g,'');return parseInt(x,10)||0};
@@ -1618,7 +1618,10 @@ async vMis(){
 cerrarModal(){closeModal(true)},
 async vCom(d){
   const id=d.id||(VT.com&&VT.com),admin=S.rol==='A';VT.com=id;
-  try{const r=await api('verComision',{id});VT.det=r;VT.cats=r.categorias;VT.nom=r.nombres;
+  const tkc=VT.comTk=(VT.comTk||0)+1;
+  PB=admin?null:()=>ACT.vMis();
+  modal(`<h2 style="margin-top:0">Cargando…</h2><p class="mut">Trayendo la comisión.</p><div style="height:8px;background:rgba(128,128,128,.3);border-radius:4px;overflow:hidden"><div style="height:8px;width:40%;background:#2ecc71;animation:vbarra 1.2s linear infinite"></div></div><style>@keyframes vbarra{0%{margin-left:-40%}100%{margin-left:100%}}</style><button class="btn ghost" style="width:100%;margin-top:12px" data-act="cerrarModal">Cerrar</button>`);
+  try{const r=await api('verComision',{id});if(VT.comTk!==tkc)return;VT.det=r;VT.cats=r.categorias;VT.nom=r.nombres;
     const c=r.comision,ab=c.Estado==='ABIERTA'||(admin&&c.Estado==='POR_REVISAR');
     PB=S.rol==='A'?null:()=>ACT.vMis();
     modal(`<div class="row"><h2 style="margin:0" class="grow">${esc(c.Codigo)} · ${esc(c.Destino)}</h2>${vBadge(c.Estado)}</div><div class="mut" style="margin:4px 0 10px">${esc(c.Escolta)} · ${esc(c.Desde)} a ${esc(c.Hasta)}${c.Vehiculo?' · '+esc(c.Vehiculo):''}${c.TipoVeh&&c.TipoVeh!=='SIN'?' ('+(c.TipoVeh==='BLINDADA'?'camioneta blindada':c.TipoVeh.toLowerCase())+')':''}</div>
@@ -1629,7 +1632,7 @@ async vCom(d){
     ${r.recibos.some(x=>x.FotoId)?'<button class="btn ghost" style="width:100%;margin-top:10px" data-act="vImagenes">🖼 Descargar recibos: Alimentación · Hospedaje · Peajes · Otros</button>':''}
     ${admin?vAdminBotones(c,r):(c.Estado==='ABIERTA'?'<button class="btn big ok" style="width:100%;margin-top:12px" data-act="vEnviar">Enviar legalización</button>':'')}
     <button class="btn ghost" style="width:100%;margin-top:10px" data-act="${admin?'cerrarModal':'vMis'}">${admin?'Cerrar':'← Mis comisiones'}</button>`);
-  }catch(e){toast(e.message,true)}
+  }catch(e){if(VT.comTk!==tkc)return;PB=admin?null:()=>ACT.vMis();modal(`<h2 style="margin-top:0">No se pudo cargar</h2><div class="banner bad">${esc(e.message)}${e.timeout||e.offline?'<br><span style="font-size:13px">Revisa la señal e inténtalo de nuevo.</span>':''}</div><button class="btn" style="width:100%" data-act="vCom" data-id="${esc(id)}">Reintentar</button><button class="btn ghost" style="width:100%;margin-top:10px" data-act="cerrarModal">Cerrar</button>`)}
 },
 vChip(d){const i=$('vf_valor');if(i){i.value=d.v;vVerValor()}},
 vPick(){const f=$('v_file');if(f){f.value='';f.click()}},
@@ -1649,11 +1652,12 @@ async chg_vfoto(){
     }
     if(!vivo())return;
     if(!up)throw ult||new Error('No se pudo subir la foto');
-    paso('Leyendo el valor…','Si tarda, podrás digitarlo tú mismo.');
-    let o={leido:false,motivo:''};
-    try{o=await api('verOcr',{comisionId:c.ID,fotoId:up.fotoId},false,20000)}catch(e){o={leido:false,motivo:e.timeout?'La lectura automática tardó demasiado.':e.message}}
     if(!vivo())return;
-    VT.foto={fotoId:up.fotoId,hash:up.hash,dataUrl,ocr:o};vFormulario(null,o);
+    VT.urls[up.fotoId]=dataUrl;
+    VT.foto={fotoId:up.fotoId,hash:up.hash,dataUrl,ocr:{leido:false,pendiente:true}};
+    vFormulario(null,{leido:false,pendiente:true});   /* el formulario sale YA; el valor leído de la foto llega después */
+    const fid=up.fotoId;
+    VT.ocrP=api('verOcr',{comisionId:c.ID,fotoId:fid},false,20000).catch(e=>({leido:false,motivo:e.timeout?'La lectura automática tardó demasiado.':e.message})).then(o=>{vOcrLlego(tk,fid,o)});
   }catch(e){if(!vivo())return;toast('No se pudo subir el recibo: '+e.message+'. Revisa la señal y vuelve a intentarlo.',true);ACT.vCom({id:c.ID})}
 },
 vCancelarSube(){VT.subeTk=(VT.subeTk||0)+1;ACT.vCom({id:VT.com})},
@@ -1665,17 +1669,27 @@ async vGuardar(){
   { const n=vMonto(p.valor), ant=+(c.Anticipo)||0; if(!(n>0)){toast('Escribe el valor total del recibo',true);return}
     { const sim=(VT.det.recibos||[]).filter(x=>x.ID!==ed).concat([{ID:'__nuevo',Categoria:p.categoria,Fecha:p.fecha,Hora:p.hora||'',Valor:n,Estado:'PENDIENTE',orden:999}]); const mot=vCargoEscolta(sim)['__nuevo']; if(mot&&!confirm('⚠ '+mot+'\n\n¿Guardar de todas formas? Quedará marcado como a cargo del escolta.'))return }
     if(ant>0&&n>ant&&!confirm('Este recibo es de '+vP(n)+' y el anticipo de la comisión es de '+vP(ant)+'.\n\n¿Es correcto? Revisa la foto: si dice «'+vP(n/100)+'» con centavos «,00», el valor es '+vP(n/100)+'.'))return }
-  try{const r=await api('guardarRecibo',p);
+  if(VT.guardando)return;VT.guardando=true;
+  const bt=document.querySelector('#modal [data-act=vGuardar]');if(bt){bt.disabled=true;bt.textContent=VT.ocrP?'Terminando de leer la foto…':'Guardando…'}
+  try{
+    if(VT.ocrP)await Promise.race([VT.ocrP,new Promise(z=>setTimeout(z,20000))]);   /* que la lectura de la foto termine primero en el servidor */
+    if(bt)bt.textContent='Guardando…';
+    const r=await api('guardarRecibo',p,false,60000);
     toast(r.alertas.some(a=>a.sev==='R')?'Guardado con alertas: el administrador lo revisará':'Recibo guardado');
+    VT.guardando=false;
     if(r.alertas.length)alert('Avisos del sistema:\n\n'+r.alertas.map(a=>(a.sev==='R'?'🔴 ':'🟡 ')+a.txt).join('\n\n'));
     ACT.vCom({id:c.ID});
-  }catch(e){toast(e.message,true)}
+  }catch(e){
+    VT.guardando=false;
+    if(e.timeout){toast('El servidor tardó en responder. Revisa si el recibo ya aparece en la lista antes de guardarlo otra vez.',true);ACT.vCom({id:c.ID})}
+    else{toast(e.message,true);const b2=document.querySelector('#modal [data-act=vGuardar]');if(b2){b2.disabled=false;b2.textContent='Guardar recibo'}}
+  }
 },
 async vAnular(d){if(!confirm('¿Quitar este recibo de la comisión? Queda anulado en el historial.'))return;try{await api('anularRecibo',{id:d.id});ACT.vCom({id:VT.com})}catch(e){toast(e.message,true)}},
 async vEnviar(){if(!confirm('¿Enviar la legalización? Después no podrás cambiar los recibos.'))return;try{await api('enviarLegalizacion',{id:VT.com});toast('Legalización enviada');ACT.vCom({id:VT.com})}catch(e){toast(e.message,true)}},
 async vFoto(d){
   modal('<div class="mut">Cargando foto…</div>');
-  try{const r=await api('verFoto',{fotoId:d.f});PB=()=>ACT.vVolver();modal(`<img src="${r.dataUrl}" style="width:100%;border-radius:8px"><button class="btn ghost" style="width:100%;margin-top:10px" data-act="vVolver">Volver</button>`)}catch(e){toast(e.message,true);ACT.vVolver()}
+  try{const url=VT.urls[d.f]||(VT.urls[d.f]=(await api('verFoto',{fotoId:d.f})).dataUrl);PB=()=>ACT.vVolver();modal(`<img src="${url}" style="width:100%;border-radius:8px"><button class="btn ghost" style="width:100%;margin-top:10px" data-act="vVolver">Volver</button>`)}catch(e){toast(e.message,true);ACT.vVolver()}
 },
 async vImagenes(){
   const d=VT.det,c=d.comision;
@@ -1712,11 +1726,15 @@ async vImagenes(){
     let ult;
     for(let i=0;i<3;i++){
       if(VT.cancelImg)throw new Error('cancelada');
-      try{const f=await conTiempo(api('verFoto',{fotoId:r.FotoId}),30000);const im=await conTiempo(carga(f.dataUrl),20000);cacheF[r.FotoId]=im;return im}
+      try{const url=VT.urls[r.FotoId]||(await conTiempo(api('verFoto',{fotoId:r.FotoId}),30000)).dataUrl;const im=await conTiempo(carga(url),20000);VT.urls[r.FotoId]=url;cacheF[r.FotoId]=im;return im}
       catch(e){ult=e;await new Promise(ok=>setTimeout(ok,800*(i+1)))}
     }
     throw ult;
   };
+  /* trae hasta 4 fotos a la vez (antes era una por una): mientras se recorta la 1.ª ya se descargan las siguientes */
+  const prom={};let activos=0;const espera=[];
+  const limite=fn=>new Promise(ok=>{const go=()=>{activos++;fn().then(im=>ok({im}),e=>ok({e})).then(()=>{activos--;if(espera.length)espera.shift()()})};activos<4?go():espera.push(go)});
+  GR.forEach(([clave])=>rs.filter(r=>grupoDe(r.Categoria)===clave).sort((a,b)=>(ordCat[a.Categoria]||0)-(ordCat[b.Categoria]||0)||(a.orden-b.orden)).forEach(r=>{if(!prom[r.FotoId])prom[r.FotoId]=limite(()=>traer(r))}));
   const marcador=r=>{const cv=document.createElement('canvas');cv.width=900;cv.height=600;const x=cv.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,900,600);x.strokeStyle='#c00';x.lineWidth=6;x.strokeRect(3,3,894,594);x.fillStyle='#c00';x.textAlign='center';x.font='bold 44px Arial';x.fillText('FOTO NO DISPONIBLE',450,280);x.font='34px Arial';x.fillText('Recibo N.º '+r.orden,450,340);return{im:cv,sx:0,sy:0,sw:900,sh:600}};
   try{
     for(const [clave,titulo] of GR){
@@ -1730,12 +1748,12 @@ async vImagenes(){
         modal(`<h2 style="margin-top:0">Preparando imágenes…</h2><p class="mut">Foto ${hechas} de ${total}. No cierres esta ventana.</p><div style="height:8px;background:rgba(128,128,128,.3);border-radius:4px;overflow:hidden"><div style="height:8px;width:${Math.round(100*(hechas-1)/total)}%;background:#2ecc71"></div></div>${falladas.length?`<p class="mut" style="font-size:13px">No se pudieron traer: N.º ${falladas.join(', ')}</p>`:''}<button class="btn ghost sm" style="margin-top:12px" data-act="vCancelarImg">Cancelar</button>`);
         await new Promise(ok=>setTimeout(ok,0));
         let cr;
-        try{const im=await traer(r);try{cr=recortar(im)}catch(e){cr={im,sx:0,sy:0,sw:im.naturalWidth||im.width,sh:im.naturalHeight||im.height}}}
+        try{const g=await prom[r.FotoId];if(g.e)throw g.e;const im=g.im;try{cr=recortar(im)}catch(e){cr={im,sx:0,sy:0,sw:im.naturalWidth||im.width,sh:im.naturalHeight||im.height}}}
         catch(e){if(VT.cancelImg)throw new Error('Descarga cancelada');falladas.push(r.orden);cr=marcador(r)}
         imgs.push({r,c:cr});
       }
       /* recibos recortados, uno AL LADO del otro en filas del mismo alto (rellenan todo el ancho, sin huecos) */
-      const SHEETW=2400,PAD=16,GAP=16,HEAD=90,LAB=54,MAXPART=7200,INW=SHEETW-2*PAD;
+      const SHEETW=2400,PAD=16,GAP=16,HEAD=90,LAB=54,MAXPART=6000,INW=SHEETW-2*PAD;
       const A=imgs.map(x=>x.c.sw/x.c.sh),sumA=a=>a.reduce((t,i)=>t+A[i],0);
       const armar=Ht=>{
         const filas=[];let cur=[];
@@ -1756,7 +1774,7 @@ async vImagenes(){
       let hojas=null;
       for(const Ht of [1300,1200,1100,1000,900,800]){const t=armar(Ht);if(t.length===1){hojas=t;break}}
       if(!hojas)hojas=armar(1000);
-      hojas.forEach((hj,hi)=>{
+      for(const [hi,hj] of hojas.entries()){
         const rw=f=>f.ids.reduce((t,i)=>t+A[i]*f.hh,0)+(f.ids.length-1)*GAP;
         const W=Math.max(1400,Math.ceil(Math.max(...hj.filas.map(rw)))+2*PAD),H=HEAD+hj.alto+PAD;
         const totParte=hj.filas.reduce((t,f)=>t+f.ids.reduce((u,k)=>u+(+imgs[k].r.Valor||0),0),0);
@@ -1775,13 +1793,16 @@ async vImagenes(){
             xx+=w+GAP;
           });
         });
-        archivos.push({nombre:`${c.Codigo}_${clave}${hojas.length>1?'_parte'+(hi+1):''}_TOTAL_${vNum(totParte)}.jpg`,cv});
-      });
+        const blob=await new Promise(ok=>cv.toBlob(ok,'image/jpeg',.92));
+        cv.width=cv.height=0;   /* libera la memoria del lienzo grande */
+        if(!blob)throw new Error('No se pudo armar la imagen de '+titulo+'. Cierra otras aplicaciones y vuelve a intentarlo.');
+        archivos.push({nombre:`${c.Codigo}_${clave}${hojas.length>1?'_parte'+(hi+1):''}_TOTAL_${vNum(totParte)}.jpg`,blob});
+        await new Promise(ok=>setTimeout(ok,0));
+      }
     }
     for(const a of archivos){
-      const b=await new Promise(ok=>a.cv.toBlob(ok,'image/jpeg',.92));
-      const l=document.createElement('a');l.href=URL.createObjectURL(b);l.download=a.nombre;document.body.appendChild(l);l.click();
-      await new Promise(ok=>setTimeout(ok,700));l.remove();URL.revokeObjectURL(l.href);
+      const l=document.createElement('a');l.href=URL.createObjectURL(a.blob);l.download=a.nombre;document.body.appendChild(l);l.click();
+      await new Promise(ok=>setTimeout(ok,600));l.remove();URL.revokeObjectURL(l.href);
     }
     modal(`<h2 style="margin-top:0">Listo</h2><p>Se descargaron <b>${archivos.length}</b> imagen(es): alimentación (desayuno, almuerzo, cena e hidratación juntos), hospedaje, peajes y lavada/otros, con los recibos recortados, sin fondo y uno al lado del otro:</p><ul>${archivos.map(a=>`<li>${esc(a.nombre)}</li>`).join('')}</ul>${falladas.length?`<div class="banner warn">⚠ No se pudo traer la foto de los recibos N.º ${falladas.join(', ')}. En la imagen aparecen marcados como «FOTO NO DISPONIBLE». Revisa tu conexión y vuelve a descargar.</div>`:''}<div class="scroll"><table><tr><th>Grupo</th><th>Recibos</th><th>Total</th></tr>${resumen.map(x=>`<tr><td>${esc(x[0])}</td><td>${x[1]}</td><td><b>${vP(x[2])}</b></td></tr>`).join('')}<tr><td><b>TOTAL</b></td><td>${resumen.reduce((t,x)=>t+x[1],0)}</td><td><b>${vP(resumen.reduce((t,x)=>t+x[2],0))}</b></td></tr></table></div><p class="mut" style="font-size:13px">Si el navegador pide permiso para descargar varios archivos, acéptalo.</p><button class="btn" style="width:100%" data-act="vVolver">Volver</button>`);
   }catch(e){if(VT.cancelImg)return;toast(e.message,true);ACT.vVolver()}
@@ -1882,15 +1903,31 @@ function vAdminBotones(c,r){
   const q=c.cuadre;
   return `<div class="row" style="margin-top:12px;flex-wrap:wrap">${c.Estado!=='CERRADA'?`<button class="btn ok sm" data-act="vLimpios">Aprobar todos los sin alerta roja</button><button class="btn ghost sm" data-act="vFisicos">Marcar físicos recibidos</button><button class="btn sm" data-act="vCerrar">Cerrar comisión</button>`:`<button class="btn ghost sm" data-act="vReabrir">Reabrir</button>`}<button class="btn ghost sm" data-act="vImprimir">🖨 Imprimir</button><button class="btn ghost sm" data-act="vCsv" data-id="${esc(c.ID)}">CSV</button>${c.Estado!=='CERRADA'?`<button class="btn ghost sm" data-act="vNueva" data-id="${esc(c.ID)}">Editar comisión</button>`:''}</div>`;
 }
+/* Aviso del formulario según la lectura automática (OCR). o.pendiente = aún leyendo la foto. */
+function vAvisoHtml(r,o){
+  o=o||{};const sg=o.sugerencia||{},cf=sg.confianza||'',cand=sg.candidatos||[];
+  const chips=cand.length&&!r?`<div class="chips">${cand.map(c=>`<button type="button" class="chip" data-act="vChip" data-v="${c.v}">${vP(c.v)}</button>`).join('')}</div><div class="mut" style="font-size:12px">Valores que aparecen en la foto: toca uno solo si es el TOTAL del recibo.</div>`:'';
+  if(r)return '';
+  if(o.pendiente)return '<div class="banner warn">⏳ Leyendo el valor de la foto… puedes ir escribiendo mientras tanto.</div>';
+  const aviso=!o.leido?`<div class="banner warn">${esc(o.motivo||'No se pudo leer la foto.')} Digita el valor mirando el recibo.</div>`:o.vacio?'<div class="banner warn">La foto salió borrosa o sin texto. Toma otra foto más cerca y con buena luz.</div>':
+    (cf==='ALTA'?`<div class="banner ok">Leí el total: <b>${vP(sg.valor)}</b>. Compáralo con la foto antes de guardar.</div>`:cf==='MEDIA'?`<div class="banner warn">Lectura probable del total: <b>${vP(sg.valor)}</b>. <b>Verifica en la foto</b> que sea exacto (cada cifra).</div>`:`<div class="banner bad"><b>No pude leer el total con seguridad.</b> ${esc(sg.motivo||'')} Mira el recibo y escribe el valor tú mismo.</div>${chips}`);
+  const rojo=[].concat((o.licor||[]).length?[`🔴 Parece incluir LICOR/cigarrillos (${o.licor.slice(0,3).join(', ')}).`]:[],(o.aseo||[]).length?[`🔴 Parece incluir elementos de ASEO/personales (${o.aseo.slice(0,3).join(', ')}).`]:[]);
+  return aviso+rojo.map(x=>`<div class="banner bad">${esc(x)}<br><span style="font-size:13px">Esto no se paga con viáticos. Si pagaste otra cosa en el mismo recibo, sepárala o explícalo en la nota.</span></div>`).join('');
+}
+/* Llega la lectura de la foto: actualiza el aviso y rellena SOLO los campos que siguen vacíos (nunca pisa lo que el escolta ya escribió) */
+function vOcrLlego(tk,fid,o){
+  if(VT.subeTk!==tk||!VT.foto||VT.foto.fotoId!==fid)return;
+  VT.foto.ocr=o;VT.ocrP=null;
+  if(!$('vf_aviso')||VT.editId)return;   /* ya cerró el formulario o está editando otro recibo */
+  const sg=(o&&o.sugerencia)||{};
+  [['vf_cat','categoria'],['vf_fecha','fecha'],['vf_hora','hora'],['vf_valor','valor'],['vf_prov','proveedor'],['vf_nit','nit'],['vf_fac','factura']].forEach(([id,k])=>{const e=$(id);if(e&&!e.value&&sg[k]!=null&&sg[k]!=='')e.value=sg[k]});
+  $('vf_aviso').innerHTML=vAvisoHtml(null,o);vVerValor();
+}
 function vFormulario(r,o){
   const sg=(o&&o.sugerencia)||{},cats=VT.cats,v=(a,b)=>r?r[a]:(sg[b]||'');
   VT.editId=r?r.ID:'';PB=()=>ACT.vCom({id:VT.com});
-  const cf=sg.confianza||'',cand=(sg.candidatos||[]);
-  const chips=cand.length&&!r?`<div class="chips">${cand.map(c=>`<button type="button" class="chip" data-act="vChip" data-v="${c.v}">${vP(c.v)}</button>`).join('')}</div><div class="mut" style="font-size:12px">Valores que aparecen en la foto: toca uno solo si es el TOTAL del recibo.</div>`:'';
-  const aviso=!o.leido?`<div class="banner warn">${esc(o.motivo||'No se pudo leer la foto.')} Digita el valor mirando el recibo.</div>`:o.vacio?'<div class="banner warn">La foto salió borrosa o sin texto. Toma otra foto más cerca y con buena luz.</div>':
-    (r?'':(cf==='ALTA'?`<div class="banner ok">Leí el total: <b>${vP(sg.valor)}</b>. Compáralo con la foto antes de guardar.</div>`:cf==='MEDIA'?`<div class="banner warn">Lectura probable del total: <b>${vP(sg.valor)}</b>. <b>Verifica en la foto</b> que sea exacto (cada cifra).</div>`:`<div class="banner bad"><b>No pude leer el total con seguridad.</b> ${esc(sg.motivo||'')} Mira el recibo y escribe el valor tú mismo.</div>${chips}`));
-  const rojo=[].concat((o.licor||[]).length?[`🔴 Parece incluir LICOR/cigarrillos (${o.licor.slice(0,3).join(', ')}).`]:[],(o.aseo||[]).length?[`🔴 Parece incluir elementos de ASEO/personales (${o.aseo.slice(0,3).join(', ')}).`]:[]);
-  modal(`<h2 style="margin-top:0">${r?'Editar recibo':'Nuevo recibo'}</h2>${r?'':`<img src="${VT.foto.dataUrl}" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px">`}${aviso}${rojo.map(x=>`<div class="banner bad">${esc(x)}<br><span style="font-size:13px">Esto no se paga con viáticos. Si pagaste otra cosa en el mismo recibo, sepárala o explícalo en la nota.</span></div>`).join('')}
+  const avisoTodo=vAvisoHtml(r,o||{});
+  modal(`<h2 style="margin-top:0">${r?'Editar recibo':'Nuevo recibo'}</h2>${r?'':`<img src="${VT.foto.dataUrl}" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px">`}<div id="vf_aviso">${avisoTodo}</div>
   <label>Categoría *</label><select id="vf_cat"><option value="">— elegir —</option>${cats.map(c=>`<option value="${c}" ${v('Categoria','categoria')===c?'selected':''}>${esc(vCat(c))}</option>`).join('')}</select>
   <div class="grid2"><div><label>Fecha *</label><input type="date" id="vf_fecha" value="${esc(v('Fecha','fecha'))}"></div><div><label>Hora</label><input type="time" id="vf_hora" value="${esc(v('Hora','hora'))}"></div></div>
   <label>Valor total del recibo ($) *</label><input id="vf_valor" inputmode="numeric" value="${esc(v('Valor','valor')||'')}"><div id="vf_vista" style="font-size:22px;font-weight:700;margin:2px 0 6px"></div>
@@ -2060,13 +2097,13 @@ const raiz=document.documentElement;
 function tema(t){if(t==='dia')raiz.setAttribute('data-tema','dia');else raiz.removeAttribute('data-tema');const m=document.querySelector('meta[name=theme-color]');if(m)m.content=t==='dia'?'#f9fbfe':'#070e1c'}
 tema(LS('tema')||'noche');
 const pad=n=>String(n).padStart(2,'0');
-function hora(){const d=new Date();const h=pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());const f=d.toLocaleDateString('es-CO',{weekday:'short',day:'2-digit',month:'short'}).replace(/\./g,'');document.querySelectorAll('header .reloj').forEach(r=>{r.firstChild.nodeValue=h;r.lastChild.textContent=f})}
+function hora(){const d=new Date();const h=pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());const f=d.toLocaleDateString('es-CO',{weekday:'short',day:'2-digit',month:'short'}).replace(/\./g,'');document.querySelectorAll('header .reloj').forEach(r=>{if(r.firstChild.nodeValue!==h)r.firstChild.nodeValue=h;if(r.lastChild.textContent!==f)r.lastChild.textContent=f})}
 function cabecera(){
   document.querySelectorAll('header').forEach(h=>{
     if(!h.querySelector('.led')){const l=document.createElement('i');l.className='led';l.title='Conexión';h.insertBefore(l,h.firstChild)}
     if(!h.querySelector('.reloj')){const r=document.createElement('div');r.className='reloj';r.innerHTML='00:00:00<small></small>';const b=h.querySelector('button');h.insertBefore(r,b)}
     if(!h.querySelector('.btema')){const b=document.createElement('button');b.className='btema';b.type='button';b.setAttribute('aria-label','Cambiar entre modo noche y modo día');h.appendChild(b)}
-    const bt=h.querySelector('.btema');if(bt)bt.textContent=raiz.getAttribute('data-tema')==='dia'?'🌙':'☀';
+    const bt=h.querySelector('.btema');if(bt){const ic=raiz.getAttribute('data-tema')==='dia'?'🌙':'☀';if(bt.textContent!==ic)bt.textContent=ic}
     const led=h.querySelector('.led');if(led)led.classList.toggle('off',!navigator.onLine);
   });hora();
 }
