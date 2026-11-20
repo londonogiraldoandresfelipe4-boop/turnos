@@ -275,7 +275,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.19-h';
+const APP_VERSION='2026.11.19-i';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -417,7 +417,7 @@ setInterval(gpsGuardia,20000);
 const rastLink=v=>{const m=(A.data.tab||{}).rast||{},k=String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');return m[k]?` <a class="badge ok" target="_blank" rel="noopener" href="${esc(m[k])}">📍 ver en vivo</a>`:''};
 let SALUD=null;
 async function pintaSalud(){
-  try{if(!SALUD||Date.now()-SALUD.t>120000)SALUD={t:Date.now(),d:await api('saludSistema')};const d=SALUD.d;const b=$('saludBox');if(!b)return;
+  try{if(!SALUD||Date.now()-SALUD.t>300000)SALUD={t:Date.now(),d:await api('saludSistema')};const d=SALUD.d;const b=$('saludBox');if(!b)return;
     const prob=[];if(d.disparadoresFaltan.length)prob.push('Faltan disparadores: '+d.disparadoresFaltan.join(', '));if(d.espejo.activo&&d.espejo.sucio)prob.push('La base de datos espejo tiene cambios pendientes de copiar');if(d.espejo.enCola>5)prob.push('Cola del espejo larga ('+d.espejo.enCola+')');
     const sg=d.turnosAbiertos.filter(t=>t.sinGpsMin!=null&&t.sinGpsMin>20),larg=d.turnosAbiertos.filter(t=>t.horas>14);
     if(sg.length)prob.push('GPS sin puntos válidos: '+sg.map(t=>nombreCorto(t.escolta)+' ('+t.sinGpsMin+' min · '+(t.impreciso?'celular conectado pero GPS impreciso '+t.prec+' m':'el celular no está enviando')+(t.app?' · '+(t.app==='apk'?'APK':'navegador'):'')+')').join(', '));if(larg.length)prob.push('Turnos abiertos hace más de 14 h: '+larg.map(t=>nombreCorto(t.escolta)).join(', '));
@@ -524,7 +524,7 @@ let EST=jp(LS('rt_est'),null);
 function vistaEscolta(){
   $('root').innerHTML=`<header><h1>${esc(nombreCorto(S.nombre))}<small>${esc(S.cfg.operacion||'')}</small></h1><button data-act="chequeo">Revisar celular</button><button data-act="salir">Salir</button></header><main><div id="estado"></div><div id="esc"></div></main>`;
   pintaEstado();pintaEsc();cargaEsc(false);flush();
-  clearInterval(T.pulso);T.pulso=setInterval(pulsoEsc,30000);
+  clearInterval(T.pulso);T.pulso=setInterval(pulsoEsc,90000);
   clearInterval(T.tic);T.tic=setInterval(tic,1000);
   clearInterval(T.min);T.min=setInterval(()=>{if(S.token&&S.rol==='E'&&!$('modal')&&!(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))){pintaEsc();alertaInicio()}},60000);
 }
@@ -614,8 +614,8 @@ function vistaAdmin(){
   A.tab='tablero';
   $('root').innerHTML=`<header><h1>${S.rol==='A'?'Administrador':'Central'}<small>${esc(S.cfg.operacion||'')}</small></h1><button data-act="salir">Salir</button></header><main><div id="estado"></div><div class="tabs" id="tabs"></div><div id="vista"></div></main>`;
   pintaTabs();irTab(A.tab);
-  clearInterval(T.pulso);pulsoVisto=null;T.pulso=setInterval(pulsoAdm,20000);pulsoAdm();
-  clearInterval(T.gps);T.gps=setInterval(()=>{const ab=(A.data.tab||{}).abiertos||[];if(A.tab==='tablero'&&!$('modal')&&S.token&&ab.some(x=>x.Tipo==='CARAVANA'))VISTAS.tablero().catch(()=>{})},60000);
+  clearInterval(T.pulso);pulsoVisto=null;T.pulso=setInterval(pulsoAdm,60000);pulsoAdm();
+  clearInterval(T.gps);T.gps=setInterval(()=>{const ab=(A.data.tab||{}).abiertos||[];if(A.tab==='tablero'&&!$('modal')&&S.token&&ab.some(x=>x.Tipo==='CARAVANA'))VISTAS.tablero().catch(()=>{})},180000);
   if(S.impPend){const c=S.impPend;S.impPend=null;if(S.rol!=='A')toast('Entra como administrador para importar la programación del Asistente',true);else setTimeout(()=>{irTab('prog');setTimeout(()=>{ACT.impAbrir();const t=$('imp_c');if(t){t.value=c;ACT.impVer()}},500)},300)}
 }
 function pintaTabs(){const l=S.rol==='A'?TABS_A:TABS_C;$('tabs').innerHTML=l.map(([k,n])=>`<button class="${A.tab===k?'on':''}" data-act="tab" data-t="${k}">${n}</button>`).join('')}
@@ -801,7 +801,7 @@ async tablero(){
   if(S.rol==='C')h+=cajaNtfy(d.ntfy,'Así te llegan las respuestas a tus solicitudes aunque la app esté cerrada.');
   if(S.rol==='A'&&(d.actividad||[]).length)h+=`<div class="card"><h2>Actividad reciente</h2>${d.actividad.map(e=>{const [m,q,a,dt]=e.split('|');const [t]=titEvento(e);return `<div class="item" style="padding:6px 0"><span class="mut">${esc(m.slice(5,16))}</span> · <b>${esc(t)}</b> <span class="mut">${esc(dt)}</span></div>`}).join('')}</div>`;
   h+=`<div class="card"><h2>Horas de la semana (tope ${d.tope} h)</h2>${d.semana.map(e=>`<div class="item"><div class="row"><b class="grow">${esc(nombreCorto(e.nombre))} ${e.enTurno?'<span class="badge ok">en turno</span>':''}</b><span class="hh ${hcls(e.total,d.tope)}">${f1(e.total)}<small>H</small>${e.total>d.tope?`<em>+${f1(e.total-d.tope)}</em>`:''}</span></div>${barra(e.total,d.tope)}<div class="sub-h"><span>REPCO ${f1(e.repco)}</span><span>Prosegur ${f1(e.prosegur)}</span></div></div>`).join('')}</div>`;
-  $('vista').innerHTML=h+(S.rol==='A'?'<div id="saludBox"></div>':'');if(S.rol==='A')pintaSalud();
+  $('vista').innerHTML=h+(S.rol==='A'?'<div id="saludBox"></div>':'');if(S.rol==='A')setTimeout(()=>{if($('saludBox'))pintaSalud()},12000);
 },
 async turnos(){
   if(!A.data.tf)A.data.tf={desde:addD(hoyL(),-6),hasta:hoyL(),escoltaId:''};
