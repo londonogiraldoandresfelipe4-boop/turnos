@@ -275,20 +275,23 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.19-i';
+const APP_VERSION='2026.11.19-j';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
 const NOM_ACC={iniciarTurno:'Inicio de turno',cerrarTurno:'Cierre de turno',registrarParada:'Parada / novedad',registrarMovimiento:'Movimiento de bodega',sos:'SOS',solicitarCambio:'Solicitud de cambio',confirmarProgramacion:'Confirmación de turno'};
 
 const ES_APK=(()=>{try{const C=window.Capacitor;return !!(C&&C.isNativePlatform&&C.isNativePlatform())}catch(e){return false}})();
-async function api(action,payload,publico){
+async function api(action,payload,publico,ms){
   if(!S.api)throw Object.assign(new Error('Falta el enlace del sistema'),{server:true});
-  let r;
+  let r;const ac=ms?new AbortController():null,tm=ac?setTimeout(()=>ac.abort(),ms):0;
   try{
-    const resp=await fetch(S.api,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,token:publico?'':S.token,payload:{...(payload||{}),cl:Date.now(),dev:DEV,app:ES_APK?'apk':'web'}})});
+    const resp=await fetch(S.api,{method:'POST',signal:ac?ac.signal:undefined,headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,token:publico?'':S.token,payload:{...(payload||{}),cl:Date.now(),dev:DEV,app:ES_APK?'apk':'web'}})});
     r=await resp.json();
-  }catch(e){online=false;pintaEstado();throw Object.assign(new Error('Sin conexión'),{offline:true})}
+  }catch(e){
+    if(ac&&ac.signal.aborted)throw Object.assign(new Error('El servidor tardó demasiado en responder'),{timeout:true});
+    online=false;pintaEstado();throw Object.assign(new Error('Sin conexión'),{offline:true})
+  }finally{if(tm)clearTimeout(tm)}
   online=true;pintaEstado();
   if(!r.ok){
     if(r.error==='SESION'){salir(true);throw Object.assign(new Error('Sesión vencida'),{server:true,sesion:true})}
@@ -1624,15 +1627,28 @@ vChip(d){const i=$('vf_valor');if(i){i.value=d.v;vVerValor()}},
 vPick(){const f=$('v_file');if(f){f.value='';f.click()}},
 async chg_vfoto(){
   const f=$('v_file').files[0];if(!f)return;
-  const c=VT.det.comision;
-  modal('<h2 style="margin-top:0">Leyendo recibo…</h2><p class="mut">Comprimiendo la foto y leyendo el texto. Unos segundos.</p>');
+  const c=VT.det.comision,tk=VT.subeTk=(VT.subeTk||0)+1,vivo=()=>VT.subeTk===tk;
+  const paso=(t,det)=>{if(vivo())modal(`<h2 style="margin-top:0">${t}</h2><p class="mut">${det||''}</p><div style="height:8px;background:rgba(128,128,128,.3);border-radius:4px;overflow:hidden"><div style="height:8px;width:40%;background:#2ecc71;animation:vbarra 1.2s linear infinite"></div></div><style>@keyframes vbarra{0%{margin-left:-40%}100%{margin-left:100%}}</style><button class="btn ghost" style="width:100%;margin-top:12px" data-act="vCancelarSube">Cancelar</button>`)};
   try{
-    const dataUrl=await vComprimir(f);
-    const up=await api('subirFotoRecibo',{comisionId:c.ID,foto:dataUrl});
-    let o={leido:false,motivo:''};try{o=await api('verOcr',{comisionId:c.ID,fotoId:up.fotoId})}catch(e){o={leido:false,motivo:e.message}}
+    paso('Preparando la foto…','Comprimiendo la imagen.');
+    let dataUrl=await vComprimir(f);if(!vivo())return;
+    let up=null,ult=null;
+    for(let i=1;i<=3&&!up;i++){
+      paso('Subiendo el recibo…','Intento '+i+' de 3'+(i>1?' · conexión lenta: se reduce el tamaño de la foto':'')+'. No cierres esta ventana.');
+      try{up=await api('subirFotoRecibo',{comisionId:c.ID,foto:dataUrl},false,60000)}
+      catch(e){ult=e;if(!vivo())return;if(e.sesion||(e.server&&!e.timeout))throw e;
+        if(i<3){try{dataUrl=await vComprimir(f,i===1?1280:1024,i===1?.6:.5)}catch(_){}await new Promise(r=>setTimeout(r,1500*i))}}
+    }
+    if(!vivo())return;
+    if(!up)throw ult||new Error('No se pudo subir la foto');
+    paso('Leyendo el valor…','Si tarda, podrás digitarlo tú mismo.');
+    let o={leido:false,motivo:''};
+    try{o=await api('verOcr',{comisionId:c.ID,fotoId:up.fotoId},false,20000)}catch(e){o={leido:false,motivo:e.timeout?'La lectura automática tardó demasiado.':e.message}}
+    if(!vivo())return;
     VT.foto={fotoId:up.fotoId,hash:up.hash,dataUrl,ocr:o};vFormulario(null,o);
-  }catch(e){toast(e.message,true);ACT.vCom({id:c.ID})}
+  }catch(e){if(!vivo())return;toast('No se pudo subir el recibo: '+e.message+'. Revisa la señal y vuelve a intentarlo.',true);ACT.vCom({id:c.ID})}
 },
+vCancelarSube(){VT.subeTk=(VT.subeTk||0)+1;ACT.vCom({id:VT.com})},
 vEditar(d){const r=VT.det.recibos.find(x=>x.ID===d.id);if(!r)return;VT.foto={fotoId:r.FotoId,ocr:{leido:true}};vFormulario(r,{leido:true,sugerencia:null})},
 async vGuardar(){
   const c=VT.det.comision,ed=VT.editId;
@@ -1876,10 +1892,14 @@ function vFormulario(r,o){
   <div class="row" style="margin-top:12px"><button class="btn ok" data-act="vGuardar">Guardar recibo</button><button class="btn ghost" data-act="vCom" data-id="${esc(VT.com)}">Cancelar</button></div>`);
   vVerValor();
 }
-function vComprimir(file){
-  return new Promise((ok,bad)=>{const u=URL.createObjectURL(file),im=new Image();
-    im.onload=()=>{const M=1600,k=Math.min(1,M/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',.72))};
+function vComprimir(file,M,Q){
+  M=M||1600;Q=Q||.72;
+  const dibuja=(src,w,h)=>{const k=Math.min(1,M/Math.max(w,h)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(w*k));c.height=Math.max(1,Math.round(h*k));c.getContext('2d').drawImage(src,0,0,c.width,c.height);return c.toDataURL('image/jpeg',Q)};
+  const viaImg=()=>new Promise((ok,bad)=>{const u=URL.createObjectURL(file),im=new Image();
+    im.onload=()=>{try{ok(dibuja(im,im.naturalWidth||im.width,im.naturalHeight||im.height))}catch(e){bad(e)}finally{URL.revokeObjectURL(u)}};
     im.onerror=()=>{URL.revokeObjectURL(u);bad(new Error('No se pudo abrir la foto'))};im.src=u});
+  const viaBitmap=async()=>{const b=await createImageBitmap(file);try{return dibuja(b,b.width,b.height)}finally{if(b.close)b.close()}};
+  return Promise.race([(window.createImageBitmap?viaBitmap().catch(viaImg):viaImg()),new Promise((_,ko)=>setTimeout(()=>ko(new Error('No se pudo procesar la foto a tiempo. Toma otra foto.')),25000))]);
 }
 VISTAS.viaticos=async function(){
   const [l,f]=await Promise.all([api('listarComisiones',{}),api('verFondo',{})]);A.data.vc=l.comisiones;VT.ads=f.adelantos||[];
