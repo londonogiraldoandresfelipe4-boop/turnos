@@ -275,24 +275,32 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.19-j';
+const APP_VERSION='2026.11.19-k';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
 const NOM_ACC={iniciarTurno:'Inicio de turno',cerrarTurno:'Cierre de turno',registrarParada:'Parada / novedad',registrarMovimiento:'Movimiento de bodega',sos:'SOS',solicitarCambio:'Solicitud de cambio',confirmarProgramacion:'Confirmación de turno'};
 
 const ES_APK=(()=>{try{const C=window.Capacitor;return !!(C&&C.isNativePlatform&&C.isNativePlatform())}catch(e){return false}})();
+const LECT=/^(ver|listar|listaEscoltas|pulso$|miEstado|libroEstado|resumen|reporte|puntualidad|saludSistema|ping|estadoAdmin|ejecutivo|cargar|exportar|sugerir|ntfyInfo)/;
+let FALLAS=0;
 async function api(action,payload,publico,ms){
   if(!S.api)throw Object.assign(new Error('Falta el enlace del sistema'),{server:true});
-  let r;const ac=ms?new AbortController():null,tm=ac?setTimeout(()=>ac.abort(),ms):0;
-  try{
-    const resp=await fetch(S.api,{method:'POST',signal:ac?ac.signal:undefined,headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,token:publico?'':S.token,payload:{...(payload||{}),cl:Date.now(),dev:DEV,app:ES_APK?'apk':'web'}})});
-    r=await resp.json();
-  }catch(e){
-    if(ac&&ac.signal.aborted)throw Object.assign(new Error('El servidor tardó demasiado en responder'),{timeout:true});
-    online=false;pintaEstado();throw Object.assign(new Error('Sin conexión'),{offline:true})
-  }finally{if(tm)clearTimeout(tm)}
-  online=true;pintaEstado();
+  const lect=LECT.test(action);if(!ms&&lect)ms=45000; /* las lecturas nunca se quedan colgadas; las escrituras no tienen tope para no duplicar */
+  let r;
+  for(let n=1;;n++){
+    const ac=ms?new AbortController():null,tm=ac?setTimeout(()=>ac.abort(),ms):0;
+    try{
+      const resp=await fetch(S.api,{method:'POST',signal:ac?ac.signal:undefined,headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,token:publico?'':S.token,payload:{...(payload||{}),cl:Date.now(),dev:DEV,app:ES_APK?'apk':'web'}})});
+      r=await resp.json();break;
+    }catch(e){
+      if(n<2&&lect){await new Promise(z=>setTimeout(z,1200));continue} /* una lectura fallida se reintenta una vez antes de avisar */
+      if(ac&&ac.signal.aborted)throw Object.assign(new Error('El servidor tardó demasiado en responder'),{timeout:true});
+      FALLAS++;if(FALLAS>=2||navigator.onLine===false){online=false;pintaEstado()} /* el aviso «Sin señal» solo sale si falla dos veces seguidas */
+      throw Object.assign(new Error('Sin conexión'),{offline:true})
+    }finally{if(tm)clearTimeout(tm)}
+  }
+  FALLAS=0;online=true;pintaEstado();
   if(!r.ok){
     if(r.error==='SESION'){salir(true);throw Object.assign(new Error('Sesión vencida'),{server:true,sesion:true})}
     throw Object.assign(new Error(r.msg||r.error||'Error'),{server:true});
@@ -1751,6 +1759,7 @@ async vImagenes(){
       hojas.forEach((hj,hi)=>{
         const rw=f=>f.ids.reduce((t,i)=>t+A[i]*f.hh,0)+(f.ids.length-1)*GAP;
         const W=Math.max(1400,Math.ceil(Math.max(...hj.filas.map(rw)))+2*PAD),H=HEAD+hj.alto+PAD;
+        const totParte=hj.filas.reduce((t,f)=>t+f.ids.reduce((u,k)=>u+(+imgs[k].r.Valor||0),0),0);
         const cv=document.createElement('canvas');cv.width=W;cv.height=H;const x=cv.getContext('2d');
         x.fillStyle='#fff';x.fillRect(0,0,W,H);x.fillStyle='#111';x.font='bold 30px Arial';
         x.fillText(`${c.Codigo} · ${titulo.toUpperCase()}${hojas.length>1?` · parte ${hi+1}/${hojas.length}`:''} · ${lst.length} recibo(s) · TOTAL ${vP(sumG)}`,PAD,44);
