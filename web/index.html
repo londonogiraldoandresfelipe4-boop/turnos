@@ -275,7 +275,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.19-l';
+const APP_VERSION='2026.11.23-a';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -542,7 +542,7 @@ function vistaEscolta(){
 const avisadoIni=new Set();
 function alertaInicio(){if(!EST||EST.turno)return;const hoy=hoyL(),tt=EST.tarde||10;if((EST.historial||[]).some(x=>x.Fecha===hoy))return;(EST.programacion||[]).filter(x=>x.Fecha===hoy&&!x.Motivo).forEach(x=>{const dif=mins(naive())-mins(x.Hora),k=x.ID+(dif>=tt?'T':'P');if(dif>=-10&&!avisadoIni.has(k)){avisadoIni.add(k);notificar(dif>=tt?'⛔ Aún no inicias tu turno':'⏰ Tu turno es a las '+x.Hora,dif>=tt?'Inicia o reporta el motivo':'Inícialo en la app');sonido()}})}
 async function cargaEsc(silencio){
-  try{const E=await api('miEstado');E.base=Date.now();EST=E;LS('rt_est',JSON.stringify(E));pintaEsc()}
+  try{const E=await api('miEstado');E.base=Date.now();EST=E;LS('rt_est',JSON.stringify(E));pintaEsc();if(!DOCS_T||Date.now()-DOCS_T>600000)docsCarga(true)}
   catch(e){if(!silencio&&!e.offline)toast(e.message,true)}
 }
 let ultimaProg='',ultimaResp=null;
@@ -582,7 +582,7 @@ function pintaEsc(){
   if(!EST){c.innerHTML='<div class="card mut">Cargando…</div>';return}
   const t=EST.turno,sem=EST.semana||{repco:0,prosegur:0,total:0},tope=EST.tope||60;
   const extra=t?transcurrido():0;const totalVivo=sem.total; // el servidor ya cuenta el turno abierto
-  let h='';
+  let h=docsBannerEsc();
   h+=`<div class="card"><h2>Mis horas de la semana</h2><div class="row"><b style="font-size:24px">${f1(totalVivo)}</b><span class="mut">de ${tope} h</span><span class="grow"></span>${totalVivo>tope?'<span class="badge bad">Superaste el tope</span>':totalVivo>tope*0.85?'<span class="badge warn">Cerca del tope</span>':'<span class="badge ok">En rango</span>'}</div>${barra(totalVivo,tope)}<div class="mut" style="margin-top:6px">REPCO ${f1(sem.repco)} h · Prosegur ${f1(sem.prosegur)} h</div>${compBloque(totalVivo,tope)}</div>`;
   if(!t){
     const hoy=hoyL(),asig=(EST.programacion||[]).filter(x=>x.Fecha===hoy);
@@ -609,6 +609,7 @@ function pintaEsc(){
   h+=`<div class="card"><h2>Mi programación</h2>${pr.length?pr.map(x=>`<div class="item"><div class="row"><div class="grow"><b>${fecha(x.Fecha)} · ${esc(x.Hora)}</b><br>${esc(x.Punto)}${x.Placa?' · '+esc(x.Placa):''} ${tbd(x.Tipo)}${x.Nota?`<br><span class="mut">${esc(x.Nota)}</span>`:''}</div>${x.Estado==='CONFIRMADA'?'<span class="badge ok">Confirmado</span>':`<button class="btn ok" data-act="confirmarProg" data-id="${esc(x.ID)}">CONFIRMAR</button>`}</div></div>`).join(''):'<p class="mut" style="margin:0">Sin turnos programados.</p>'}</div>`;
   h+=`<div class="card"><h2>🏅 Puntualidad del equipo</h2><p class="mut" style="margin:0 0 10px">Mira cómo va la puntualidad de todos y tu propio porcentaje.</p><button class="btn" data-act="abrirPunt">Ver tabla de puntualidad</button></div>`;
   h+=`<div class="card"><h2>🧾 Viáticos</h2><p class="mut" style="margin:0 0 10px">Carga los recibos de tu comisión: peajes, hospedaje, comidas, lavada y gasolina.</p><button class="btn" data-act="vMis">Mis comisiones y recibos</button></div>`;
+  h+=docsCardEsc();
   const hi=EST.historial||[];
   h+=`<div class="card"><h2>Mis últimos turnos</h2>${hi.length?`<div class="scroll"><table><tr><th>Día</th><th>Tipo</th><th>Horario</th><th>Horas</th></tr>${hi.map(x=>`<tr><td>${fecha(x.Fecha)}</td><td>${esc(TIPOS[x.Tipo]||x.Tipo)}</td><td>${hm(x.Inicio)}–${hm(x.Fin)}</td><td>${f1(x.horas)}</td></tr>`).join('')}</table></div>`:'<p class="mut" style="margin:0">Aún no hay turnos.</p>'}</div>`;
   if(!LS('rt_ntfy_ok'))h+=cajaNtfy(EST.ntfy,'<br><button class="btn ghost sm" style="margin-top:6px" data-act="ntfyOk">Ya lo activé, ocultar</button>');
@@ -619,8 +620,8 @@ function formTipos(){return Object.entries(TIPOS).map(([k,n])=>`<option value="$
 
 /* ================= ADMIN / CENTRAL ================= */
 const A={tab:'tablero',data:{},cfg:null};
-const TABS_A=[['ejecutivo','Ejecutivo'],['tablero','Tablero'],['turnos','Turnos'],['prog','Programación'],['horas','Horas'],['peso','Peso movido'],['punt','Puntualidad'],['solic','Solicitudes'],['escoltas','Escoltas'],['viaticos','Viáticos'],['caja','Caja'],['cuadre','Cuadre'],['export','Exportar'],['ajustes','Ajustes']];
-const TABS_C=[['ejecutivo','Ejecutivo'],['tablero','Tablero'],['peso','Peso movido'],['prog','Programación'],['solic','Solicitar personal']];
+const TABS_A=[['ejecutivo','Ejecutivo'],['tablero','Tablero'],['turnos','Turnos'],['prog','Programación'],['horas','Horas'],['peso','Peso movido'],['punt','Puntualidad'],['solic','Solicitudes'],['escoltas','Escoltas'],['docs','Documentos'],['viaticos','Viáticos'],['caja','Caja'],['cuadre','Cuadre'],['export','Exportar'],['ajustes','Ajustes']];
+const TABS_C=[['ejecutivo','Ejecutivo'],['tablero','Tablero'],['peso','Peso movido'],['prog','Programación'],['solic','Solicitar personal'],['docs','Documentos']];
 function vistaAdmin(){
   A.tab='tablero';
   $('root').innerHTML=`<header><h1>${S.rol==='A'?'Administrador':'Central'}<small>${esc(S.cfg.operacion||'')}</small></h1><button data-act="salir">Salir</button></header><main><div id="estado"></div><div class="tabs" id="tabs"></div><div id="vista"></div></main>`;
@@ -1061,6 +1062,7 @@ async permisoNotif(){if(!('Notification' in window))return toast('Este navegador
 copiar(d){navigator.clipboard.writeText(d.v).then(()=>toast('Copiado'),()=>toast('No se pudo copiar',true))},
 /* --- escolta --- */
 abrirInicio(){
+  if(DOCS&&DOCS.bloqueo){toast('Primero ponte al día con tus documentos',true);ACT.docsAbrir();return}
   precalentarPos();
   const hoy=hoyL(),asig=((EST&&EST.programacion)||[]).filter(x=>x.Fecha===hoy);
   const ref=!!(EST&&EST.refuerzo),libre=EST&&EST.exigir===false;
@@ -2032,6 +2034,105 @@ async cjAcuse(d){if(!confirm('¿Confirmas que recibiste '+vP(d.m)+'? Esto queda 
 });
 
 ACT.imprimir=()=>window.print();
+/* ===== DOCUMENTOS DE LOS ESCOLTAS (SOAT, tecnomecánica, licencia, Supervigilancia) ===== */
+let DOCS=jp(LS('rt_docs'),null),DOCS_T=0;
+const DC={eid:'',nom:'',tipo:'',foto:null};
+const DOC_ICO={SOAT:'🛡️',TECNO:'🔧',LICENCIA:'🪪',SUPERVIGILANCIA:'🎖️'};
+const DOC_EST={VENCIDO:['bad','Vencido'],SIN_CARGAR:['bad','Sin cargar'],CRITICO:['bad','Vence pronto'],PROXIMO:['warn','Por vencer'],VIGENTE:['ok','Vigente'],NO_APLICA:['','No aplica']};
+const fDoc=f=>f?f.slice(8,10)+'/'+f.slice(5,7)+'/'+f.slice(0,4):'';
+const docBadge=v=>{const e=DOC_EST[v.estado]||['',v.estado];return `<span class="badge ${e[0]}">${e[1]}</span>`};
+const docTxt=v=>v.estado==='NO_APLICA'?'No aplica'+(v.obs?': '+esc(v.obs):''):v.vence?'Vence '+fDoc(v.vence)+(v.dias<0?' · vencido hace '+(-v.dias)+' d':v.dias===0?' · vence HOY':' · en '+v.dias+' d'):'Aún sin cargar';
+async function docsCarga(silencio){try{const r=await api('verMisDocumentos',{});DOCS=r;DOCS_T=Date.now();LS('rt_docs',JSON.stringify(r));if(S.rol==='E')pintaEsc()}catch(e){if(!silencio&&!e.offline)toast(e.message,true)}}
+function docsBannerEsc(){
+  if(!DOCS||!DOCS.docs)return '';
+  const l=DOCS.orden.map(t=>[t,DOCS.docs[t]]),mal=l.filter(x=>['VENCIDO','SIN_CARGAR','CRITICO'].includes(x[1].estado)),prox=l.filter(x=>x[1].estado==='PROXIMO');
+  const det=x=>esc(DOCS.tipos[x[0]])+' ('+(x[1].estado==='SIN_CARGAR'?'sin cargar':x[1].dias<0?'VENCIDO':x[1].dias===0?'vence hoy':'vence en '+x[1].dias+' d')+')';
+  if(DOCS.bloqueo)return `<div class="banner bad">⛔ ${esc(DOCS.bloqueo)}<br><button class="btn bad sm" style="margin-top:8px" data-act="docsAbrir">📄 Cargar mis documentos</button></div>`;
+  if(mal.length)return `<div class="banner bad">📄 ${mal.map(det).join(', ')}.${DOCS.exige&&mal.some(x=>x[1].estado==='SIN_CARGAR')?'<br>Plazo para cargarlos: <b>'+fDoc(DOCS.limite)+'</b>; después no podrás iniciar turno.':''}<br><button class="btn sm" style="margin-top:8px" data-act="docsAbrir">📄 Cargar / renovar</button></div>`;
+  if(prox.length)return `<div class="banner warn">📄 Por vencer: ${prox.map(det).join(', ')}.<br><button class="btn ghost sm" style="margin-top:8px" data-act="docsAbrir">Renovar</button></div>`;
+  return '';
+}
+function docsCardEsc(){
+  const l=DOCS&&DOCS.docs?DOCS.orden.map(t=>`<div class="row" style="margin:4px 0"><span class="grow">${DOC_ICO[t]} ${esc(DOCS.tipos[t])}</span>${docBadge(DOCS.docs[t])}</div>`).join(''):'<p class="mut" style="margin:0 0 8px">Carga la foto y la fecha de vencimiento de tus documentos.</p>';
+  return `<div class="card"><h2>📄 Mis documentos</h2>${l}${DOCS&&DOCS.docs&&!DOCS.correo?'<div class="banner warn" style="margin-top:8px">Registra tu correo para que te avisemos antes de cada vencimiento.</div>':''}<button class="btn" style="margin-top:8px" data-act="docsAbrir">Cargar o renovar documentos</button></div>`;
+}
+function docsModal(d){
+  const adm=S.rol==='A'&&DC.eid;
+  const fila=t=>{const v=d.docs[t];return `<div class="item"><div class="row"><div class="grow"><b>${DOC_ICO[t]} ${esc(d.tipos[t])}</b><br><span class="mut">${docTxt(v)}</span></div>${docBadge(v)}</div>
+    <div class="row" style="margin-top:6px"><button class="btn sm" data-act="docsPick" data-t="${t}">📷 ${v.vence?'Renovar':'Cargar'}</button>${v.tiene?`<button class="btn ghost sm" data-act="docsVer" data-t="${t}">Ver foto</button>`:''}${adm?`<button class="btn ghost sm" data-act="docsNoAplica" data-t="${t}">No aplica</button>`:''}</div></div>`};
+  modal(`<h2 style="margin-top:0">📄 ${adm?esc(DC.nom):'Mis documentos'}</h2>${d.bloqueo?`<div class="banner bad">${esc(d.bloqueo)}</div>`:''}
+    <label>Correo para los avisos de vencimiento</label><div class="row"><input id="dc_correo" type="email" inputmode="email" autocapitalize="off" value="${esc(d.correo||'')}" placeholder="micorreo@gmail.com" style="flex:1"><button class="btn sm" data-act="docsCorreo">Guardar</button></div>
+    <input type="file" id="d_file" accept="image/*" capture="environment" data-chg="dfoto" hidden>
+    ${d.orden.map(fila).join('')}<button class="btn ghost" style="width:100%;margin-top:10px" data-act="docsCerrar">Cerrar</button>`);
+}
+async function docsRecarga(){
+  const d=await api('verMisDocumentos',{escoltaId:DC.eid});
+  if(!DC.eid){DOCS=d;DOCS_T=Date.now();LS('rt_docs',JSON.stringify(d))}
+  docsModal(d);
+}
+ACT.docsAbrir=async()=>{DC.eid='';DC.nom='';try{await docsRecarga()}catch(e){toast(e.message,true)}};
+ACT.docsAdmAbrir=async d=>{DC.eid=d.id;DC.nom=d.nom||'';try{await docsRecarga()}catch(e){toast(e.message,true)}};
+ACT.docsCerrar=()=>{closeModal();if(S.rol==='E')pintaEsc();else if(S.rol==='A'&&A.tab==='docs')irTab('docs')};
+ACT.docsCorreo=async()=>{try{const r=await api('guardarCorreoEscolta',{correo:val('dc_correo'),escoltaId:DC.eid});if(!DC.eid&&DOCS)DOCS.correo=r.correo;toast('Correo guardado')}catch(e){toast(e.message,true)}};
+ACT.docsPick=d=>{DC.tipo=d.t;const f=$('d_file');if(f){f.value='';f.click()}};
+ACT.chg_dfoto=async()=>{
+  const f=$('d_file')&&$('d_file').files[0];if(!f)return;const t=DC.tipo;
+  modal('<h2 style="margin-top:0">Leyendo documento…</h2><p class="mut">Comprimiendo la foto y buscando la fecha de vencimiento. Unos segundos.</p>');
+  try{
+    const dataUrl=await vComprimir(f);
+    const up=await api('subirDocFoto',{tipo:t,foto:dataUrl,escoltaId:DC.eid});
+    let o={leido:false};try{o=await api('verOcrDocumento',{tipo:t,fotoId:up.fotoId,escoltaId:DC.eid})}catch(e){o={leido:false,motivo:e.message}}
+    DC.foto={fotoId:up.fotoId,dataUrl,ocr:o};docsForm(t);
+  }catch(e){toast(e.message,true);try{await docsRecarga()}catch(e2){closeModal()}}
+};
+function docsForm(t){
+  const o=DC.foto.ocr||{},nombre=(DOCS&&DOCS.tipos&&DOCS.tipos[t])||t;
+  modal(`<h2 style="margin-top:0">${DOC_ICO[t]} ${esc(nombre)}</h2><img src="${DC.foto.dataUrl}" style="width:100%;max-height:300px;object-fit:contain;border-radius:8px;background:#000">
+    ${o.leido&&o.fecha?`<div class="banner ${o.confianza==='ALTA'?'ok':'warn'}" style="margin-top:10px">Leí esta fecha de vencimiento: <b>${fDoc(o.fecha)}</b>. Compárala con la foto antes de guardar.</div>`:`<div class="banner warn" style="margin-top:10px">${o.leido?'No encontré la fecha en la foto.':esc(o.motivo||'No pude leer la foto.')} Escribe la fecha de vencimiento tal como aparece en el documento.</div>`}
+    <label>Fecha de vencimiento</label><input type="date" id="dc_fecha" value="${esc(o.fecha||'')}">
+    ${(o.candidatas||[]).length>1?`<div class="mut" style="font-size:13px;margin-top:4px">Otras fechas que vi: ${(o.candidatas||[]).map(c=>`<a href="#" data-act="docsFecha" data-f="${c}">${fDoc(c)}</a>`).join(' · ')}</div>`:''}
+    <label style="display:flex;gap:8px;align-items:flex-start;margin-top:12px"><input type="checkbox" id="dc_ok" style="width:auto;margin-top:3px"> <span>Confirmo que esta fecha coincide con la que dice el documento.</span></label>
+    <button class="btn big ok" style="width:100%;margin-top:12px" data-act="docsGuardar">Guardar documento</button>
+    <button class="btn ghost" style="width:100%;margin-top:8px" data-act="docsCancelar">Cancelar</button>`);
+}
+ACT.docsFecha=d=>{const i=$('dc_fecha');if(i)i.value=d.f};
+ACT.docsCancelar=async()=>{DC.foto=null;try{await docsRecarga()}catch(e){closeModal()}};
+ACT.docsGuardar=async()=>{
+  if(!$('dc_ok').checked){toast('Marca la casilla: confirma que la fecha coincide con el documento',true);return}
+  if(!val('dc_fecha')){toast('Escribe la fecha de vencimiento',true);return}
+  try{await api('guardarDocumento',{tipo:DC.tipo,fotoId:DC.foto.fotoId,vence:val('dc_fecha'),escoltaId:DC.eid});DC.foto=null;toast('Documento guardado');await docsRecarga()}
+  catch(e){toast(e.message,true)}
+};
+ACT.docsVer=async d=>{
+  try{const r=await api('verDocFoto',{tipo:d.t,escoltaId:DC.eid});
+    modal(`<h2 style="margin-top:0">${esc(r.nombre)}</h2><img src="${r.dataUrl}" style="width:100%;border-radius:8px"><p class="mut">Vence: <b>${fDoc(r.vence)}</b></p><button class="btn ghost" style="width:100%" data-act="docsRecargar">← Volver</button>`)}
+  catch(e){toast(e.message,true)}
+};
+ACT.docsRecargar=async()=>{try{await docsRecarga()}catch(e){closeModal()}};
+ACT.docsNoAplica=d=>{DC.tipo=d.t;modal(`<h2 style="margin-top:0">Marcar «No aplica»</h2><p class="mut">Úsalo si este escolta no necesita el documento (por ejemplo, no maneja vehículo). No se le exigirá ni se le avisará.</p><label>Motivo</label><input id="dc_obs" placeholder="Ej: no maneja vehículo"><button class="btn big" style="width:100%;margin-top:12px" data-act="docsNoAplicaOk">Confirmar</button><button class="btn ghost" style="width:100%;margin-top:8px" data-act="docsRecargar">Cancelar</button>`)};
+ACT.docsNoAplicaOk=async()=>{try{await api('guardarDocumento',{tipo:DC.tipo,noAplica:1,obs:val('dc_obs'),escoltaId:DC.eid});toast('Marcado como no aplica');await docsRecarga()}catch(e){toast(e.message,true)}};
+
+/* --- pestaña «Documentos» (administrador y Central) --- */
+VISTAS.docs=async function(){
+  const r=await api('listarDocumentos',{});A.data.docs=r;const fl=A.docF||'NOV',adm=S.rol==='A';
+  const l=r.escoltas.filter(e=>fl==='TODOS'||(fl==='NOV'?e.peor>=1:e.peor>=3));
+  const c=r.resumen,cel=(e,t)=>{const v=e.docs[t];return `<td><a href="#" data-act="docsVerAdm" data-id="${esc(e.id)}" data-t="${t}" data-nom="${esc(e.nombre)}" style="text-decoration:none">${docBadge(v)}</a>${v.vence?`<br><span class="mut" style="font-size:12px">${fDoc(v.vence)}${v.dias!=null?' · '+(v.dias<0?'-'+(-v.dias):v.dias)+' d':''}</span>`:''}</td>`};
+  $('vista').innerHTML=`<div class="card"><div class="row"><h2 class="grow" style="margin:0">📄 Documentos de los escoltas</h2><button class="btn ghost sm" data-act="refrescarDocs">Actualizar</button></div>
+    <div class="row" style="margin:10px 0;flex-wrap:wrap;gap:6px"><span class="badge bad">Vencidos ${c.VENCIDO}</span><span class="badge bad">Sin cargar ${c.SIN_CARGAR}</span><span class="badge bad">Vencen en ≤7 d ${c.CRITICO}</span><span class="badge warn">Vencen en ≤30 d ${c.PROXIMO}</span><span class="badge ok">Vigentes ${c.VIGENTE}</span>${r.sinCorreo?`<span class="badge warn">Sin correo ${r.sinCorreo}</span>`:''}</div>
+    <label>Mostrar</label><select id="df_f" data-chg="dfiltro"><option value="NOV"${fl==='NOV'?' selected':''}>Con novedad (vencidos, sin cargar o por vencer)</option><option value="GRAVE"${fl==='GRAVE'?' selected':''}>Solo vencidos o sin cargar</option><option value="TODOS"${fl==='TODOS'?' selected':''}>Todos los escoltas</option></select></div>
+    <div class="card"><div class="scroll"><table><tr><th>Escolta</th>${r.orden.map(t=>`<th>${DOC_ICO[t]} ${esc(r.tipos[t])}</th>`).join('')}</tr>
+    ${l.length?l.map(e=>`<tr><td><b>${esc(e.nombre)}</b>${e.correo?'':'<br><span class="mut" style="font-size:12px">sin correo</span>'}${adm?`<br><a href="#" data-act="docsAdmAbrir" data-id="${esc(e.id)}" data-nom="${esc(e.nombre)}" style="font-size:12px">cargar / editar</a>`:''}</td>${r.orden.map(t=>cel(e,t)).join('')}</tr>`).join(''):`<tr><td colspan="${r.orden.length+1}" class="mut">Nada por mostrar con este filtro.</td></tr>`}</table></div>
+    <p class="mut" style="font-size:12px;margin:8px 0 0">Los escoltas reciben aviso por correo a los 30, 15 y 7 días y el día del vencimiento. Usted y la Central reciben un resumen diario.</p></div>`;
+};
+ACT.chg_dfiltro=()=>{A.docF=val('df_f');irTab('docs')};
+ACT.refrescarDocs=()=>irTab('docs');
+ACT.docsVerAdm=async d=>{
+  DC.eid=d.id;DC.nom=d.nom||'';
+  try{const r=await api('verDocFoto',{tipo:d.t,escoltaId:d.id});
+    modal(`<h2 style="margin-top:0">${esc(d.nom)}</h2><p style="margin:0 0 8px"><b>${esc(r.nombre)}</b> · vence <b>${fDoc(r.vence)}</b></p><img src="${r.dataUrl}" style="width:100%;border-radius:8px"><button class="btn ghost" style="width:100%;margin-top:10px" data-act="docsCerrar">Cerrar</button>`)}
+  catch(e){toast(e.message,true)}
+};
+
 
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b)return;
