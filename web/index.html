@@ -275,7 +275,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.23-a';
+const APP_VERSION='2026.11.23-b';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -2105,13 +2105,18 @@ ACT.docsGuardar=async()=>{
 };
 ACT.docsVer=async d=>{
   try{const r=await api('verDocFoto',{tipo:d.t,escoltaId:DC.eid});
-    modal(`<h2 style="margin-top:0">${esc(r.nombre)}</h2><img src="${r.dataUrl}" style="width:100%;border-radius:8px"><p class="mut">Vence: <b>${fDoc(r.vence)}</b></p><button class="btn ghost" style="width:100%" data-act="docsRecargar">← Volver</button>`)}
+    modal(`<h2 style="margin-top:0">${esc(r.nombre)}</h2>${docVisor(r)}<p class="mut">Vence: <b>${fDoc(r.vence)}</b></p><button class="btn ghost" style="width:100%" data-act="docsRecargar">← Volver</button>`)}
   catch(e){toast(e.message,true)}
 };
 ACT.docsRecargar=async()=>{try{await docsRecarga()}catch(e){closeModal()}};
 ACT.docsNoAplica=d=>{DC.tipo=d.t;modal(`<h2 style="margin-top:0">Marcar «No aplica»</h2><p class="mut">Úsalo si este escolta no necesita el documento (por ejemplo, no maneja vehículo). No se le exigirá ni se le avisará.</p><label>Motivo</label><input id="dc_obs" placeholder="Ej: no maneja vehículo"><button class="btn big" style="width:100%;margin-top:12px" data-act="docsNoAplicaOk">Confirmar</button><button class="btn ghost" style="width:100%;margin-top:8px" data-act="docsRecargar">Cancelar</button>`)};
 ACT.docsNoAplicaOk=async()=>{try{await api('guardarDocumento',{tipo:DC.tipo,noAplica:1,obs:val('dc_obs'),escoltaId:DC.eid});toast('Marcado como no aplica');await docsRecarga()}catch(e){toast(e.message,true)}};
 
+function docVisor(r){
+  if(!/pdf/i.test(r.mime||''))return `<img src="${r.dataUrl}" style="width:100%;border-radius:8px">`;
+  let u='';try{const b=atob(r.dataUrl.split(',')[1]),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);u=URL.createObjectURL(new Blob([a],{type:'application/pdf'}))}catch(e){}
+  return u?`<a class="btn" style="display:block;text-align:center;text-decoration:none" href="${u}" target="_blank" rel="noopener">📄 Abrir PDF</a><iframe src="${u}" style="width:100%;height:60vh;border:0;border-radius:8px;margin-top:8px"></iframe>`:'<p class="mut">No se pudo mostrar el PDF.</p>';
+}
 /* --- pestaña «Documentos» (administrador y Central) --- */
 VISTAS.docs=async function(){
   const r=await api('listarDocumentos',{});A.data.docs=r;const fl=A.docF||'NOV',adm=S.rol==='A';
@@ -2129,7 +2134,7 @@ ACT.refrescarDocs=()=>irTab('docs');
 ACT.docsVerAdm=async d=>{
   DC.eid=d.id;DC.nom=d.nom||'';
   try{const r=await api('verDocFoto',{tipo:d.t,escoltaId:d.id});
-    modal(`<h2 style="margin-top:0">${esc(d.nom)}</h2><p style="margin:0 0 8px"><b>${esc(r.nombre)}</b> · vence <b>${fDoc(r.vence)}</b></p><img src="${r.dataUrl}" style="width:100%;border-radius:8px"><button class="btn ghost" style="width:100%;margin-top:10px" data-act="docsCerrar">Cerrar</button>`)}
+    modal(`<h2 style="margin-top:0">${esc(d.nom)}</h2><p style="margin:0 0 8px"><b>${esc(r.nombre)}</b> · vence <b>${fDoc(r.vence)}</b></p>${docVisor(r)}<button class="btn ghost" style="width:100%;margin-top:10px" data-act="docsCerrar">Cerrar</button>`)}
   catch(e){toast(e.message,true)}
 };
 
