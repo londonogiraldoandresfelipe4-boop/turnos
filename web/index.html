@@ -275,7 +275,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.23-b';
+const APP_VERSION='2026.11.24-a';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -2036,12 +2036,12 @@ async cjAcuse(d){if(!confirm('¿Confirmas que recibiste '+vP(d.m)+'? Esto queda 
 ACT.imprimir=()=>window.print();
 /* ===== DOCUMENTOS DE LOS ESCOLTAS (SOAT, tecnomecánica, licencia, Supervigilancia) ===== */
 let DOCS=jp(LS('rt_docs'),null),DOCS_T=0;
-const DC={eid:'',nom:'',tipo:'',foto:null};
-const DOC_ICO={SOAT:'🛡️',TECNO:'🔧',LICENCIA:'🪪',SUPERVIGILANCIA:'🎖️'};
-const DOC_EST={VENCIDO:['bad','Vencido'],SIN_CARGAR:['bad','Sin cargar'],CRITICO:['bad','Vence pronto'],PROXIMO:['warn','Por vencer'],VIGENTE:['ok','Vigente'],NO_APLICA:['','No aplica']};
+const DC={eid:'',nom:'',tipo:'',foto:null,calidad:null};
+const DOC_ICO={SOAT:'🛡️',TECNO:'🔧',LICENCIA:'🪪',SUPERVIGILANCIA:'🎖️',CHALECO:'🦺'};
+const DOC_EST={VENCIDO:['bad','Vencido'],SIN_CARGAR:['bad','Sin cargar'],CRITICO:['bad','Vence pronto'],PROXIMO:['warn','Por vencer'],VIGENTE:['ok','Vigente'],CARGADO:['ok','Cargado'],NO_APLICA:['','No aplica']};
 const fDoc=f=>f?f.slice(8,10)+'/'+f.slice(5,7)+'/'+f.slice(0,4):'';
 const docBadge=v=>{const e=DOC_EST[v.estado]||['',v.estado];return `<span class="badge ${e[0]}">${e[1]}</span>`};
-const docTxt=v=>v.estado==='NO_APLICA'?'No aplica'+(v.obs?': '+esc(v.obs):''):v.vence?'Vence '+fDoc(v.vence)+(v.dias<0?' · vencido hace '+(-v.dias)+' d':v.dias===0?' · vence HOY':' · en '+v.dias+' d'):'Aún sin cargar';
+const docTxt=v=>v.estado==='NO_APLICA'?'No aplica'+(v.obs?': '+esc(v.obs):''):(v.serial&&!v.vence)?'Serial <b>'+esc(v.serial)+'</b>'+(v.cargado?' · cargado '+fDoc(String(v.cargado).slice(0,10)):''):v.vence?'Vence '+fDoc(v.vence)+(v.dias<0?' · vencido hace '+(-v.dias)+' d':v.dias===0?' · vence HOY':' · en '+v.dias+' d'):'Aún sin cargar';
 async function docsCarga(silencio){try{const r=await api('verMisDocumentos',{});DOCS=r;DOCS_T=Date.now();LS('rt_docs',JSON.stringify(r));if(S.rol==='E')pintaEsc()}catch(e){if(!silencio&&!e.offline)toast(e.message,true)}}
 function docsBannerEsc(){
   if(!DOCS||!DOCS.docs)return '';
@@ -2059,7 +2059,7 @@ function docsCardEsc(){
 function docsModal(d){
   const adm=S.rol==='A'&&DC.eid;
   const fila=t=>{const v=d.docs[t];return `<div class="item"><div class="row"><div class="grow"><b>${DOC_ICO[t]} ${esc(d.tipos[t])}</b><br><span class="mut">${docTxt(v)}</span></div>${docBadge(v)}</div>
-    <div class="row" style="margin-top:6px"><button class="btn sm" data-act="docsPick" data-t="${t}">📷 ${v.vence?'Renovar':'Cargar'}</button>${v.tiene?`<button class="btn ghost sm" data-act="docsVer" data-t="${t}">Ver foto</button>`:''}${adm?`<button class="btn ghost sm" data-act="docsNoAplica" data-t="${t}">No aplica</button>`:''}</div></div>`};
+    <div class="row" style="margin-top:6px"><button class="btn sm" data-act="docsPick" data-t="${t}">📷 ${(v.vence||v.tiene)?(t==='CHALECO'?'Cambiar foto':'Renovar'):'Cargar'}</button>${v.tiene?`<button class="btn ghost sm" data-act="docsVer" data-t="${t}">Ver foto</button>`:''}${adm?`<button class="btn ghost sm" data-act="docsNoAplica" data-t="${t}">No aplica</button>`:''}</div></div>`};
   modal(`<h2 style="margin-top:0">📄 ${adm?esc(DC.nom):'Mis documentos'}</h2>${d.bloqueo?`<div class="banner bad">${esc(d.bloqueo)}</div>`:''}
     <label>Correo para los avisos de vencimiento</label><div class="row"><input id="dc_correo" type="email" inputmode="email" autocapitalize="off" value="${esc(d.correo||'')}" placeholder="micorreo@gmail.com" style="flex:1"><button class="btn sm" data-act="docsCorreo">Guardar</button></div>
     <input type="file" id="d_file" accept="image/*" capture="environment" data-chg="dfoto" hidden>
@@ -2074,18 +2074,68 @@ ACT.docsAbrir=async()=>{DC.eid='';DC.nom='';try{await docsRecarga()}catch(e){toa
 ACT.docsAdmAbrir=async d=>{DC.eid=d.id;DC.nom=d.nom||'';try{await docsRecarga()}catch(e){toast(e.message,true)}};
 ACT.docsCerrar=()=>{closeModal();if(S.rol==='E')pintaEsc();else if(S.rol==='A'&&A.tab==='docs')irTab('docs')};
 ACT.docsCorreo=async()=>{try{const r=await api('guardarCorreoEscolta',{correo:val('dc_correo'),escoltaId:DC.eid});if(!DC.eid&&DOCS)DOCS.correo=r.correo;toast('Correo guardado')}catch(e){toast(e.message,true)}};
-ACT.docsPick=d=>{DC.tipo=d.t;const f=$('d_file');if(f){f.value='';f.click()}};
+ACT.docsPick=d=>{DC.tipo=d.t;
+  if(d.t==='CHALECO'&&!d.go){ /* guía antes de abrir la cámara: la foto debe dejar leer el serial */
+    modal(`<h2 style="margin-top:0">🦺 Foto del serial de tu chaleco</h2>
+    <div class="banner warn">Debe ser <b>tu chaleco asignado</b>, no el de un compañero.</div>
+    <ul style="padding-left:18px;line-height:1.6;margin:10px 0">
+      <li>Fotografía <b>la marquilla (etiqueta)</b> donde aparece el <b>serial</b>.</li>
+      <li>Acércate hasta que el serial se lea a simple vista, con la etiqueta llenando la foto.</li>
+      <li>Buena luz, sin reflejos ni sombra encima, y con la cámara quieta.</li>
+      <li>Si la etiqueta está dentro de la funda, sácala para fotografiarla.</li>
+    </ul>
+    <input type="file" id="d_file" accept="image/*" capture="environment" data-chg="dfoto" hidden>
+    <button class="btn big" style="width:100%" data-act="docsPick" data-t="CHALECO" data-go="1">📷 Abrir la cámara</button>
+    <button class="btn ghost" style="width:100%;margin-top:8px" data-act="docsRecargar">Cancelar</button>`);return}
+  const f=$('d_file');if(f){f.value='';f.click()}};
 ACT.chg_dfoto=async()=>{
   const f=$('d_file')&&$('d_file').files[0];if(!f)return;const t=DC.tipo;
   modal('<h2 style="margin-top:0">Leyendo documento…</h2><p class="mut">Comprimiendo la foto y buscando la fecha de vencimiento. Unos segundos.</p>');
   try{
-    const dataUrl=await vComprimir(f);
+    const chal=t==='CHALECO';
+    const dataUrl=chal?await vComprimir(f,2200,.88):await vComprimir(f);
+    if(chal){const q=await docNitidez(dataUrl);
+      if(q.bajo){DC.foto=null;modal(`<h2 style="margin-top:0">🦺 La foto no se lee bien</h2><div class="banner bad">${esc(q.msg)}</div><p class="mut">Vuelve a tomarla: más cerca de la etiqueta, con buena luz y sin mover el celular.</p><input type="file" id="d_file" accept="image/*" capture="environment" data-chg="dfoto" hidden><button class="btn big" style="width:100%" data-act="docsPick" data-t="CHALECO" data-go="1">📷 Tomar otra foto</button><button class="btn ghost" style="width:100%;margin-top:8px" data-act="docsRecargar">Cancelar</button>`);return}
+      DC.calidad=q}
     const up=await api('subirDocFoto',{tipo:t,foto:dataUrl,escoltaId:DC.eid});
-    let o={leido:false};try{o=await api('verOcrDocumento',{tipo:t,fotoId:up.fotoId,escoltaId:DC.eid})}catch(e){o={leido:false,motivo:e.message}}
+    let o={leido:false};if(!chal){try{o=await api('verOcrDocumento',{tipo:t,fotoId:up.fotoId,escoltaId:DC.eid})}catch(e){o={leido:false,motivo:e.message}}}
     DC.foto={fotoId:up.fotoId,dataUrl,ocr:o};docsForm(t);
   }catch(e){toast(e.message,true);try{await docsRecarga()}catch(e2){closeModal()}}
 };
+/* Nitidez de la foto del serial: mide el contraste de los bordes (varianza del laplaciano) y el tamaño. Bloquea solo lo claramente ilegible. */
+function docNitidez(dataUrl){return new Promise(ok=>{const im=new Image();im.onerror=()=>ok({bajo:false,nivel:'?'});im.onload=()=>{try{
+  const W=im.naturalWidth||im.width,H=im.naturalHeight||im.height;
+  if(Math.min(W,H)<900)return ok({bajo:true,msg:'La foto es muy pequeña ('+W+'×'+H+'). Acércate más a la etiqueta para que el serial se vea grande.'});
+  const k=Math.min(1,1000/Math.max(W,H)),w=Math.round(W*k),h=Math.round(H*k),c=document.createElement('canvas');c.width=w;c.height=h;
+  const x=c.getContext('2d');x.drawImage(im,0,0,w,h);const d=x.getImageData(0,0,w,h).data,g=new Float32Array(w*h);
+  for(let i=0;i<w*h;i++)g[i]=.299*d[i*4]+.587*d[i*4+1]+.114*d[i*4+2];
+  let n=0,m=0,m2=0;for(let yy=1;yy<h-1;yy++)for(let xx=1;xx<w-1;xx++){const i=yy*w+xx,l=4*g[i]-g[i-1]-g[i+1]-g[i-w]-g[i+w];n++;m+=l;m2+=l*l}
+  const v=m2/n-(m/n)*(m/n);
+  let br=0;for(let i=0;i<w*h;i+=7)br+=g[i];br/=Math.ceil(w*h/7);
+  if(br<45)return ok({bajo:true,msg:'La foto está muy oscura. Busca más luz o enciende el flash.'});
+  if(v<12)return ok({bajo:true,msg:'La foto salió borrosa o sin detalle. El serial no se alcanzaría a leer.'});
+  ok({bajo:false,nivel:v<60?'JUSTA':'BUENA',v:Math.round(v)})}catch(e){ok({bajo:false,nivel:'?'})}};im.src=dataUrl})}
+function docsFormChaleco(){
+  const q=DC.calidad||{};
+  modal(`<h2 style="margin-top:0">🦺 Serial de tu chaleco</h2><img src="${DC.foto.dataUrl}" style="width:100%;max-height:340px;object-fit:contain;border-radius:8px;background:#000">
+    <div class="banner ${q.nivel==='JUSTA'?'warn':'ok'}" style="margin-top:10px">${q.nivel==='JUSTA'?'La foto está justa. Mira bien que el serial se lea; si no, toma otra.':'La foto tiene buena nitidez. Verifica igual que el serial se lea.'}</div>
+    <label>Serial del chaleco (escríbelo como aparece en la marquilla)</label><input id="dc_serial" autocapitalize="characters" autocomplete="off" maxlength="40" placeholder="Ej: ABC1234567">
+    <label>Confirma el serial</label><input id="dc_serial2" autocapitalize="characters" autocomplete="off" maxlength="40" placeholder="Vuelve a escribirlo">
+    <label style="display:flex;gap:8px;align-items:flex-start;margin-top:12px"><input type="checkbox" id="dc_ok" style="width:auto;margin-top:3px"> <span>Este es <b>el chaleco que me asignaron</b> y el serial se lee con claridad en la foto.</span></label>
+    <button class="btn big ok" style="width:100%;margin-top:12px" data-act="docsGuardarChaleco">Guardar chaleco</button>
+    <button class="btn ghost" style="width:100%;margin-top:8px" data-act="docsCancelar">Cancelar</button>`);
+}
+ACT.docsGuardarChaleco=async()=>{
+  const a=val('dc_serial').toUpperCase().replace(/\s+/g,''),b=val('dc_serial2').toUpperCase().replace(/\s+/g,'');
+  if(a.length<4){toast('Escribe el serial completo',true);return}
+  if(!/^[A-Z0-9\-\/\.]+$/.test(a)){toast('El serial solo lleva letras, números y guiones',true);return}
+  if(a!==b){toast('Los dos seriales no coinciden',true);return}
+  if(!$('dc_ok').checked){toast('Marca la casilla de confirmación',true);return}
+  try{await api('guardarDocumento',{tipo:'CHALECO',fotoId:DC.foto.fotoId,serial:a,calidad:(DC.calidad&&DC.calidad.nivel)||'',escoltaId:DC.eid});DC.foto=null;DC.calidad=null;toast('Chaleco guardado');await docsRecarga()}
+  catch(e){toast(e.message,true)}
+};
 function docsForm(t){
+  if(t==='CHALECO')return docsFormChaleco();
   const o=DC.foto.ocr||{},nombre=(DOCS&&DOCS.tipos&&DOCS.tipos[t])||t;
   modal(`<h2 style="margin-top:0">${DOC_ICO[t]} ${esc(nombre)}</h2><img src="${DC.foto.dataUrl}" style="width:100%;max-height:300px;object-fit:contain;border-radius:8px;background:#000">
     ${o.leido&&o.fecha?`<div class="banner ${o.confianza==='ALTA'?'ok':'warn'}" style="margin-top:10px">Leí esta fecha de vencimiento: <b>${fDoc(o.fecha)}</b>. Compárala con la foto antes de guardar.</div>`:`<div class="banner warn" style="margin-top:10px">${o.leido?'No encontré la fecha en la foto.':esc(o.motivo||'No pude leer la foto.')} Escribe la fecha de vencimiento tal como aparece en el documento.</div>`}
@@ -2105,7 +2155,7 @@ ACT.docsGuardar=async()=>{
 };
 ACT.docsVer=async d=>{
   try{const r=await api('verDocFoto',{tipo:d.t,escoltaId:DC.eid});
-    modal(`<h2 style="margin-top:0">${esc(r.nombre)}</h2>${docVisor(r)}<p class="mut">Vence: <b>${fDoc(r.vence)}</b></p><button class="btn ghost" style="width:100%" data-act="docsRecargar">← Volver</button>`)}
+    modal(`<h2 style="margin-top:0">${esc(r.nombre)}</h2>${docVisor(r)}<p class="mut">${r.serial?'Serial: <b>'+esc(r.serial)+'</b>':'Vence: <b>'+fDoc(r.vence)+'</b>'}</p><button class="btn ghost" style="width:100%" data-act="docsRecargar">← Volver</button>`)}
   catch(e){toast(e.message,true)}
 };
 ACT.docsRecargar=async()=>{try{await docsRecarga()}catch(e){closeModal()}};
@@ -2121,7 +2171,7 @@ function docVisor(r){
 VISTAS.docs=async function(){
   const r=await api('listarDocumentos',{});A.data.docs=r;const fl=A.docF||'NOV',adm=S.rol==='A';
   const l=r.escoltas.filter(e=>fl==='TODOS'||(fl==='NOV'?e.peor>=1:e.peor>=3));
-  const c=r.resumen,cel=(e,t)=>{const v=e.docs[t];return `<td><a href="#" data-act="docsVerAdm" data-id="${esc(e.id)}" data-t="${t}" data-nom="${esc(e.nombre)}" style="text-decoration:none">${docBadge(v)}</a>${v.vence?`<br><span class="mut" style="font-size:12px">${fDoc(v.vence)}${v.dias!=null?' · '+(v.dias<0?'-'+(-v.dias):v.dias)+' d':''}</span>`:''}</td>`};
+  const c=r.resumen,cel=(e,t)=>{const v=e.docs[t];return `<td><a href="#" data-act="docsVerAdm" data-id="${esc(e.id)}" data-t="${t}" data-nom="${esc(e.nombre)}" style="text-decoration:none">${docBadge(v)}</a>${v.vence?`<br><span class="mut" style="font-size:12px">${fDoc(v.vence)}${v.dias!=null?' · '+(v.dias<0?'-'+(-v.dias):v.dias)+' d':''}</span>`:(v.serial?`<br><span class="mut" style="font-size:12px">${esc(v.serial)}</span>`:'')}</td>`};
   $('vista').innerHTML=`<div class="card"><div class="row"><h2 class="grow" style="margin:0">📄 Documentos de los escoltas</h2><button class="btn ghost sm" data-act="refrescarDocs">Actualizar</button></div>
     <div class="row" style="margin:10px 0;flex-wrap:wrap;gap:6px"><span class="badge bad">Vencidos ${c.VENCIDO}</span><span class="badge bad">Sin cargar ${c.SIN_CARGAR}</span><span class="badge bad">Vencen en ≤7 d ${c.CRITICO}</span><span class="badge warn">Vencen en ≤30 d ${c.PROXIMO}</span><span class="badge ok">Vigentes ${c.VIGENTE}</span>${r.sinCorreo?`<span class="badge warn">Sin correo ${r.sinCorreo}</span>`:''}</div>
     <label>Mostrar</label><select id="df_f" data-chg="dfiltro"><option value="NOV"${fl==='NOV'?' selected':''}>Con novedad (vencidos, sin cargar o por vencer)</option><option value="GRAVE"${fl==='GRAVE'?' selected':''}>Solo vencidos o sin cargar</option><option value="TODOS"${fl==='TODOS'?' selected':''}>Todos los escoltas</option></select></div>
@@ -2134,7 +2184,7 @@ ACT.refrescarDocs=()=>irTab('docs');
 ACT.docsVerAdm=async d=>{
   DC.eid=d.id;DC.nom=d.nom||'';
   try{const r=await api('verDocFoto',{tipo:d.t,escoltaId:d.id});
-    modal(`<h2 style="margin-top:0">${esc(d.nom)}</h2><p style="margin:0 0 8px"><b>${esc(r.nombre)}</b> · vence <b>${fDoc(r.vence)}</b></p>${docVisor(r)}<button class="btn ghost" style="width:100%;margin-top:10px" data-act="docsCerrar">Cerrar</button>`)}
+    modal(`<h2 style="margin-top:0">${esc(d.nom)}</h2><p style="margin:0 0 8px"><b>${esc(r.nombre)}</b> · ${r.serial?'serial <b>'+esc(r.serial)+'</b>':'vence <b>'+fDoc(r.vence)+'</b>'}</p>${docVisor(r)}<button class="btn ghost" style="width:100%;margin-top:10px" data-act="docsCerrar">Cerrar</button>`)}
   catch(e){toast(e.message,true)}
 };
 
