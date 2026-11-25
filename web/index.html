@@ -542,7 +542,7 @@ function vistaEscolta(){
 const avisadoIni=new Set();
 function alertaInicio(){if(!EST||EST.turno)return;const hoy=hoyL(),tt=EST.tarde||10;if((EST.historial||[]).some(x=>x.Fecha===hoy))return;(EST.programacion||[]).filter(x=>x.Fecha===hoy&&!x.Motivo).forEach(x=>{const dif=mins(naive())-mins(x.Hora),k=x.ID+(dif>=tt?'T':'P');if(dif>=-10&&!avisadoIni.has(k)){avisadoIni.add(k);notificar(dif>=tt?'⛔ Aún no inicias tu turno':'⏰ Tu turno es a las '+x.Hora,dif>=tt?'Inicia o reporta el motivo':'Inícialo en la app');sonido()}})}
 async function cargaEsc(silencio){
-  try{const E=await api('miEstado');E.base=Date.now();EST=E;LS('rt_est',JSON.stringify(E));pintaEsc();if(!DOCS_T||Date.now()-DOCS_T>600000)docsCarga(true)}
+  try{const E=await api('miEstado');E.base=Date.now();EST=E;LS('rt_est',JSON.stringify(E));pintaEsc();if(!DOCS_T||Date.now()-DOCS_T>600000){docsCarga(true);cmpCargaEsc()}}
   catch(e){if(!silencio&&!e.offline)toast(e.message,true)}
 }
 let ultimaProg='',ultimaResp=null;
@@ -610,6 +610,7 @@ function pintaEsc(){
   h+=`<div class="card"><h2>🏅 Puntualidad del equipo</h2><p class="mut" style="margin:0 0 10px">Mira cómo va la puntualidad de todos y tu propio porcentaje.</p><button class="btn" data-act="abrirPunt">Ver tabla de puntualidad</button></div>`;
   h+=`<div class="card"><h2>🧾 Viáticos</h2><p class="mut" style="margin:0 0 10px">Carga los recibos de tu comisión: peajes, hospedaje, comidas, lavada y gasolina.</p><button class="btn" data-act="vMis">Mis comisiones y recibos</button></div>`;
   h+=docsCardEsc();
+  h+=cmpCardEsc();
   const hi=EST.historial||[];
   h+=`<div class="card"><h2>Mis últimos turnos</h2>${hi.length?`<div class="scroll"><table><tr><th>Día</th><th>Tipo</th><th>Horario</th><th>Horas</th></tr>${hi.map(x=>`<tr><td>${fecha(x.Fecha)}</td><td>${esc(TIPOS[x.Tipo]||x.Tipo)}</td><td>${hm(x.Inicio)}–${hm(x.Fin)}</td><td>${f1(x.horas)}</td></tr>`).join('')}</table></div>`:'<p class="mut" style="margin:0">Aún no hay turnos.</p>'}</div>`;
   if(!LS('rt_ntfy_ok'))h+=cajaNtfy(EST.ntfy,'<br><button class="btn ghost sm" style="margin-top:6px" data-act="ntfyOk">Ya lo activé, ocultar</button>');
@@ -620,7 +621,7 @@ function formTipos(){return Object.entries(TIPOS).map(([k,n])=>`<option value="$
 
 /* ================= ADMIN / CENTRAL ================= */
 const A={tab:'tablero',data:{},cfg:null};
-const TABS_A=[['ejecutivo','Ejecutivo'],['tablero','Tablero'],['turnos','Turnos'],['prog','Programación'],['horas','Horas'],['peso','Peso movido'],['punt','Puntualidad'],['solic','Solicitudes'],['escoltas','Escoltas'],['docs','Documentos'],['viaticos','Viáticos'],['caja','Caja'],['cuadre','Cuadre'],['export','Exportar'],['ajustes','Ajustes']];
+const TABS_A=[['ejecutivo','Ejecutivo'],['tablero','Tablero'],['turnos','Turnos'],['prog','Programación'],['horas','Horas'],['peso','Peso movido'],['punt','Puntualidad'],['solic','Solicitudes'],['escoltas','Escoltas'],['docs','Documentos'],['comparendos','Comparendos'],['viaticos','Viáticos'],['caja','Caja'],['cuadre','Cuadre'],['export','Exportar'],['ajustes','Ajustes']];
 const TABS_C=[['ejecutivo','Ejecutivo'],['tablero','Tablero'],['peso','Peso movido'],['prog','Programación'],['solic','Solicitar personal'],['docs','Documentos']];
 function vistaAdmin(){
   A.tab='tablero';
@@ -2138,6 +2139,60 @@ ACT.docsVerAdm=async d=>{
   catch(e){toast(e.message,true)}
 };
 
+
+
+/* ===== COMPARENDOS DE LOS ESCOLTAS (consulta por cédula en SIMIT, revisión mensual) ===== */
+const SIMIT_URL='https://www.fcm.org.co/simit/#/estado-cuenta';
+const CMP_EST={LIMPIO:['ok','Sin comparendos'],DEUDA:['bad','Con comparendos'],SIN_VERIFICAR:['warn','Sin verificar'],VENCIDA:['warn','Revisión vencida']};
+let CMP_ME=jp(LS('rt_cmp'),null);
+const cmpBadge=v=>{const e=CMP_EST[v.estado]||['',v.estado];return `<span class="badge ${e[0]}">${e[1]}</span>`};
+const cmpPesos=n=>'$'+Number(n||0).toLocaleString('es-CO');
+async function cmpCargaEsc(){try{const r=await api('verMiComparendo',{});CMP_ME=r;LS('rt_cmp',JSON.stringify(r));if(S.rol==='E')pintaEsc()}catch(e){}}
+function cmpCardEsc(){
+  if(!CMP_ME||CMP_ME.estado!=='DEUDA')return '';
+  return `<div class="card"><div class="banner bad">🚦 En la consulta de comparendos (SIMIT) aparece${CMP_ME.cantidad>1?'n':''} <b>${CMP_ME.cantidad}</b> comparendo${CMP_ME.cantidad>1?'s':''} sin sanear${CMP_ME.total?' por <b>'+cmpPesos(CMP_ME.total)+'</b>':''} a tu nombre. Revísalo en el SIMIT y sanéalo; luego avisa a la Central para validar de nuevo.<br>Última revisión: ${fDoc(CMP_ME.ultima)}<br><a class="btn sm" style="margin-top:8px;display:inline-block;text-decoration:none" target="_blank" rel="noopener" href="${SIMIT_URL}">Abrir SIMIT</a></div></div>`;
+}
+VISTAS.comparendos=async function(){
+  if(S.rol!=='A'){$('vista').innerHTML='<div class="banner warn">Esta pestaña es solo del administrador.</div>';return}
+  const r=await api('listarComparendos',{});A.data.cmp=r;const fl=A.cmpF||'NOV';
+  const l=r.escoltas.filter(e=>fl==='TODOS'||e.estado!=='LIMPIO');
+  const c=r.resumen;
+  $('vista').innerHTML=`<div class="card"><div class="row"><h2 class="grow" style="margin:0">🚦 Comparendos de los escoltas</h2><button class="btn ghost sm" data-act="cmpRefrescar">Actualizar</button></div>
+    <div class="row" style="margin:10px 0;flex-wrap:wrap;gap:6px"><span class="badge bad">Con comparendos ${c.DEUDA}</span><span class="badge warn">Sin verificar ${c.SIN_VERIFICAR}</span><span class="badge warn">Revisión vencida ${c.VENCIDA}</span><span class="badge ok">Sin comparendos ${c.LIMPIO}</span></div>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn" data-act="cmpConsultarTodos">🔎 Consultar a todos ahora</button><a class="btn ghost" style="text-decoration:none" target="_blank" rel="noopener" href="${SIMIT_URL}">Abrir SIMIT</a></div>
+    <p class="mut" style="font-size:12px;margin:8px 0 0">Fuente actual: <b>${esc(r.fuente)}</b>. Cuando la consulta automática no responde (captcha o bloqueo), el escolta queda «Sin verificar» y tú registras el resultado a mano con el botón de su fila. Revisión automática: cada mes.</p>
+    <label>Mostrar</label><select id="cm_f" data-chg="cmpFiltro"><option value="NOV"${fl==='NOV'?' selected':''}>Con novedad (comparendos, sin verificar o vencida)</option><option value="TODOS"${fl==='TODOS'?' selected':''}>Todos los escoltas</option></select></div>
+    <div class="card"><div class="scroll"><table><tr><th>Escolta</th><th>Estado</th><th>Comparendos</th><th>Total</th><th>Última revisión</th><th></th></tr>
+    ${l.length?l.map(e=>`<tr><td><b>${esc(e.nombre)}</b><br><span class="mut" style="font-size:12px">CC ···${esc(e.ced4)}${e.correo?'':' · sin correo'}</span></td><td>${cmpBadge(e)}${e.motivo?`<br><span class="mut" style="font-size:12px">${esc(e.motivo)}</span>`:''}</td><td>${e.estado==='DEUDA'?e.cantidad:'—'}</td><td>${e.estado==='DEUDA'?cmpPesos(e.total):'—'}</td><td>${e.ultima?fDoc(e.ultima):'Nunca'}${e.fuente?`<br><span class="mut" style="font-size:12px">${esc(e.fuente)}</span>`:''}</td><td><button class="btn ghost sm" data-act="cmpConsultar" data-id="${esc(e.id)}" data-nom="${esc(e.nombre)}">Consultar</button> <button class="btn ghost sm" data-act="cmpManual" data-id="${esc(e.id)}" data-nom="${esc(e.nombre)}">Registrar</button></td></tr>`).join(''):`<tr><td colspan="6" class="mut">Nada por mostrar: todos los escoltas están sin comparendos y con revisión al día.</td></tr>`}</table></div>
+    <p class="mut" style="font-size:12px;margin:8px 0 0">El escolta con comparendos recibe aviso en la app y por correo para sanearlos. Esta consulta usa solo su cédula; ten su autorización por escrito para tratar este dato (Ley 1581 de 2012).</p></div>`;
+};
+ACT.cmpRefrescar=()=>irTab('comparendos');
+ACT.chg_cmpFiltro=()=>{A.cmpF=val('cm_f');irTab('comparendos')};
+ACT.cmpConsultar=async d=>{
+  toast('Consultando '+(d.nom||'')+'…');
+  try{const r=await api('consultarComparendos',{escoltaId:d.id});toast(r.mensaje||'Listo');irTab('comparendos')}catch(e){toast(e.message,true)}
+};
+ACT.cmpConsultarTodos=async()=>{
+  if(!confirm('Se consultará la cédula de cada escolta activo. Puede tardar un par de minutos. ¿Continuar?'))return;
+  toast('Consultando a todos…');
+  try{const r=await api('consultarComparendos',{todos:1});toast(r.mensaje||'Listo');irTab('comparendos')}catch(e){toast(e.message,true)}
+};
+ACT.cmpManual=d=>{
+  modal(`<h2 style="margin-top:0">Registrar resultado del SIMIT</h2><p class="mut">${esc(d.nom)}</p>
+    <p class="mut" style="font-size:13px">Consulta su cédula en el <a href="${SIMIT_URL}" target="_blank" rel="noopener">SIMIT</a> y anota lo que aparece.</p>
+    <label>Resultado</label><select id="cm_e"><option value="LIMPIO">Sin comparendos ni multas</option><option value="DEUDA">Tiene comparendos pendientes</option></select>
+    <label>Cantidad de comparendos</label><input id="cm_c" inputmode="numeric" value="0">
+    <label>Total adeudado (COP)</label><input id="cm_t" inputmode="numeric" value="0">
+    <label>Observación</label><input id="cm_o" placeholder="Ej: acuerdo de pago, pago el 30/11">
+    <button class="btn big ok" style="width:100%;margin-top:12px" data-act="cmpManualOk" data-id="${esc(d.id)}">Guardar</button>
+    <button class="btn ghost" style="width:100%;margin-top:8px" data-act="cmpCerrar">Cancelar</button>`);
+};
+ACT.cmpCerrar=()=>closeModal();
+ACT.cmpManualOk=async d=>{
+  const est=val('cm_e'),cant=parseInt(val('cm_c').replace(/\D/g,''))||0,tot=parseInt(val('cm_t').replace(/\D/g,''))||0;
+  if(est==='DEUDA'&&cant<1){toast('Indica cuántos comparendos tiene',true);return}
+  try{await api('registrarComparendo',{escoltaId:d.id,estado:est,cantidad:est==='DEUDA'?cant:0,total:est==='DEUDA'?tot:0,obs:val('cm_o')});closeModal();toast('Resultado guardado');irTab('comparendos')}catch(e){toast(e.message,true)}
+};
 
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b)return;
