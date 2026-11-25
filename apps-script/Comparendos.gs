@@ -103,7 +103,7 @@ function cmpListar_() {
   filas_('Contactos').forEach(function (x) { cor[x.EscoltaID] = x.Correo; });
   var l = docEscoltasActivos_().map(function (e) {
     var o = idx[String(e.ID)], est = cmpEstadoEfectivo_(o, hoy); res[est]++;
-    return { id: e.ID, nombre: e.Nombre, ced4: String(e.Cedula || '').slice(-4), correo: !!cor[e.ID], estado: est,
+    return { id: e.ID, nombre: e.Nombre, ced: String(e.Cedula || ''), ced4: String(e.Cedula || '').slice(-4), correo: !!cor[e.ID], estado: est,
       cantidad: o ? Number(o.Cantidad) || 0 : 0, total: o ? Number(o.Total) || 0 : 0, ultima: o ? o.Ultima : '', fuente: o ? o.Fuente : '',
       motivo: o && est === 'SIN_VERIFICAR' ? o.Motivo : '' };
   });

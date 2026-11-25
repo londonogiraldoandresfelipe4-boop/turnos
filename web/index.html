@@ -2159,7 +2159,7 @@ VISTAS.comparendos=async function(){
   const c=r.resumen;
   $('vista').innerHTML=`<div class="card"><div class="row"><h2 class="grow" style="margin:0">🚦 Comparendos de los escoltas</h2><button class="btn ghost sm" data-act="cmpRefrescar">Actualizar</button></div>
     <div class="row" style="margin:10px 0;flex-wrap:wrap;gap:6px"><span class="badge bad">Con comparendos ${c.DEUDA}</span><span class="badge warn">Sin verificar ${c.SIN_VERIFICAR}</span><span class="badge warn">Revisión vencida ${c.VENCIDA}</span><span class="badge ok">Sin comparendos ${c.LIMPIO}</span></div>
-    <div class="row" style="gap:8px;flex-wrap:wrap">${r.fuente==='MANUAL'?'':'<button class="btn" data-act="cmpConsultarTodos">🔎 Consultar a todos ahora</button>'}<a class="btn ghost" style="text-decoration:none" target="_blank" rel="noopener" href="${SIMIT_URL}">Abrir SIMIT</a></div>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn ok" data-act="cmpGuia">▶ Revisión guiada</button>${r.fuente==='MANUAL'?'':'<button class="btn" data-act="cmpConsultarTodos">🔎 Consultar a todos ahora</button>'}<a class="btn ghost" style="text-decoration:none" target="_blank" rel="noopener" href="${SIMIT_URL}">Abrir SIMIT</a></div>
     <p class="mut" style="font-size:12px;margin:8px 0 0">Fuente actual: <b>${esc(r.fuente)}</b>${r.fuente==='MANUAL'?' (abre el SIMIT, mira la cédula y pulsa «Registrar»)':''}. Cuando la consulta automática no responde (captcha o bloqueo), el escolta queda «Sin verificar» y tú registras el resultado a mano con el botón de su fila. Revisión automática: cada mes.</p>
     <label>Mostrar</label><select id="cm_f" data-chg="cmpFiltro"><option value="NOV"${fl==='NOV'?' selected':''}>Con novedad (comparendos, sin verificar o vencida)</option><option value="TODOS"${fl==='TODOS'?' selected':''}>Todos los escoltas</option></select></div>
     <div class="card"><div class="scroll"><table><tr><th>Escolta</th><th>Estado</th><th>Comparendos</th><th>Total</th><th>Última revisión</th><th></th></tr>
@@ -2188,6 +2188,33 @@ ACT.cmpManual=d=>{
     <button class="btn ghost" style="width:100%;margin-top:8px" data-act="cmpCerrar">Cancelar</button>`);
 };
 ACT.cmpCerrar=()=>closeModal();
+
+/* --- revisión guiada: escolta por escolta, copia la cédula y abre el SIMIT --- */
+function cmpGuiaPinta(deuda){
+  const e=A.cmpQ[A.cmpI];
+  if(!e){closeModal();toast('Revisión terminada');irTab('comparendos');return}
+  modal(`<h2 style="margin-top:0">🚦 ${A.cmpI+1} de ${A.cmpQ.length}</h2>
+    <p style="margin:0 0 4px"><b>${esc(e.nombre)}</b></p><p class="mut" style="margin:0 0 10px">CC ${e.ced?esc(e.ced):'sin cédula (actualiza Comparendos.gs en el Apps Script)'}</p>
+    <button class="btn big" style="width:100%" data-act="cmpGuiaAbrir">📋 Copiar cédula y abrir SIMIT</button>
+    <p class="mut" style="font-size:13px">En el SIMIT pega la cédula, resuelve el captcha y mira el resultado. Luego elige aquí:</p>
+    ${deuda?`<label>Cantidad de comparendos</label><input id="cm_gc" inputmode="numeric" value="1"><label>Total adeudado (COP)</label><input id="cm_gt" inputmode="numeric" value="0">
+      <button class="btn big bad" style="width:100%;margin-top:10px" data-act="cmpGuiaDeudaOk">Guardar y seguir</button>`
+    :`<button class="btn big ok" style="width:100%;margin-top:6px" data-act="cmpGuiaLimpio">✅ Sin comparendos</button>
+      <button class="btn big bad" style="width:100%;margin-top:8px" data-act="cmpGuiaDeuda">⚠️ Tiene comparendos</button>`}
+    <div class="row" style="margin-top:10px"><button class="btn ghost sm" data-act="cmpGuiaSaltar">Saltar</button><button class="btn ghost sm" data-act="cmpGuiaSalir">Terminar</button></div>`);
+}
+ACT.cmpGuia=()=>{const l=((A.data.cmp||{}).escoltas||[]).filter(e=>e.estado!=='LIMPIO');if(!l.length){toast('Todos los escoltas están al día');return}A.cmpQ=l;A.cmpI=0;cmpGuiaPinta(false)};
+ACT.cmpGuiaAbrir=()=>{const e=A.cmpQ[A.cmpI];if(!e||!e.ced){toast('Falta la cédula de este escolta',true);return}
+  try{navigator.clipboard.writeText(e.ced)}catch(x){}
+  window.open(SIMIT_URL,'_blank','noopener');toast('Cédula copiada: pégala en el SIMIT')};
+ACT.cmpGuiaLimpio=async()=>{const e=A.cmpQ[A.cmpI];try{await api('registrarComparendo',{escoltaId:e.id,estado:'LIMPIO',cantidad:0,total:0,obs:''});A.cmpI++;cmpGuiaPinta(false)}catch(x){toast(x.message,true)}};
+ACT.cmpGuiaDeuda=()=>cmpGuiaPinta(true);
+ACT.cmpGuiaDeudaOk=async()=>{const e=A.cmpQ[A.cmpI],c=parseInt(val('cm_gc').replace(/\D/g,''))||0,t=parseInt(val('cm_gt').replace(/\D/g,''))||0;
+  if(c<1){toast('Indica cuántos comparendos tiene',true);return}
+  try{await api('registrarComparendo',{escoltaId:e.id,estado:'DEUDA',cantidad:c,total:t,obs:''});A.cmpI++;cmpGuiaPinta(false)}catch(x){toast(x.message,true)}};
+ACT.cmpGuiaSaltar=()=>{A.cmpI++;cmpGuiaPinta(false)};
+ACT.cmpGuiaSalir=()=>{closeModal();irTab('comparendos')};
+
 ACT.cmpManualOk=async d=>{
   const est=val('cm_e'),cant=parseInt(val('cm_c').replace(/\D/g,''))||0,tot=parseInt(val('cm_t').replace(/\D/g,''))||0;
   if(est==='DEUDA'&&cant<1){toast('Indica cuántos comparendos tiene',true);return}
