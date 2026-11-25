@@ -79,9 +79,9 @@ th{font-size:12px;color:var(--mut);text-transform:uppercase}
 .kpi{text-align:center;padding:8px}.kpi b{display:block;font-size:26px}.kpi span{font-size:12px;color:var(--mut)}
 code{background:var(--bg);padding:2px 6px;border-radius:6px;word-break:break-all}
 /* ===== CONSOLA DE DESPACHO (rediseño) ===== */
-:root{--bg:#050a14;--bg2:#08101f;--card:#0b1426;--tx:#dbe7f5;--mut:#7d92ae;--line:#192a45;--pri:#070e1c;--acc:#35d0ff;--accx:#04141c;--ok:#2fe39a;--warn:#ffb020;--bad:#ff5468;--okbg:rgba(47,227,154,.12);--warnbg:rgba(255,176,32,.13);--badbg:rgba(255,84,104,.14);--glow:0 0 18px rgba(53,208,255,.28);--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color-scheme:dark}
+:root{--bg:#141b26;--bg2:#18212e;--card:#1c2634;--tx:#d3dbe6;--mut:#8f9db1;--line:#2b394d;--pri:#161e2a;--acc:#7fb0d8;--accx:#10202e;--ok:#5cbf93;--warn:#d9a24a;--bad:#d9788a;--okbg:rgba(92,191,147,.13);--warnbg:rgba(217,162,74,.14);--badbg:rgba(217,120,138,.14);--glow:0 0 0 rgba(0,0,0,0);--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color-scheme:dark}
 html[data-tema=dia]{--bg:#edf2f8;--bg2:#e3eaf3;--card:#fff;--tx:#0d1a2c;--mut:#566a85;--line:#d3deec;--pri:#f9fbfe;--acc:#0a6cff;--accx:#fff;--ok:#0f8a56;--warn:#b86b00;--bad:#c92a3f;--okbg:#e0f6ec;--warnbg:#fff0d2;--badbg:#fde3e6;--glow:0 0 0 transparent;color-scheme:light}
-html,body{background:var(--bg);background-image:radial-gradient(1200px 500px at 85% -10%,rgba(53,208,255,.10),transparent 60%),radial-gradient(900px 500px at -10% 110%,rgba(120,90,255,.09),transparent 60%);background-attachment:fixed}
+html,body{background:var(--bg);background-image:radial-gradient(1200px 500px at 85% -10%,rgba(127,176,216,.05),transparent 60%),radial-gradient(900px 500px at -10% 110%,rgba(120,110,200,.04),transparent 60%);background-attachment:fixed}
 html[data-tema=dia] body{background-image:none}
 body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 /* barra de mando */
@@ -165,7 +165,7 @@ code{background:var(--bg2);border:1px solid var(--line);font-family:var(--mono)}
 @media (prefers-reduced-motion:reduce){header::after,header .led,.card.plegable:not(.plg)>:not(h2){animation:none}.card::before,.card::after{transition:none}}
 @media (max-width:520px){header .reloj small{display:none}main{padding-left:12px;padding-right:12px}}
 /* ===== HUD v2: medidores, rejilla y datos ===== */
-body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:linear-gradient(rgba(53,208,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(53,208,255,.045) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(ellipse at 50% 0,#000 20%,transparent 75%);-webkit-mask-image:radial-gradient(ellipse at 50% 0,#000 20%,transparent 75%)}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:linear-gradient(rgba(127,176,216,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(127,176,216,.045) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(ellipse at 50% 0,#000 20%,transparent 75%);-webkit-mask-image:radial-gradient(ellipse at 50% 0,#000 20%,transparent 75%)}
 html[data-tema=dia] body::before{display:none}
 .meter{position:relative;height:12px;margin:7px 0 5px;border-radius:3px;background:var(--bg2);border:1px solid var(--line);overflow:visible;
   background-image:repeating-linear-gradient(90deg,transparent 0,transparent calc(10% - 1px),color-mix(in srgb,var(--mut) 35%,transparent) calc(10% - 1px),color-mix(in srgb,var(--mut) 35%,transparent) 10%)}
@@ -191,7 +191,7 @@ html[data-tema=dia] body::before{display:none}
 
 /* ---- Tablero ejecutivo ---- */
 .ej-hero{position:relative;overflow:hidden;border:1px solid var(--acc);border-radius:10px;padding:14px;background:linear-gradient(135deg,var(--bg2),var(--card));box-shadow:var(--glow)}
-.ej-hero::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(53,208,255,.045) 3px 4px);pointer-events:none}
+.ej-hero::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(127,176,216,.045) 3px 4px);pointer-events:none}
 .ej-hero h2{margin:0;font:700 12px var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--acc)}
 .ej-hero .big{font:700 24px var(--mono);color:var(--tx);margin:4px 0 0;text-shadow:var(--glow)}
 .ej-hero .sub{font-size:12px;color:var(--mut);margin-top:2px}
@@ -286,7 +286,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.25-menu';
+const APP_VERSION='2026.11.25-colores';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
