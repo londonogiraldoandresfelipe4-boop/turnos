@@ -215,6 +215,17 @@ html[data-tema=dia] body::before{display:none}
 @keyframes ejgrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
 .ej-lg{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--mut);margin-top:6px}.ej-lg span::before{content:"";display:inline-block;width:14px;height:3px;margin-right:5px;vertical-align:middle;background:var(--c);border-radius:2px}
 .ej-lg span.d::before{background:none;border-top:2px dashed var(--c);height:0}
+/* menú principal agrupado (sin desplazamiento horizontal) */
+.tabs.nav{display:flex;flex-wrap:wrap;gap:10px 14px;overflow:visible;padding:10px 12px 12px;margin:0 0 14px;border:1px solid var(--line);border-radius:14px;background:var(--bg2)}
+.tabs.nav .tg{display:flex;flex-direction:column;gap:5px;min-width:0}
+.tabs.nav .tgl{font:700 11px var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--mut);padding:0 2px}
+.tabs.nav .tgb{display:flex;flex-wrap:wrap;gap:5px}
+.tabs.nav button{display:inline-flex;align-items:center;gap:7px;padding:9px 13px;min-height:40px;font-size:15px;font-weight:550;color:var(--tx);background:color-mix(in srgb,var(--line) 45%,transparent);border:1px solid var(--line);border-radius:10px}
+.tabs.nav button .ic{font-size:16px;line-height:1}
+.tabs.nav button:hover{border-color:var(--acc);color:var(--acc)}
+.tabs.nav button.on{background:var(--acc);color:var(--accx);border-color:var(--acc);font-weight:700;box-shadow:var(--glow)}
+.tabs.nav .tg.cur .tgl{color:var(--acc)}
+@media(max-width:600px){.tabs.nav{gap:8px}.tabs.nav .tg{width:100%}.tabs.nav button{flex:1 1 calc(50% - 5px);justify-content:flex-start;font-size:15px}}
 </style>
 </head>
 <body>
@@ -275,7 +286,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.23-b';
+const APP_VERSION='2026.11.25-menu';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -621,8 +632,8 @@ function formTipos(){return Object.entries(TIPOS).map(([k,n])=>`<option value="$
 
 /* ================= ADMIN / CENTRAL ================= */
 const A={tab:'tablero',data:{},cfg:null};
-const TABS_A=[['ejecutivo','Ejecutivo'],['tablero','Tablero'],['turnos','Turnos'],['prog','Programación'],['horas','Horas'],['peso','Peso movido'],['punt','Puntualidad'],['solic','Solicitudes'],['escoltas','Escoltas'],['docs','Documentos'],['comparendos','Comparendos'],['viaticos','Viáticos'],['caja','Caja'],['cuadre','Cuadre'],['export','Exportar'],['ajustes','Ajustes']];
-const TABS_C=[['ejecutivo','Ejecutivo'],['tablero','Tablero'],['peso','Peso movido'],['prog','Programación'],['solic','Solicitar personal'],['docs','Documentos']];
+const TABS_A=[['Resumen',[['ejecutivo','Ejecutivo','📊'],['tablero','Tablero','🧭']]],['Operación',[['turnos','Turnos','🕒'],['prog','Programación','📅'],['solic','Solicitudes','📨'],['peso','Peso movido','⚖️']]],['Personal',[['escoltas','Escoltas','👥'],['horas','Horas','⏱️'],['punt','Puntualidad','✅'],['docs','Documentos','📄'],['comparendos','Comparendos','🚦']]],['Dinero',[['viaticos','Viáticos','🧾'],['caja','Caja','💵'],['cuadre','Cuadre','🧮']]],['Sistema',[['export','Exportar','📤'],['ajustes','Ajustes','⚙️']]]];
+const TABS_C=[['Menú',[['ejecutivo','Ejecutivo','📊'],['tablero','Tablero','🧭'],['peso','Peso movido','⚖️'],['prog','Programación','📅'],['solic','Solicitar personal','📨'],['docs','Documentos','📄']]]];
 function vistaAdmin(){
   A.tab='tablero';
   $('root').innerHTML=`<header><h1>${S.rol==='A'?'Administrador':'Central'}<small>${esc(S.cfg.operacion||'')}</small></h1><button data-act="salir">Salir</button></header><main><div id="estado"></div><div class="tabs" id="tabs"></div><div id="vista"></div></main>`;
@@ -631,7 +642,7 @@ function vistaAdmin(){
   clearInterval(T.gps);T.gps=setInterval(()=>{const ab=(A.data.tab||{}).abiertos||[];if(A.tab==='tablero'&&!$('modal')&&S.token&&ab.some(x=>x.Tipo==='CARAVANA'))VISTAS.tablero().catch(()=>{})},180000);
   if(S.impPend){const c=S.impPend;S.impPend=null;if(S.rol!=='A')toast('Entra como administrador para importar la programación del Asistente',true);else setTimeout(()=>{irTab('prog');setTimeout(()=>{ACT.impAbrir();const t=$('imp_c');if(t){t.value=c;ACT.impVer()}},500)},300)}
 }
-function pintaTabs(){const l=S.rol==='A'?TABS_A:TABS_C;$('tabs').innerHTML=l.map(([k,n])=>`<button class="${A.tab===k?'on':''}" data-act="tab" data-t="${k}">${n}</button>`).join('')}
+function pintaTabs(){const l=S.rol==='A'?TABS_A:TABS_C,el=$('tabs');el.classList.add('nav');el.innerHTML=l.map(([g,it])=>`<div class="tg${it.some(x=>x[0]===A.tab)?' cur':''}">${l.length>1?`<span class="tgl">${g}</span>`:''}<div class="tgb">${it.map(([k,n,ic])=>`<button class="${A.tab===k?'on':''}" data-act="tab" data-t="${k}"><span class="ic">${ic}</span>${n}</button>`).join('')}</div></div>`).join('')}
 function irTab(t){A.tab=t;pintaTabs();const f=VISTAS[t];$('vista').innerHTML='<div class="card mut">Cargando…</div>';f().catch(e=>{$('vista').innerHTML=`<div class="banner bad">${esc(e.message)}</div>`})}
 const ORD_T=['CARAVANA','TAT','MOVIMIENTO','DISPONIBLE'];
 const gpsLinea=t=>{const km=parseFloat(t.Km)||0,ts=parseInt(t.UltTs,10)||0,min=ts?Math.round((Date.now()/1000-ts)/60):null;
