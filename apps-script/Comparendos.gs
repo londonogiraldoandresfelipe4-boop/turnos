@@ -28,7 +28,8 @@
  *
  * FUENTE (Config ▸ comparendos_fuente):
  *   MANUAL   (por defecto) no consulta nada; el administrador registra el resultado en la app.
- *   VERIFIK  API de pago; requiere la propiedad de script VERIFIK_TOKEN. No probada.
+ *   VERIFIK  API de pago (GET /v2/co/simit/consultar por documento). Requiere la propiedad de script VERIFIK_TOKEN
+ *            (Configuración del proyecto ▸ Propiedades de la secuencia de comandos). Aún no probada con un token real.
  *   SIMIT    intenta la dirección de Config ▸ simit_url. El SIMIT usa captcha y este módulo NO lo resuelve:
  *            si responde con captcha, bloqueo o algo que no es JSON, el escolta queda «Sin verificar»
  *            y se registra a mano.
@@ -73,13 +74,13 @@ function cmpInterpretar_(j) {   // tolera las formas habituales de la respuesta
   var data = (j && (j.data || (j.value && (j.value.data || (j.value.value && j.value.value.data))))) || j || {};
   var lista = data.comparendos || data.multas || data.resultado || [];
   var pend = lista.filter(function (x) { var e = String(x.estadoComparendo || x.estado || 'Pendiente').toLowerCase(); return e.indexOf('pagad') < 0 && e.indexOf('sanead') < 0; });
-  var total = pend.reduce(function (a, x) { return a + (Number(String(x.total || x.valor || 0).replace(/[^\d]/g, '')) || 0); }, 0);
+  var total = pend.reduce(function (a, x) { return a + (Number(String(x.valorPagar || x.valor || x.total || 0).replace(/[^\d]/g, '')) || 0); }, 0);
   return { ok: true, estado: pend.length ? 'DEUDA' : 'LIMPIO', cantidad: pend.length, total: total };
 }
 function cmpVerifik_(cedula) {
   var tk = props_().getProperty('VERIFIK_TOKEN');
   if (!tk) return { ok: false, motivo: 'Falta VERIFIK_TOKEN en las propiedades del script' };
-  var r = UrlFetchApp.fetch('https://api.verifik.co/v2/co/simit/comparendos?documentType=CC&documentNumber=' + cedula,
+  var r = UrlFetchApp.fetch('https://api.verifik.co/v2/co/simit/consultar?documentType=CC&documentNumber=' + cedula,
     { headers: { Authorization: 'Bearer ' + tk, Accept: 'application/json' }, muteHttpExceptions: true });
   var c = r.getResponseCode();
   if (c === 404) return { ok: true, estado: 'LIMPIO', cantidad: 0, total: 0 };   // «Record not found»: sin registros
