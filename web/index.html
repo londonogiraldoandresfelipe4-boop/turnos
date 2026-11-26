@@ -297,7 +297,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.25-autoriza3';
+const APP_VERSION='2026.11.26-comparendos-asesoria';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -2169,20 +2169,17 @@ const CMP_EST={LIMPIO:['ok','Sin comparendos'],DEUDA:['bad','Con comparendos'],S
 let CMP_ME=jp(LS('rt_cmp'),null);
 const cmpBadge=v=>{const e=CMP_EST[v.estado]||['',v.estado];return `<span class="badge ${e[0]}">${e[1]}</span>`};
 const cmpPesos=n=>'$'+Number(n||0).toLocaleString('es-CO');
-async function cmpCargaEsc(){try{const r=await api('verMiComparendo',{});CMP_ME=r;LS('rt_cmp',JSON.stringify(r));if(S.rol==='E')pintaEsc()}catch(e){}}
-function cmpCardEsc(){
-  if(!CMP_ME||CMP_ME.estado!=='DEUDA')return '';
-  return `<div class="card"><div class="banner bad">🚦 En la consulta de comparendos (SIMIT) aparece${CMP_ME.cantidad>1?'n':''} <b>${CMP_ME.cantidad}</b> comparendo${CMP_ME.cantidad>1?'s':''} sin sanear${CMP_ME.total?' por <b>'+cmpPesos(CMP_ME.total)+'</b>':''} a tu nombre. Revísalo en el SIMIT y sanéalo; luego avisa a la Central para validar de nuevo.<br>Última revisión: ${fDoc(CMP_ME.ultima)}<br><a class="btn sm" style="margin-top:8px;display:inline-block;text-decoration:none" target="_blank" rel="noopener" href="${SIMIT_URL}">Abrir SIMIT</a></div></div>`;
-}
+async function cmpCargaEsc(){try{const r=await api('verMiComparendo',{});CMP_ME=r;LS('rt_cmp',JSON.stringify(r))}catch(e){}try{await cdCarga()}catch(e){}if(S.rol==='E')pintaEsc()}
 VISTAS.comparendos=async function(){
   if(S.rol!=='A'){$('vista').innerHTML='<div class="banner warn">Esta pestaña es solo del administrador.</div>';return}
   try{
   if(A.cmpV==='VEH')return await cmpVehiculos();
   if(A.cmpV==='AUT')return await autAdmin();
+  if(A.cmpV==='ASE')return await cdAdmin();
   var r=await api('listarComparendos',{});
   }catch(e){
     const falta=/desconocida/i.test(e.message||'');
-    $('vista').innerHTML=cmpSelector()+`<div class="banner warn"><b>${falta?'El Apps Script aún no tiene instalado este módulo.':'No se pudo cargar.'}</b><br>${falta?(A.cmpV==='AUT'?'Faltan las acciones de autorización: pega <code>apps-script/AutorizacionDatos.gs</code>, agrega la hoja, los permisos y los 3 <code>case</code> en Code.gs y publica una nueva versión.':A.cmpV==='VEH'?'Faltan las acciones de placas: pega <code>apps-script/ComparendosPlacas.gs</code>, agrega los 3 <code>case</code> y la hoja <code>ComparendosPlacas</code> en Code.gs y publica una nueva versión de la implementación.':'Faltan las acciones de comparendos de escoltas: instala <code>apps-script/Comparendos.gs</code> (hoja, permisos y <code>case</code> en Code.gs) y publica una nueva versión de la implementación.'):esc(e.message||'')}</div>`;
+    $('vista').innerHTML=cmpSelector()+`<div class="banner warn"><b>${falta?'El Apps Script aún no tiene instalado este módulo.':'No se pudo cargar.'}</b><br>${falta?(A.cmpV==='ASE'?'Faltan las acciones de asesoría: pega <code>apps-script/ComparendosAsesoria.gs</code>, agrega las 2 hojas, los permisos y los <code>case</code> en Code.gs y publica una nueva versión de la implementación.':A.cmpV==='AUT'?'Faltan las acciones de autorización: pega <code>apps-script/AutorizacionDatos.gs</code>, agrega la hoja, los permisos y los 3 <code>case</code> en Code.gs y publica una nueva versión.':A.cmpV==='VEH'?'Faltan las acciones de placas: pega <code>apps-script/ComparendosPlacas.gs</code>, agrega los 3 <code>case</code> y la hoja <code>ComparendosPlacas</code> en Code.gs y publica una nueva versión de la implementación.':'Faltan las acciones de comparendos de escoltas: instala <code>apps-script/Comparendos.gs</code> (hoja, permisos y <code>case</code> en Code.gs) y publica una nueva versión de la implementación.'):esc(e.message||'')}</div>`;
     return;
   }A.data.cmp=r;const fl=A.cmpF||'NOV';
   const l=r.escoltas.filter(e=>fl==='TODOS'||e.estado!=='LIMPIO');
@@ -2193,7 +2190,7 @@ VISTAS.comparendos=async function(){
     <p class="mut" style="font-size:12px;margin:8px 0 0">Fuente actual: <b>${esc(r.fuente)}</b>${r.fuente==='MANUAL'?' (abre el SIMIT, mira la cédula y pulsa «Registrar»)':''}. Cuando la consulta automática no responde (captcha o bloqueo), el escolta queda «Sin verificar» y tú registras el resultado a mano con el botón de su fila. Revisión automática: cada mes.</p>
     <label>Mostrar</label><select id="cm_f" data-chg="cmpFiltro"><option value="NOV"${fl==='NOV'?' selected':''}>Con novedad (comparendos, sin verificar o vencida)</option><option value="TODOS"${fl==='TODOS'?' selected':''}>Todos los escoltas</option></select></div>
     <div class="card"><div class="scroll"><table><tr><th>Escolta</th><th>Estado</th><th>Comparendos</th><th>Total</th><th>Última revisión</th><th></th></tr>
-    ${l.length?l.map(e=>`<tr><td><b>${esc(e.nombre)}</b><br><span class="mut" style="font-size:12px">CC ···${esc(e.ced4)}${e.correo?'':' · sin correo'}</span></td><td>${cmpBadge(e)}${e.motivo?`<br><span class="mut" style="font-size:12px">${esc(e.motivo)}</span>`:''}</td><td>${e.estado==='DEUDA'?e.cantidad:'—'}</td><td>${e.estado==='DEUDA'?cmpPesos(e.total):'—'}</td><td>${e.ultima?fDoc(e.ultima):'Nunca'}${e.fuente?`<br><span class="mut" style="font-size:12px">${esc(e.fuente)}</span>`:''}</td><td>${r.fuente==='MANUAL'?'':`<button class="btn ghost sm" data-act="cmpConsultar" data-id="${esc(e.id)}" data-nom="${esc(e.nombre)}">Consultar</button> `}<button class="btn ghost sm" data-act="cmpManual" data-id="${esc(e.id)}" data-nom="${esc(e.nombre)}">Registrar</button></td></tr>`).join(''):`<tr><td colspan="6" class="mut">Nada por mostrar: todos los escoltas están sin comparendos y con revisión al día.</td></tr>`}</table></div>
+    ${l.length?l.map(e=>`<tr><td><b>${esc(e.nombre)}</b><br><span class="mut" style="font-size:12px">CC ···${esc(e.ced4)}${e.correo?'':' · sin correo'}</span></td><td>${cmpBadge(e)}${e.motivo?`<br><span class="mut" style="font-size:12px">${esc(e.motivo)}</span>`:''}</td><td>${e.estado==='DEUDA'?e.cantidad:'—'}</td><td>${e.estado==='DEUDA'?cmpPesos(e.total):'—'}</td><td>${e.ultima?fDoc(e.ultima):'Nunca'}${e.fuente?`<br><span class="mut" style="font-size:12px">${esc(e.fuente)}</span>`:''}</td><td>${r.fuente==='MANUAL'?'':`<button class="btn ghost sm" data-act="cmpConsultar" data-id="${esc(e.id)}" data-nom="${esc(e.nombre)}">Consultar</button> `}<button class="btn ghost sm" data-act="cmpManual" data-id="${esc(e.id)}" data-nom="${esc(e.nombre)}">Registrar</button> <button class="btn ghost sm" data-act="cdForm" data-esc="${esc(e.id)}" data-nom="${esc(e.nombre)}">Tipo</button></td></tr>`).join(''):`<tr><td colspan="6" class="mut">Nada por mostrar: todos los escoltas están sin comparendos y con revisión al día.</td></tr>`}</table></div>
     <p class="mut" style="font-size:12px;margin:8px 0 0">El escolta con comparendos recibe aviso en la app y por correo para sanearlos. Esta consulta usa solo su cédula; ten su autorización por escrito para tratar este dato (Ley 1581 de 2012).</p></div>`;
 };
 ACT.cmpRefrescar=()=>irTab('comparendos');
@@ -2255,7 +2252,7 @@ ACT.cmpManualOk=async d=>{
 const PLACA_RE=/^([A-Z]{3}\d{3}|[A-Z]{3}\d{2}[A-Z])$/;   // carro ABC123 · moto ABC12D
 const MOTOS_ESC={EHP59H:'Alvarado Jaime',IIO89I:'Arias Pérez Carlos Edison',WEV97H:'Ariza Jefferson',NFV68I:'Bejarano Roa Cristian Andrés',DBS77H:'Díaz Vega Eduar',XBL60G:'Fonseca Pineda Brian Andrey',CUZ10I:'Giraldo Gómez Dávila Óscar',VIB14G:'Guillén Molano Fabián Alejandro',SHT58H:'Gutiérrez Agudelo Carlos Alfonso',CBY13H:'Montilla Ramírez Jhon Sebastián',OQP23I:'Moreno Conde Héctor',BGP61H:'Ospina Roa José Luis',YSQ10H:'Pérez Dávila David de Jesús',PKT25I:'Pérez Torres Daniel Alexander',SCH72F:'Sierra García Juan Guillermo',JVE78I:'Zambrano Rodríguez Edward Alexis'};   // motos de los escoltas activos, tomadas de «INDICE DOCUMENTOS ESCOLTAS REPCO»
 const cmpPlaca=v=>String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
-function cmpSelector(){return `<div class="row" style="gap:8px;margin-bottom:10px"><button class="btn ${A.cmpV==='VEH'||A.cmpV==='AUT'?'ghost':''}" data-act="cmpVista" data-v="ESC">👤 Escoltas (cédula)</button><button class="btn ${A.cmpV==='VEH'?'':'ghost'}" data-act="cmpVista" data-v="VEH">🚗 Vehículos (placa)</button><button class="btn ${A.cmpV==='AUT'?'':'ghost'}" data-act="cmpVista" data-v="AUT">📝 Autorizaciones</button></div>`}
+function cmpSelector(){return `<div class="row" style="gap:8px;margin-bottom:10px;flex-wrap:wrap"><button class="btn ${A.cmpV==='VEH'||A.cmpV==='AUT'||A.cmpV==='ASE'?'ghost':''}" data-act="cmpVista" data-v="ESC">👤 Escoltas (cédula)</button><button class="btn ${A.cmpV==='VEH'?'':'ghost'}" data-act="cmpVista" data-v="VEH">🚗 Vehículos (placa)</button><button class="btn ${A.cmpV==='AUT'?'':'ghost'}" data-act="cmpVista" data-v="AUT">📝 Autorizaciones</button><button class="btn ${A.cmpV==='ASE'?'':'ghost'}" data-act="cmpVista" data-v="ASE">⚖️ Asesorías</button></div>`}
 ACT.cmpVista=d=>{A.cmpV=d.v;irTab('comparendos')};
 function cmpPlacasUniverso(){const m=new Map();Object.keys(MOTOS_ESC).forEach(k=>m.set(k,{placa:k,origenes:new Set()}));return m}
 const cmpPlacaEstado=o=>{if(!o||!o.estado||o.estado==='SIN_VERIFICAR')return 'SIN_VERIFICAR';if(o.estado==='LIMPIO'&&o.ultima&&(Date.now()-new Date(o.ultima+'T12:00:00').getTime())/864e5>35)return 'VENCIDA';return o.estado};
@@ -2388,6 +2385,269 @@ document.addEventListener('input',e=>{if(e.target&&e.target.id==='vf_valor')vVer
 document.addEventListener('change',e=>{if(e.target.classList){if(e.target.classList.contains('pk'))ACT.pgContar();if(e.target.classList.contains('dck'))ACT.dcContar()}const c=e.target.dataset&&e.target.dataset.chg;if(c&&ACT['chg_'+c])ACT['chg_'+c]()});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lg_pin')ACT.entrarE();if(e.key==='Enter'&&e.target.id==='lg_clave')LOGIN.rol==='A'?ACT.entrarA():ACT.entrarC()});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.token){sinLeer=0;document.title='Registro de Turnos';if(S.rol!=='E')pulsoAdm();if(S.rol==='E'){flush();cargaEsc(true)}else if(A.tab==='tablero')irTab('tablero')}});
+/* ===== ASESORÍA DE COMPARENDOS: tipo de comparendo, guía de pasos, plantillas de derecho de petición y solicitud de asesoría ===== */
+const CD_TIPOS={PICO:['🚫','Pico y placa o zona restringida'],ESTAC:['🅿️','Mal estacionado'],VELOC:['⚡','Exceso de velocidad'],SEMAF:['🚦','Semáforo o señal de tránsito'],DOCS:['📄','SOAT o revisión técnico-mecánica'],LICEN:['🪪','Licencia de conducción'],MOTO:['🏍️','Moto: casco, chaleco o elementos de protección'],CELU:['📱','Uso del celular'],ALCO:['🍺','Alcohol o drogas'],OTRO:['❓','Otro / no sé']};
+const CD_MEDIO={VIA:'Me lo puso un agente en la vía',CAMARA:'Fotomulta (cámara o llegó por correo)'};
+const CD_GEST={PENDIENTE:['bad','Sin gestionar'],PETICION:['warn','Petición enviada'],AUDIENCIA:['warn','Impugnado / audiencia'],ACUERDO:['warn','Acuerdo de pago'],PAGADO:['ok','Pagado'],RESUELTO:['ok','Resuelto o exonerado']};
+const CD_CORREO_ASESORIA='andres.londono@prosegur.com';
+const CDT={items:[],ase:[],local:false,ini:false};
+const cdLsK=k=>k+S.id;
+function cdIni(){if(CDT.ini||!S.id)return;CDT.ini=true;const c=jp(LS('rt_cd_'+S.id),null);if(c){CDT.items=c.items||[];CDT.ase=c.asesorias||[]}}
+async function cdCarga(){
+  try{const r=await api('verMisComparendosDet',{});CDT.items=r.items||[];CDT.ase=r.asesorias||[];CDT.local=false;CDT.ini=true;LS('rt_cd_'+S.id,JSON.stringify(r))}
+  catch(e){
+    if(/desconocida/i.test(e.message||'')){CDT.local=true;CDT.ini=true;CDT.items=jp(LS('rt_cdl_'+S.id),[]);CDT.ase=jp(LS('rt_cdal_'+S.id),[])}
+    else cdIni();
+  }
+}
+/* --- fechas y días hábiles (festivos de Colombia calculados por año) --- */
+const cdISO=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const cdDate=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s||'');return m?new Date(+m[1],+m[2]-1,+m[3]):null};
+const cdFl=d=>d?String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear():'';
+const cdHoyD=()=>{const d=new Date();d.setHours(0,0,0,0);return d};
+function cdPascua(y){const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mes=Math.floor((h+l-7*m+114)/31),dia=((h+l-7*m+114)%31)+1;return new Date(y,mes-1,dia)}
+const CD_FEST={};
+function cdFest(y){
+  if(CD_FEST[y])return CD_FEST[y];
+  const s=new Set(),add=d=>s.add(cdISO(d)),mas=(d,n)=>{const x=new Date(d.getTime());x.setDate(x.getDate()+n);return x};
+  [[1,1],[5,1],[7,20],[8,7],[12,8],[12,25]].forEach(([m,d])=>add(new Date(y,m-1,d)));
+  [[1,6],[3,19],[6,29],[8,15],[10,12],[11,1],[11,11]].forEach(([m,d])=>{const x=new Date(y,m-1,d);add(mas(x,(8-x.getDay())%7))});   // festivos que pasan al lunes siguiente
+  const p=cdPascua(y);[-3,-2,43,64,71].forEach(n=>add(mas(p,n)));   // Jueves y Viernes Santo, Ascensión, Corpus Christi, Sagrado Corazón
+  return CD_FEST[y]=s;
+}
+const cdHabil=d=>{const w=d.getDay();return w!==0&&w!==6&&!cdFest(d.getFullYear()).has(cdISO(d))};
+function cdSuma(iso,n){const d=cdDate(iso);let c=0;while(c<n){d.setDate(d.getDate()+1);if(cdHabil(d))c++}return d}
+function cdEntre(a,b){const x=cdDate(a),y=cdDate(b);let c=0;if(!x||!y)return 0;while(x<y){x.setDate(x.getDate()+1);if(cdHabil(x))c++}return c}
+/* --- plazos de un comparendo (art. 136 Ley 769/2002; fotomultas: Ley 1843/2017) --- */
+function cdPlazo(it){
+  const cam=it.medio==='CAMARA',base=cam?it.fechaNotif:it.fecha,hoy=cdHoyD(),r={lineas:[],alertas:[],cls:'warn',presc:false,notif:false,vencido:false};
+  const f=cdDate(it.fecha);
+  if(f){const l=new Date(f.getTime());l.setFullYear(l.getFullYear()+3);if(hoy>=l){r.presc=true;r.alertas.push('Pasaron más de 3 años desde la infracción: puede haber prescripción (plantilla «Prescripción»).')}}
+  if(cam&&it.fecha&&it.fechaNotif){const n=cdEntre(it.fecha,it.fechaNotif);if(n>13){r.notif=true;r.alertas.push('Entre la infracción y la notificación pasaron '+n+' días hábiles; el máximo legal es 13 (10 para validar + 3 para enviar). Posible indebida notificación.')}}
+  if(it.tipo==='ALCO'){r.lineas.push('Por alcohol o drogas no hay descuento por curso. Consulta de inmediato con un abogado y avisa a la Central.');r.cls='bad';return r}
+  if(!base){r.lineas.push(cam?'Anota la fecha en que te notificaron para calcular tus plazos.':'Anota la fecha del comparendo para calcular tus plazos.');return r}
+  const d50=cdSuma(base,cam?11:5),d25=cdSuma(base,cam?26:20),dp=cdSuma(base,11);
+  if(hoy<=d50){r.lineas.push('50 % de descuento (curso + pago) hasta el '+cdFl(d50));r.cls='bad'}
+  else if(hoy<=d25){r.lineas.push('25 % de descuento (curso + pago) hasta el '+cdFl(d25));r.cls='bad'}
+  else{r.vencido=true;r.lineas.push('Los plazos de descuento ya vencieron. Aún puedes pedir copia del expediente, nulidad, prescripción o un acuerdo de pago.')}
+  r.lineas.push(hoy<=dp?'Último día para presentarte y pedir audiencia: '+cdFl(dp):'El plazo de 11 días hábiles para presentarte ya pasó'+(r.notif?'; la notificación fuera de término es un argumento a tu favor':'; revisa si hubo indebida notificación o si hay prescripción'));
+  return r;
+}
+const cdPlazoTxt=it=>{const p=cdPlazo(it);return p.alertas.concat(p.lineas)};
+/* --- guía de pasos por tipo y medio --- */
+const CD_PASOS_MEDIO={
+  VIA:['Revisa la copia que te dio el agente: tu nombre, cédula, placa, fecha, lugar y la infracción deben estar correctos.','Tienes 11 días hábiles para presentarte ante la Secretaría de Tránsito (presencial o virtual) y decidir: pagar con descuento (con curso pedagógico), o no aceptar la infracción y pedir audiencia para impugnar.','Descuento con curso y pago: 50 % dentro de los 5 días hábiles siguientes al comparendo y 25 % entre el día 6 y el 20 hábil.'],
+  CAMARA:['Compara la fecha de la infracción con la de tu notificación: entre ambas no deben pasar más de 13 días hábiles (10 para validar y 3 para enviar).','La notificación debe ir a la dirección o correo que tienes en el RUNT. Si no te llegó, pide copia de la guía de envío (plantilla «Copia del expediente») y actualiza tus datos en el RUNT.','Desde la notificación tienes 11 días hábiles para presentarte y pagar con 50 % de descuento (con curso); del día 12 al 26 hábil el descuento baja a 25 %.','Si no conducías tú, o el vehículo ya no era tuyo, pide la revocatoria (plantilla «No fui el conductor»).']
+};
+const CD_GUIA={
+  PICO:{p:['Verifica el decreto de pico y placa o de restricción de esa ciudad: día, horario, último dígito de la placa y si tu tipo de vehículo estaba cobijado.','Reúne pruebas: fotos del sitio y de la señal, y el registro de tu turno en la app (hora y ubicación). Si prestabas un servicio con autorización especial, anexa el permiso o la carta de la empresa.','Si la restricción sí aplicaba, lo más económico suele ser el curso pedagógico y pagar con descuento dentro del plazo.'],pl:['COPIA','AUDIENCIA']},
+  ESTAC:{p:['Fotografía el lugar: ¿había señal de prohibido estacionar, línea amarilla o bordillo pintado visible?','Si el vehículo fue inmovilizado o llevado a patios, el comparendo y la salida del patio son trámites distintos: pregunta en la Secretaría qué debes pagar y presentar.','Si faltaba señalización o el sitio sí permitía parar, impugna en audiencia con las fotos; si la infracción es cierta, paga con descuento.'],pl:['COPIA','AUDIENCIA']},
+  VELOC:{p:['Si fue por cámara: pide copia de la foto o video, del certificado de calibración (metrología) del equipo y del acto que autoriza la cámara en ese punto.','Verifica que la cámara y el límite de velocidad estuvieran señalizados y que la velocidad registrada corresponda al límite de esa vía.','Revisa los plazos de notificación (máx. 13 días hábiles). Si no conducías tú, o el vehículo no era tuyo, pide la revocatoria.'],pl:['COPIA','NOTIF','NOSOY','AUDIENCIA']},
+  SEMAF:{p:['Pide la evidencia (foto o video) y revisa que realmente se vea el cruce en rojo y la placa.','Si lo puso un agente, anota lugar y hora exactos; aporta el registro de tu turno en la app o testigos.','Verifica la notificación y los plazos como en cualquier fotomulta.'],pl:['COPIA','NOTIF','NOSOY','AUDIENCIA']},
+  DOCS:{p:['Consulta tu vehículo en el RUNT y mira si el SOAT y la revisión técnico-mecánica estaban vigentes el día del comparendo.','Si estaban vigentes: descarga el certificado del RUNT o la póliza y pide la revocatoria con la plantilla «SOAT o revisión vigentes».','Si estaban vencidos: renueva de inmediato (la infracción se repite y puede inmovilizar la moto) y evalúa pagar con descuento dentro del plazo.'],pl:['DOCS','COPIA','AUDIENCIA']},
+  LICEN:{p:['Consulta tu licencia en el RUNT: vigencia y categoría para tu tipo de vehículo.','Si estaba vigente y en la categoría correcta, imprime el certificado y pide la revocatoria o impugna en audiencia con ese soporte. Si estaba vencida, renueva y paga con descuento.','Conducir con la licencia vencida puede llevar a la inmovilización del vehículo: no lo hagas hasta tenerla al día.'],pl:['COPIA','AUDIENCIA']},
+  MOTO:{p:['Identifica qué elemento te imputan (casco certificado, chaleco o ropa reflectiva, otro) y confirma en la norma vigente de esa ciudad si era exigible el día del comparendo.','Aporta fotos de tu casco (con su certificación) y de tus elementos de protección; si usas chaleco con placa, una foto donde se vea el número.','Si no cumplías, paga con descuento y corrige de inmediato para evitar nuevos comparendos.'],pl:['COPIA','AUDIENCIA']},
+  CELU:{p:['Pide copia de la prueba (foto, video o relato del agente) y revisa que se vea con claridad el celular en la mano.','Si usabas un dispositivo de manos libres permitido, aporta una foto y explícalo en la audiencia.','Si fue cierto, lo más práctico es el curso pedagógico y pagar con descuento.'],pl:['COPIA','AUDIENCIA']},
+  ALCO:{p:['Es una infracción grave: no hay descuento por curso y el proceso puede llevar a la suspensión o cancelación de la licencia y a la inmovilización del vehículo.','Busca un abogado de inmediato y no dejes vencer ningún plazo. Reúne la prueba: acta de alcoholimetría, número de la prueba y nombre del agente.','Avisa a la Central: puede afectar tu servicio como escolta.'],pl:['COPIA','AUDIENCIA']},
+  OTRO:{p:['Pide primero la copia del comparendo (plantilla «Copia del expediente») para saber exactamente qué infracción es y cuál es su código.','Con ese código, confirma con la Secretaría de Tránsito o con la asesoría qué opciones tienes.'],pl:['COPIA','AUDIENCIA']}
+};
+/* --- plantillas de derecho de petición (modelos orientativos) --- */
+const CD_PLANT={
+  COPIA:{n:'Copia del expediente, pruebas y notificación',uso:'Para conocer qué hay en el comparendo antes de decidir. Casi siempre es el primer paso.',resp:'10 días hábiles',asunto:'Solicitud de copia del expediente, pruebas y notificación del comparendo',
+    hechos:c=>['Figura a mi nombre o asociado a la placa '+c.placa+' el comparendo No. '+c.numero+', de fecha '+c.fecha+'.','Necesito conocer el expediente completo para poder ejercer mi derecho de defensa.'],
+    pet:c=>['Copia íntegra y legible de la orden de comparendo y, si existen, de la resolución sancionatoria y del mandamiento de pago.','Copia de las pruebas de la infracción: fotografías, video o registro del equipo; y, si fue captada por cámara, del certificado de calibración o metrología vigente y del acto que autoriza el equipo en ese punto.','Constancia de la fecha en que se validó el comparendo y de la fecha, el medio y la dirección o correo electrónico a los que se envió y entregó la notificación (guía de correo o certificación de entrega).','Informarme el estado actual del proceso y los términos que tengo para actuar.'],
+    fund:['Artículos 23 y 29 de la Constitución Política (petición y debido proceso).','Ley 1755 de 2015: las solicitudes de documentos se resuelven dentro de los diez (10) días hábiles siguientes a su recepción; si no hay respuesta en ese lapso, se entiende aceptada la solicitud y deben entregarse los documentos dentro de los tres (3) días siguientes.'],anexos:[]},
+  AUDIENCIA:{n:'Solicitud de audiencia para impugnar',uso:'Cuando NO aceptas la infracción y quieres defenderte ante la autoridad de tránsito, dentro de los 11 días hábiles.',resp:'15 días hábiles',asunto:'Solicitud de audiencia para impugnar el comparendo',
+    hechos:c=>['Me fue impuesto o notificado el comparendo No. '+c.numero+', de fecha '+c.fecha+(c.fechaNotif?' (notificado el '+c.fechaNotif+')':'')+', placa '+c.placa+'.','Dentro del término legal manifiesto que NO acepto la comisión de la infracción.','Motivos de mi inconformidad: '+(c.extra||'[COMPLETAR: explica en pocas líneas por qué no estás de acuerdo]')],
+    pet:c=>['Fijar fecha y hora de audiencia pública (presencial o virtual) en la que pueda presentar descargos y pruebas, y comunicármela al correo indicado.','Permitirme aportar y solicitar pruebas (documentos, fotografías, testigos).','Que mientras se surte el proceso no se libre mandamiento de pago ni se tomen medidas de cobro sobre este comparendo.'],
+    fund:['Artículo 29 de la Constitución Política (debido proceso y derecho de defensa).','Artículo 136 de la Ley 769 de 2002 (Código Nacional de Tránsito): quien recibe un comparendo puede presentarse ante la autoridad de tránsito dentro de los once (11) días hábiles siguientes a la notificación para ejercer su defensa.'],anexos:['Pruebas que respalden mi inconformidad (fotografías, certificados, etc.)']},
+  NOTIF:{n:'Indebida o tardía notificación (fotomulta)',uso:'Fotomulta que te llegó más de 13 días hábiles después de la infracción, o que nunca te llegó al correo o dirección del RUNT.',resp:'15 días hábiles',asunto:'Solicitud de nulidad por indebida o extemporánea notificación del comparendo',
+    hechos:c=>['La presunta infracción se registró el '+c.fecha+', captada por medios electrónicos (comparendo No. '+c.numero+', placa '+c.placa+').',c.fechaNotif?'La notificación solo me llegó o la conocí el '+c.fechaNotif+', es decir, fuera del término legal.':'No recibí notificación en la dirección ni en el correo electrónico registrados en el RUNT; conocí el comparendo al consultar el SIMIT el [COMPLETAR: fecha].','La ley fija 10 días hábiles para validar el comparendo y 3 días hábiles para enviar la notificación (13 días hábiles en total desde la infracción).'].concat(c.extra?[c.extra]:[]),
+    pet:c=>['Declarar la nulidad de la actuación y revocar la orden de comparendo No. '+c.numero+' por indebida o extemporánea notificación.','Exonerarme de la sanción y de cualquier interés o cobro, y retirar el registro del SIMIT informando a la Federación Colombiana de Municipios.','Subsidiariamente, fijar audiencia de impugnación y suspender los cobros mientras se decide.','Entregarme copia de la constancia de validación y de la guía o certificación de envío y entrega de la notificación.'],
+    fund:['Artículo 29 de la Constitución Política (debido proceso).','Artículo 8 de la Ley 1843 de 2017 (la notificación debe enviarse dentro de los 3 días hábiles siguientes a la validación del comparendo) y Resolución 20203040011245 de 2020 del Ministerio de Transporte (validación máxima de 10 días hábiles).'],anexos:['Pantallazo o certificación de mi consulta en el SIMIT']},
+  NOSOY:{n:'No fui el conductor / el vehículo no es mío',uso:'Fotomulta o comparendo a tu nombre cuando no conducías tú, vendiste el vehículo o la placa o cédula están mal registradas.',resp:'15 días hábiles',asunto:'Solicitud de revocatoria: no fui el conductor o el vehículo no es mío',
+    hechos:c=>['El comparendo No. '+c.numero+' (placa '+c.placa+', fecha '+c.fecha+') aparece a mi nombre.',c.extra||'[COMPLETAR: elige y explica: (a) yo no conducía el vehículo en ese momento; (b) vendí o traspasé el vehículo el … (anexo el documento); (c) la placa o la cédula están mal registradas]','En la evidencia no consta que yo haya sido identificado como el conductor al momento de la infracción.'],
+    pet:c=>['Revocar la orden de comparendo No. '+c.numero+' porque la sanción no puede recaer en quien no fue identificado como infractor.','Si existe evidencia que me identifique como conductor, entregarme copia de ella.','Retirar el comparendo de mi historial en el SIMIT.'],
+    fund:['Artículo 29 de la Constitución Política (responsabilidad personal y debido proceso).','Sentencia C-038 de 2020 de la Corte Constitucional: la sanción debe recaer sobre el infractor identificado y no puede imponerse al propietario solo por serlo.'],anexos:['Documentos que prueben mi dicho (traspaso, certificado de tradición, registro de mi turno, etc.)']},
+  PRESC:{n:'Prescripción de la sanción (más de 3 años)',uso:'Comparendos con más de 3 años desde la infracción y sin mandamiento de pago notificado.',resp:'15 días hábiles',asunto:'Solicitud de declaratoria de prescripción de la sanción',
+    hechos:c=>['La infracción que originó el comparendo No. '+c.numero+' ocurrió el '+c.fecha+' (placa '+c.placa+').','Desde esa fecha han transcurrido más de tres (3) años.','No se me ha notificado mandamiento de pago ni otra actuación que haya interrumpido ese término.'].concat(c.extra?[c.extra]:[]),
+    pet:c=>['Declarar la prescripción de la sanción derivada del comparendo No. '+c.numero+'.','Dar por terminado el cobro, levantar las medidas que existan y retirar el registro del SIMIT informando a la Federación Colombiana de Municipios.','Si consideran que el término se interrumpió, enviarme copia del mandamiento de pago y de su notificación.'],
+    fund:['Artículo 159 de la Ley 769 de 2002 (modificado por el artículo 206 del Decreto Ley 019 de 2012): las sanciones por infracciones de tránsito prescriben en tres (3) años contados desde la ocurrencia del hecho, la prescripción debe declararse de oficio y se interrumpe con la notificación del mandamiento de pago.'],anexos:['Consulta del SIMIT donde aparece el comparendo y su fecha']},
+  PAGO:{n:'Comparendo ya pagado, duplicado o con datos errados',uso:'Cuando el SIMIT sigue mostrando un comparendo que ya pagaste, que está repetido o con datos que no son tuyos.',resp:'15 días hábiles',asunto:'Actualización o corrección del estado de cuenta del comparendo en el SIMIT',
+    hechos:c=>['Aparece pendiente el comparendo No. '+c.numero+' (placa '+c.placa+', fecha '+c.fecha+').',c.extra||'[COMPLETAR: ya lo pagué el … (recibo No. …) / aparece repetido / los datos (nombre, cédula o placa) son errados]'],
+    pet:c=>['Verificar y actualizar el estado del comparendo No. '+c.numero+' y reportar el cambio al SIMIT a la mayor brevedad.','Expedirme certificado o paz y salvo de que no tengo obligaciones pendientes por este comparendo.','Rectificar los datos errados que figuren a mi nombre.'],
+    fund:['Artículo 15 de la Constitución Política y Ley 1581 de 2012: derecho a conocer, actualizar y rectificar la información.'],anexos:['Recibo o comprobante de pago','Pantallazo del SIMIT']},
+  ACUERDO:{n:'Acuerdo o facilidad de pago',uso:'Cuando el valor es alto, ya pasaron los descuentos y necesitas pagar en cuotas.',resp:'15 días hábiles',asunto:'Solicitud de acuerdo o facilidad de pago',
+    hechos:c=>['Tengo obligaciones pendientes por comparendos, entre ellos el No. '+c.numero+' (placa '+c.placa+').',c.extra||'No me es posible pagar el total de una sola vez: [COMPLETAR: explica brevemente tu situación].'],
+    pet:c=>['Celebrar un acuerdo o facilidad de pago en cuotas de la obligación (capital e intereses), informándome el valor total, el número y el valor de las cuotas.','Que mientras cumpla el acuerdo se suspendan o no se inicien medidas de cobro coactivo.','Informarme los requisitos y documentos necesarios.'],
+    fund:['Artículo 9 de la Ley 1066 de 2006 (facilidades para el pago de obligaciones a favor de entidades públicas) y reglamento interno de cartera de la entidad.'],anexos:[]},
+  DOCS:{n:'SOAT o revisión técnico-mecánica vigentes',uso:'Comparendo por no tener SOAT o revisión cuando sí estaban vigentes el día de la infracción.',resp:'15 días hábiles',asunto:'Solicitud de revocatoria: SOAT o revisión técnico-mecánica vigentes al momento de la infracción',
+    hechos:c=>['Se me impuso el comparendo No. '+c.numero+', de fecha '+c.fecha+' (placa '+c.placa+'), por [COMPLETAR: no tener SOAT / no tener la revisión técnico-mecánica].',c.extra||'El día de la infracción mi documento se encontraba VIGENTE: [COMPLETAR: póliza o certificado No. …, vigencia desde … hasta …], como consta en el RUNT.'],
+    pet:c=>['Revocar la orden de comparendo No. '+c.numero+' por haberse cumplido la obligación al momento de los hechos.','Retirar el comparendo del SIMIT.','Subsidiariamente, fijar audiencia para aportar las pruebas.'],
+    fund:['Artículo 29 de la Constitución Política (debido proceso).','Constancias del RUNT y de la aseguradora o centro de diagnóstico que acreditan la vigencia.'],anexos:['Certificado del RUNT, póliza SOAT o certificado de revisión técnico-mecánica con las fechas de vigencia']}
+};
+const cdFechaLarga=()=>new Date().toLocaleDateString('es-CO',{day:'numeric',month:'long',year:'numeric'});
+function cdCarta(id,c){
+  const t=CD_PLANT[id],v=(x,l)=>x||'[COMPLETAR: '+l+']',num=n=>n.map((x,i)=>(i+1)+'. '+x).join('\n');
+  const d={numero:v(c.numero,'número del comparendo'),fecha:v(c.fecha,'fecha de la infracción'),fechaNotif:c.fechaNotif||'',placa:v(c.placa,'placa'),extra:c.extra||''};
+  return [v(c.ciudad,'ciudad')+', '+cdFechaLarga(),'','Señores',v(c.entidad,'organismo de tránsito (ej.: Secretaría de Movilidad o de Tránsito de la ciudad donde fue el comparendo)'),'Área de contravenciones / procesos de tránsito','','Referencia: Derecho de petición – '+t.asunto,'Comparendo No.: '+d.numero+'   Placa: '+d.placa,'','Respetados señores:','','Yo, '+v(c.nombre,'tu nombre completo')+', identificado(a) con la cédula de ciudadanía No. '+v(c.cedula,'tu cédula')+', actuando en nombre propio y en ejercicio del derecho fundamental de petición (artículo 23 de la Constitución Política) y de la Ley 1755 de 2015, presento la siguiente solicitud:','','HECHOS',num(t.hechos(d)),'','PETICIONES',num(t.pet(d)),'','FUNDAMENTOS',num(t.fund),'','ANEXOS',num(['Copia de mi cédula de ciudadanía','Copia del comparendo o consulta del SIMIT'].concat(t.anexos)),'','NOTIFICACIONES','Recibiré la respuesta en: '+v(c.dir,'dirección')+'; correo electrónico: '+v(c.correo,'correo')+'; teléfono: '+v(c.tel,'teléfono')+'. Autorizo expresamente que se me notifique por correo electrónico (artículo 56 de la Ley 1437 de 2011).','','Les agradezco radicar esta petición e informarme el número de radicado. Esta petición no implica aceptación de la infracción ni renuncia a mi derecho de defensa.','','Atentamente,','','','_______________________________',v(c.nombre,'tu nombre completo'),'C.C. '+v(c.cedula,'tu cédula'),'Tel. '+v(c.tel,'teléfono')].join('\n');
+}
+/* --- tarjeta del escolta --- */
+function cmpCardEsc(){
+  cdIni();
+  const deuda=CMP_ME&&CMP_ME.estado==='DEUDA',its=CDT.items.filter(x=>x.gestion!=='RETIRADO');
+  if(!deuda&&!its.length&&!CDT.ase.length)return '';
+  let h='<div class="card">';
+  if(deuda)h+=`<div class="banner bad">🚦 En la consulta de comparendos (SIMIT) aparece${CMP_ME.cantidad>1?'n':''} <b>${CMP_ME.cantidad}</b> comparendo${CMP_ME.cantidad>1?'s':''} sin sanear${CMP_ME.total?' por <b>'+cmpPesos(CMP_ME.total)+'</b>':''} a tu nombre. Revísalo en el SIMIT y sanéalo; luego avisa a la Central para validar de nuevo.<br>Última revisión: ${fDoc(CMP_ME.ultima)}<br><a class="btn sm" style="margin-top:8px;display:inline-block;text-decoration:none" target="_blank" rel="noopener" href="${SIMIT_URL}">Abrir SIMIT</a></div>`;
+  else h+='<h2 style="margin-top:0">🚦 Mis comparendos</h2>';
+  h+=its.length?its.map(cdItemHtml).join(''):'<p class="mut" style="margin:0 0 8px">Anota el tipo de cada comparendo para ver tus plazos, los pasos para sanearlo o impugnarlo y los modelos de derecho de petición.</p>';
+  const asa=CDT.ase.filter(a=>a.estado!=='ATENDIDA').length;
+  h+=`<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn sm" data-act="cdForm">➕ Agregar comparendo</button><button class="btn ghost sm" data-act="cdPlantillas">📄 Plantillas de petición</button><button class="btn ghost sm" data-act="cdAse">🙋 Solicitar asesoría${asa?' ('+asa+')':''}</button></div>`;
+  const ult=CDT.ase.slice(0,3);
+  if(ult.length)h+='<div style="margin-top:10px">'+ult.map(a=>`<div class="item"><span class="badge ${a.estado==='ATENDIDA'?'ok':'warn'}">${a.estado==='ATENDIDA'?'Respondida':'Asesoría en trámite'}</span> <span class="mut" style="font-size:12px">${esc(fDoc(a.fecha))}</span><br><span style="font-size:13px">${esc(a.mensaje)}</span>${a.respuesta?`<br><b style="font-size:13px">Respuesta:</b> <span style="font-size:13px">${esc(a.respuesta)}</span>`:''}</div>`).join('')+'</div>';
+  return h+'</div>';
+}
+function cdItemHtml(it){
+  const t=CD_TIPOS[it.tipo]||CD_TIPOS.OTRO,g=CD_GEST[it.gestion]||CD_GEST.PENDIENTE,activo=it.gestion!=='PAGADO'&&it.gestion!=='RESUELTO',pz=activo?cdPlazo(it):null;
+  return `<div class="item"><b>${t[0]} ${esc(t[1])}</b> <span class="badge ${g[0]}">${g[1]}</span><br><span class="mut" style="font-size:13px">${it.numero?'No. '+esc(it.numero)+' · ':''}${it.fecha?esc(fDoc(it.fecha))+' · ':''}${it.valor?cmpPesos(it.valor)+' · ':''}${esc(CD_MEDIO[it.medio]||'')}</span>${pz?'<br>'+pz.alertas.concat(pz.lineas).map(x=>`<span style="font-size:13px">• ${esc(x)}</span>`).join('<br>'):''}<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><button class="btn sm" data-act="cdGuia" data-id="${esc(it.id)}">🧭 ¿Qué hago?</button><button class="btn ghost sm" data-act="cdForm" data-id="${esc(it.id)}">Editar</button></div></div>`;
+}
+const cdOpts=(o,sel)=>Object.keys(o).map(k=>`<option value="${k}"${k===sel?' selected':''}>${esc(Array.isArray(o[k])?(o[k][0]+' '+o[k][1]):o[k])}</option>`).join('');
+/* --- agregar / editar un comparendo --- */
+ACT.cdForm=d=>{
+  const it=d.id?(CDT.items.concat((A.data.cdAdm||{}).items||[]).find(x=>String(x.id)===String(d.id))):null,adm=S.rol==='A',esc_=d.esc||(it&&it.escoltaId)||'';
+  const x=it||{tipo:'OTRO',medio:'VIA',gestion:'PENDIENTE',fecha:'',fechaNotif:'',numero:'',codigo:'',valor:'',entidad:'',placa:'',obs:''};
+  modal(`<h2 style="margin-top:0">${it?'Editar comparendo':'Agregar comparendo'}</h2>${adm&&d.nom?`<p class="mut">${esc(d.nom)}</p>`:''}
+    <label>¿Qué tipo de comparendo es?</label><select id="cd_tipo">${cdOpts(CD_TIPOS,x.tipo)}</select>
+    <label>¿Cómo te lo pusieron?</label><select id="cd_medio">${cdOpts(CD_MEDIO,x.medio)}</select>
+    <label>Número del comparendo (si lo tienes)</label><input id="cd_num" value="${esc(x.numero)}" autocomplete="off">
+    <label>Fecha de la infracción</label><input id="cd_fec" type="date" value="${esc(x.fecha)}">
+    <label>Fecha en que te notificaron (solo fotomultas)</label><input id="cd_fnot" type="date" value="${esc(x.fechaNotif)}">
+    <label>Valor (COP)</label><input id="cd_val" inputmode="numeric" value="${x.valor||''}">
+    <label>Placa</label><input id="cd_pla" value="${esc(x.placa)}" autocapitalize="characters" autocomplete="off">
+    <label>Código de la infracción (ej.: C14, opcional)</label><input id="cd_cod" value="${esc(x.codigo)}" autocomplete="off">
+    <label>Organismo de tránsito (ciudad o secretaría)</label><input id="cd_ent" value="${esc(x.entidad)}" autocomplete="off">
+    <label>¿En qué vas?</label><select id="cd_ges">${cdOpts(CD_GEST,x.gestion)}</select>
+    <label>Notas</label><input id="cd_obs" value="${esc(x.obs)}">
+    <button class="btn big ok" style="width:100%;margin-top:12px" data-act="cdGuardar" data-id="${esc(d.id||'')}" data-esc="${esc(esc_)}">Guardar</button>
+    ${it?`<button class="btn ghost sm" style="width:100%;margin-top:8px" data-act="cdQuitar" data-id="${esc(d.id)}">Quitar de mi lista</button>`:''}
+    <button class="btn ghost" style="width:100%;margin-top:8px" data-act="cmpCerrar">Cancelar</button>`);
+};
+async function cdPost(accion,p){
+  if(CDT.local&&S.rol!=='A'){
+    const k='rt_cdl_'+S.id,l=jp(LS(k),[]);
+    if(accion==='guardarComparendoDet'){if(p.id){const i=l.findIndex(z=>z.id===p.id);if(i>=0)l[i]=Object.assign(l[i],p)}else l.push(Object.assign({},p,{id:'L'+Date.now(),escoltaId:S.id}))}
+    LS(k,JSON.stringify(l));CDT.items=l;return;
+  }
+  await api(accion,p);
+}
+ACT.cdGuardar=async d=>{
+  const p={id:d.id||'',tipo:val('cd_tipo'),medio:val('cd_medio'),numero:val('cd_num'),fecha:val('cd_fec'),fechaNotif:val('cd_fnot'),valor:parseInt(val('cd_val').replace(/\D/g,''))||0,placa:val('cd_pla').toUpperCase().replace(/[^A-Z0-9]/g,''),codigo:val('cd_cod').toUpperCase(),entidad:val('cd_ent'),gestion:val('cd_ges'),obs:val('cd_obs')};
+  if(!p.fecha){toast('Anota la fecha de la infracción para calcular tus plazos',true);return}
+  try{
+    if(S.rol==='A'){p.escoltaId=d.esc;await api('guardarComparendoDetAdm',p)}else await cdPost('guardarComparendoDet',p);
+    closeModal();toast('Guardado');
+    if(S.rol==='A')irTab('comparendos');else{await cdCarga();pintaEsc()}
+  }catch(e){toast(e.message,true)}
+};
+ACT.cdQuitar=async d=>{
+  if(!confirm('¿Quitar este comparendo de tu lista? (si ya lo resolviste, mejor márcalo como Pagado o Resuelto)'))return;
+  try{await cdPost('guardarComparendoDet',{id:d.id,gestion:'RETIRADO'});closeModal();await cdCarga();pintaEsc()}catch(e){toast(e.message,true)}
+};
+/* --- guía: ¿qué hago? --- */
+ACT.cdGuia=d=>{
+  const it=CDT.items.concat((A.data.cdAdm||{}).items||[]).find(x=>String(x.id)===String(d.id));if(!it)return;
+  const t=CD_TIPOS[it.tipo]||CD_TIPOS.OTRO,g=CD_GUIA[it.tipo]||CD_GUIA.OTRO,pz=cdPlazo(it),ol=l=>'<ol style="margin:6px 0 10px;padding-left:20px;font-size:14px;line-height:1.45">'+l.map(x=>`<li style="margin-bottom:6px">${esc(x)}</li>`).join('')+'</ol>';
+  let pl=g.pl.slice();if(it.medio==='CAMARA'&&pl.indexOf('NOTIF')<0)pl.push('NOTIF');if(pz.presc)pl.unshift('PRESC');if(pz.notif&&pl.indexOf('NOTIF')>0){pl.splice(pl.indexOf('NOTIF'),1);pl.unshift('NOTIF')}if(pz.vencido&&it.tipo!=='ALCO')pl.push('ACUERDO');if(it.gestion==='PAGADO')pl.push('PAGO');
+  pl=pl.filter((x,i)=>pl.indexOf(x)===i);
+  modal(`<h2 style="margin-top:0">🧭 ${t[0]} ${esc(t[1])}</h2><p class="mut" style="margin:0 0 8px">${it.numero?'Comparendo No. '+esc(it.numero)+' · ':''}${it.fecha?esc(fDoc(it.fecha)):''}${it.valor?' · '+cmpPesos(it.valor):''}</p>
+    ${pz.alertas.map(x=>`<div class="banner bad">${esc(x)}</div>`).join('')}
+    <div class="banner ${pz.cls}"><b>Tus plazos</b><br>${pz.lineas.map(esc).join('<br>')}<br><span style="font-size:12px">Cálculo aproximado en días hábiles (sin sábados, domingos ni festivos). Confirma la fecha exacta en la Secretaría de Tránsito.</span></div>
+    <b>Pasos según cómo te lo pusieron</b>${ol(CD_PASOS_MEDIO[it.medio]||CD_PASOS_MEDIO.VIA)}
+    <b>Pasos según el tipo de comparendo</b>${ol(g.p)}
+    <b>Plantillas que te sirven</b><div class="row" style="gap:6px;flex-wrap:wrap;margin:6px 0 10px">${pl.map(k=>`<button class="btn ghost sm" data-act="cdPlant" data-t="${k}" data-id="${esc(it.id)}">📄 ${esc(CD_PLANT[k].n)}</button>`).join('')}</div>
+    <p class="mut" style="font-size:13px">Radica cada petición por escrito (correo oficial de la entidad o ventanilla) y guarda el número de radicado. La entidad tiene 15 días hábiles para responder (10 si pides copias, 30 si es una consulta). Si no responde, se puede acudir a una acción de tutela.</p>
+    <button class="btn" style="width:100%;margin-top:6px" data-act="cdAse" data-id="${esc(it.id)}">🙋 Solicitar asesoría sobre este comparendo</button>
+    <button class="btn ghost" style="width:100%;margin-top:8px" data-act="cmpCerrar">Cerrar</button>
+    <p class="mut" style="font-size:12px;margin:8px 0 0">Orientación general, no es asesoría jurídica. Para casos graves o con montos altos consulta con un abogado.</p>`);
+};
+/* --- plantillas --- */
+ACT.cdPlantillas=()=>{
+  modal(`<h2 style="margin-top:0">📄 Plantillas de derecho de petición</h2><p class="mut" style="font-size:13px">Modelos para enviar a la entidad de tránsito. Eliges uno, completas tus datos y se genera la carta lista para copiar, descargar o compartir.</p>${Object.keys(CD_PLANT).map(k=>`<div class="item"><b>${esc(CD_PLANT[k].n)}</b><br><span class="mut" style="font-size:13px">${esc(CD_PLANT[k].uso)}</span><br><span class="mut" style="font-size:12px">Respuesta de la entidad: ${esc(CD_PLANT[k].resp)}</span><div style="margin-top:6px"><button class="btn sm" data-act="cdPlant" data-t="${k}">Usar esta plantilla</button></div></div>`).join('')}<button class="btn ghost" style="width:100%;margin-top:8px" data-act="cmpCerrar">Cerrar</button>`);
+};
+ACT.cdPlant=d=>{
+  const it=d.id?CDT.items.concat((A.data.cdAdm||{}).items||[]).find(x=>String(x.id)===String(d.id)):null,pf=jp(LS('rt_cdperf'),{});
+  const x=Object.assign({nombre:S.nombre||'',cedula:'',correo:'',tel:'',dir:'',ciudad:'',entidad:''},pf);
+  if(it){x.numero=it.numero;x.fecha=it.fecha?cdFl(cdDate(it.fecha)):'';x.fechaNotif=it.fechaNotif?cdFl(cdDate(it.fechaNotif)):'';x.placa=it.placa;if(it.entidad)x.entidad=it.entidad}
+  const t=CD_PLANT[d.t],i=(id,l,v,ph)=>`<label>${l}</label><input id="${id}" value="${esc(v||'')}" placeholder="${esc(ph||'')}" autocomplete="off">`;
+  modal(`<h2 style="margin-top:0">📄 ${esc(t.n)}</h2><p class="mut" style="font-size:13px">${esc(t.uso)}</p>
+    ${i('pt_nom','Tu nombre completo',x.nombre)}${i('pt_ced','Tu cédula',x.cedula)}${i('pt_ent','Organismo de tránsito (a quién va dirigida)',x.entidad,'Ej.: Secretaría de Movilidad de …')}${i('pt_ciu','Ciudad',x.ciudad)}
+    ${i('pt_num','Número del comparendo',x.numero)}${i('pt_fec','Fecha de la infracción (dd/mm/aaaa)',x.fecha)}${i('pt_fnot','Fecha de notificación (solo fotomultas)',x.fechaNotif)}${i('pt_pla','Placa',x.placa)}
+    ${i('pt_dir','Dirección para notificaciones',x.dir)}${i('pt_cor','Correo electrónico',x.correo)}${i('pt_tel','Teléfono',x.tel)}
+    <label>Lo que quieras agregar sobre tu caso (opcional)</label><textarea id="pt_ext" rows="3" style="width:100%"></textarea>
+    <button class="btn big ok" style="width:100%;margin-top:12px" data-act="cdPlantGen" data-t="${esc(d.t)}">Generar carta</button>
+    <button class="btn ghost" style="width:100%;margin-top:8px" data-act="cmpCerrar">Cancelar</button>`);
+};
+ACT.cdPlantGen=d=>{
+  const c={nombre:val('pt_nom'),cedula:val('pt_ced'),entidad:val('pt_ent'),ciudad:val('pt_ciu'),numero:val('pt_num'),fecha:val('pt_fec'),fechaNotif:val('pt_fnot'),placa:val('pt_pla').toUpperCase(),dir:val('pt_dir'),correo:val('pt_cor'),tel:val('pt_tel'),extra:val('pt_ext')};
+  LS('rt_cdperf',JSON.stringify({nombre:c.nombre,cedula:c.cedula,correo:c.correo,tel:c.tel,dir:c.dir,ciudad:c.ciudad,entidad:c.entidad}));
+  const txt=cdCarta(d.t,c),falta=(txt.match(/\[COMPLETAR/g)||[]).length;
+  modal(`<h2 style="margin-top:0">📄 ${esc(CD_PLANT[d.t].n)}</h2>${falta?`<div class="banner warn">Quedan <b>${falta}</b> campo(s) marcados <b>[COMPLETAR…]</b>. Edita el texto aquí mismo antes de enviarlo.</div>`:'<div class="banner ok">Carta lista. Revísala y edítala si hace falta.</div>'}
+    <textarea id="pt_txt" rows="16" style="width:100%;font-size:13px;line-height:1.4">${esc(txt)}</textarea>
+    <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn sm" data-act="cdCopiar">Copiar</button><button class="btn ghost sm" data-act="cdDescargar" data-t="${esc(d.t)}">Descargar (Word)</button><button class="btn ghost sm" data-act="cdCompartir">Compartir</button></div>
+    <p class="mut" style="font-size:12px;margin:8px 0 0">Envíala al correo oficial de la entidad o radícala en ventanilla, con copia de tu cédula y los anexos. Guarda el número de radicado. Es un modelo orientativo: no reemplaza la asesoría de un abogado.</p>
+    <button class="btn ghost" style="width:100%;margin-top:8px" data-act="cmpCerrar">Cerrar</button>`);
+};
+ACT.cdCopiar=async()=>{const t=val('pt_txt');try{await navigator.clipboard.writeText(t);toast('Texto copiado')}catch(e){const a=$('pt_txt');a.select();try{document.execCommand('copy');toast('Texto copiado')}catch(x){toast('Selecciona el texto y cópialo a mano',true)}}};
+ACT.cdDescargar=d=>{const t=val('pt_txt'),h='<html><head><meta charset="utf-8"></head><body style="font-family:Arial;font-size:12pt">'+esc(t).replace(/\n/g,'<br>')+'</body></html>',b=new Blob(['﻿'+h],{type:'application/msword'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='Derecho_de_peticion_'+(d.t||'comparendo')+'.doc';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)};
+ACT.cdCompartir=async()=>{const t=val('pt_txt');if(navigator.share){try{await navigator.share({title:'Derecho de petición',text:t});return}catch(e){if(e&&e.name==='AbortError')return}}ACT.cdCopiar()};
+/* --- solicitar asesoría --- */
+ACT.cdAse=d=>{
+  const its=CDT.items.filter(x=>x.gestion!=='RETIRADO'),pf=jp(LS('rt_cdperf'),{});
+  modal(`<h2 style="margin-top:0">🙋 Solicitar asesoría</h2><p class="mut" style="font-size:13px">Cuéntanos tu caso y la coordinación te responde por aquí. Si es urgente, comunícate también por teléfono.</p>
+    <label>¿Sobre cuál comparendo?</label><select id="as_cmp"><option value="">Consulta general</option>${its.map(x=>`<option value="${esc(x.id)}"${String(x.id)===String(d.id)?' selected':''}>${esc((CD_TIPOS[x.tipo]||CD_TIPOS.OTRO)[1])}${x.numero?' · '+esc(x.numero):''}${x.fecha?' · '+esc(fDoc(x.fecha)):''}</option>`).join('')}</select>
+    <label>¿Qué necesitas?</label><textarea id="as_msg" rows="4" style="width:100%" placeholder="Ej.: me llegó una fotomulta del mes pasado y no sé si puedo impugnarla"></textarea>
+    <label>Teléfono o WhatsApp para contactarte</label><input id="as_tel" value="${esc(pf.tel||'')}" inputmode="tel">
+    <button class="btn big ok" style="width:100%;margin-top:12px" data-act="cdAseOk">Enviar solicitud</button>
+    <button class="btn ghost" style="width:100%;margin-top:8px" data-act="cmpCerrar">Cancelar</button>`);
+};
+ACT.cdAseOk=async()=>{
+  const msg=val('as_msg'),cid=val('as_cmp'),tel=val('as_tel');
+  if(msg.length<10){toast('Cuéntanos un poco más de tu caso',true);return}
+  const it=CDT.items.find(x=>String(x.id)===String(cid));
+  try{
+    if(CDT.local){
+      const k='rt_cdal_'+S.id,l=jp(LS(k),[]);l.unshift({id:'L'+Date.now(),fecha:cdISO(new Date()),mensaje:msg,estado:'ENVIADA',respuesta:''});LS(k,JSON.stringify(l));CDT.ase=l;
+      const cuerpo='Solicitud de asesoría de comparendos\nEscolta: '+S.nombre+'\nTeléfono: '+tel+(it?'\nComparendo: '+(CD_TIPOS[it.tipo]||CD_TIPOS.OTRO)[1]+' · No. '+it.numero+' · '+it.fecha:'')+'\n\n'+msg;
+      window.open('mailto:'+CD_CORREO_ASESORIA+'?subject='+encodeURIComponent('Asesoría de comparendos – '+S.nombre)+'&body='+encodeURIComponent(cuerpo));
+    }else await api('solicitarAsesoriaComp',{comparendoId:cid,mensaje:msg,contacto:tel});
+    closeModal();toast('Solicitud enviada');await cdCarga();pintaEsc();
+  }catch(e){toast(e.message,true)}
+};
+/* --- vista del administrador: asesorías y detalle de comparendos --- */
+async function cdAdmin(){
+  const r=await api('listarComparendosDet',{});A.data.cdAdm=r;
+  const pend=(r.asesorias||[]).filter(a=>a.estado!=='ATENDIDA'),hechas=(r.asesorias||[]).filter(a=>a.estado==='ATENDIDA').slice(0,5);
+  const its=(r.items||[]).filter(x=>x.gestion!=='RETIRADO');
+  const fila=a=>`<div class="item"><div class="row"><div class="grow"><b>${esc(nombreCorto(a.escolta))}</b> <span class="badge ${a.estado==='ATENDIDA'?'ok':'warn'}">${a.estado==='ATENDIDA'?'Respondida':'Pendiente'}</span> <span class="mut" style="font-size:12px">${esc(fDoc(a.fecha))} ${esc((a.hora||'').slice(0,5))}</span><br>${a.resumen?`<span class="mut" style="font-size:13px">${esc(a.resumen)}</span><br>`:''}<span style="font-size:14px">${esc(a.mensaje)}</span>${a.contacto?`<br><span class="mut" style="font-size:12px">Contacto: ${esc(a.contacto)}</span>`:''}${a.respuesta?`<br><b style="font-size:13px">Respuesta:</b> <span style="font-size:13px">${esc(a.respuesta)}</span>`:''}</div><button class="btn sm" data-act="cdResp" data-id="${esc(a.id)}">${a.estado==='ATENDIDA'?'Editar':'Responder'}</button></div></div>`;
+  $('vista').innerHTML=cmpSelector()+`<div class="card"><div class="row"><h2 class="grow" style="margin:0">⚖️ Asesorías de comparendos</h2><button class="btn ghost sm" data-act="cmpRefrescar">Actualizar</button></div>
+    <div class="row" style="gap:6px;flex-wrap:wrap;margin:10px 0"><span class="badge ${pend.length?'bad':'ok'}">Pendientes ${pend.length}</span><span class="badge">Comparendos detallados ${its.length}</span></div>
+    ${pend.length?pend.map(fila).join(''):'<p class="mut">No hay solicitudes pendientes.</p>'}
+    ${hechas.length?'<h3 style="margin:12px 0 4px">Últimas respondidas</h3>'+hechas.map(fila).join(''):''}</div>
+    <div class="card"><h2 style="margin-top:0">Comparendos por tipo</h2>
+    <div class="row" style="gap:6px;margin-bottom:8px"><select id="cd_esc" class="grow">${(r.escoltas||[]).map(e=>`<option value="${esc(e.id)}">${esc(e.nombre)}</option>`).join('')}</select><button class="btn sm" data-act="cdFormAdm">➕ Agregar</button></div>
+    <div class="scroll"><table><tr><th>Escolta</th><th>Tipo</th><th>Medio</th><th>Comparendo</th><th>Gestión / plazo</th><th></th></tr>${its.length?its.map(x=>{const t=CD_TIPOS[x.tipo]||CD_TIPOS.OTRO,g=CD_GEST[x.gestion]||CD_GEST.PENDIENTE,act=x.gestion!=='PAGADO'&&x.gestion!=='RESUELTO',pz=act?cdPlazoTxt(x)[0]:'';return `<tr><td>${esc(nombreCorto(x.escolta))}</td><td>${t[0]} ${esc(t[1])}</td><td>${x.medio==='CAMARA'?'Fotomulta':'En vía'}</td><td>${x.numero?esc(x.numero)+'<br>':''}<span class="mut" style="font-size:12px">${esc(fDoc(x.fecha))}${x.valor?' · '+cmpPesos(x.valor):''}</span></td><td><span class="badge ${g[0]}">${g[1]}</span>${pz?`<br><span class="mut" style="font-size:12px">${esc(pz)}</span>`:''}</td><td><button class="btn ghost sm" data-act="cdForm" data-id="${esc(x.id)}" data-nom="${esc(x.escolta)}">Editar</button></td></tr>`}).join(''):'<tr><td colspan="6" class="mut">Aún nadie ha registrado el tipo de sus comparendos.</td></tr>'}</table></div>
+    <p class="mut" style="font-size:12px;margin:8px 0 0">El escolta registra el tipo de cada comparendo desde su app y ve los pasos y plantillas de derecho de petición. Tú puedes completarlo por él con «Agregar».</p></div>`;
+}
+ACT.cdFormAdm=()=>{const s=$('cd_esc');if(!s||!s.value){toast('Elige un escolta',true);return}ACT.cdForm({esc:s.value,nom:s.options[s.selectedIndex].text})};
+ACT.cdResp=d=>{
+  const a=((A.data.cdAdm||{}).asesorias||[]).find(x=>String(x.id)===String(d.id));if(!a)return;
+  modal(`<h2 style="margin-top:0">Responder a ${esc(nombreCorto(a.escolta))}</h2><div class="item"><span style="font-size:14px">${esc(a.mensaje)}</span>${a.contacto?`<br><span class="mut" style="font-size:12px">Contacto: ${esc(a.contacto)}</span>`:''}</div>
+    <label>Tu respuesta</label><textarea id="as_resp" rows="5" style="width:100%">${esc(a.respuesta||'')}</textarea>
+    <button class="btn big ok" style="width:100%;margin-top:12px" data-act="cdRespOk" data-id="${esc(a.id)}">Responder y marcar como atendida</button>
+    <button class="btn ghost" style="width:100%;margin-top:8px" data-act="cmpCerrar">Cancelar</button>`);
+};
+ACT.cdRespOk=async d=>{const t=val('as_resp');if(t.length<3){toast('Escribe la respuesta',true);return}try{await api('responderAsesoriaComp',{id:d.id,respuesta:t});closeModal();toast('Respuesta enviada');irTab('comparendos')}catch(e){toast(e.message,true)}};
+
 /* ===== CUADRE GENERAL (réplica de la hoja ARQUEO_REPCO) ===== */
 const CD={d:null};
 VISTAS.cuadre=async function(){
