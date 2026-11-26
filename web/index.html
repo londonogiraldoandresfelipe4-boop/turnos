@@ -297,7 +297,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.25-tech';
+const APP_VERSION='2026.11.25-placas';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -2176,10 +2176,11 @@ function cmpCardEsc(){
 }
 VISTAS.comparendos=async function(){
   if(S.rol!=='A'){$('vista').innerHTML='<div class="banner warn">Esta pestaña es solo del administrador.</div>';return}
+  if(A.cmpV==='VEH')return cmpVehiculos();
   const r=await api('listarComparendos',{});A.data.cmp=r;const fl=A.cmpF||'NOV';
   const l=r.escoltas.filter(e=>fl==='TODOS'||e.estado!=='LIMPIO');
   const c=r.resumen;
-  $('vista').innerHTML=`<div class="card"><div class="row"><h2 class="grow" style="margin:0">🚦 Comparendos de los escoltas</h2><button class="btn ghost sm" data-act="cmpRefrescar">Actualizar</button></div>
+  $('vista').innerHTML=cmpSelector()+`<div class="card"><div class="row"><h2 class="grow" style="margin:0">🚦 Comparendos de los escoltas</h2><button class="btn ghost sm" data-act="cmpRefrescar">Actualizar</button></div>
     <div class="row" style="margin:10px 0;flex-wrap:wrap;gap:6px"><span class="badge bad">Con comparendos ${c.DEUDA}</span><span class="badge warn">Sin verificar ${c.SIN_VERIFICAR}</span><span class="badge warn">Revisión vencida ${c.VENCIDA}</span><span class="badge ok">Sin comparendos ${c.LIMPIO}</span></div>
     <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn ok" data-act="cmpGuia">▶ Revisión guiada</button>${r.fuente==='MANUAL'?'':'<button class="btn" data-act="cmpConsultarTodos">🔎 Consultar a todos ahora</button>'}<a class="btn ghost" style="text-decoration:none" target="_blank" rel="noopener" href="${SIMIT_URL}">Abrir SIMIT</a></div>
     <p class="mut" style="font-size:12px;margin:8px 0 0">Fuente actual: <b>${esc(r.fuente)}</b>${r.fuente==='MANUAL'?' (abre el SIMIT, mira la cédula y pulsa «Registrar»)':''}. Cuando la consulta automática no responde (captcha o bloqueo), el escolta queda «Sin verificar» y tú registras el resultado a mano con el botón de su fila. Revisión automática: cada mes.</p>
@@ -2242,6 +2243,84 @@ ACT.cmpManualOk=async d=>{
   if(est==='DEUDA'&&cant<1){toast('Indica cuántos comparendos tiene',true);return}
   try{await api('registrarComparendo',{escoltaId:d.id,estado:est,cantidad:est==='DEUDA'?cant:0,total:est==='DEUDA'?tot:0,obs:val('cm_o')});closeModal();toast('Resultado guardado');irTab('comparendos')}catch(e){toast(e.message,true)}
 };
+
+/* --- COMPARENDOS DE LOS VEHÍCULOS (por placa): usa las placas ya cargadas en la app --- */
+const PLACA_RE=/^([A-Z]{3}\d{3}|[A-Z]{3}\d{2}[A-Z])$/;   // carro ABC123 · moto ABC12D
+const cmpPlaca=v=>String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+function cmpSelector(){return `<div class="row" style="gap:8px;margin-bottom:10px"><button class="btn ${A.cmpV==='VEH'?'ghost':''}" data-act="cmpVista" data-v="ESC">👤 Escoltas (cédula)</button><button class="btn ${A.cmpV==='VEH'?'':'ghost'}" data-act="cmpVista" data-v="VEH">🚗 Vehículos (placa)</button></div>`}
+ACT.cmpVista=d=>{A.cmpV=d.v;irTab('comparendos')};
+async function cmpPlacasUniverso(){
+  const set=new Map(),add=(raw,origen)=>{const raw0=String(raw||'').trim();if(!raw0)return;const k=cmpPlaca(raw0);if(!k)return;const o=set.get(k)||{placa:k,origenes:new Set(),crudo:raw0};o.origenes.add(origen);set.set(k,o)};
+  try{const c=A.cfg||(await api('verConfig')).config;A.cfg=c;String(c.rastreadores||'').split(/\r?\n/).forEach(l=>{const m=l.split('=')[0];if(m&&m.trim())add(m,'Rastreador')})}catch(e){}
+  try{const h=new Date(),d=new Date(h.getTime()-90*864e5),f=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
+    const t=await api('listarTurnos',{desde:f(d),hasta:f(h),escoltaId:''});(t.turnos||[]).forEach(x=>{add(x.Vehiculo,'Turnos');add(x.Placa,'Turnos')})}catch(e){}
+  try{const pr=await api('listarProgramacion',hoyL());((pr&&pr.programacion)||[]).forEach(x=>add(x.Placa,'Programación'))}catch(e){}
+  return set;
+}
+const cmpPlacaEstado=o=>{if(!o||!o.estado||o.estado==='SIN_VERIFICAR')return 'SIN_VERIFICAR';if(o.estado==='LIMPIO'&&o.ultima&&(Date.now()-new Date(o.ultima+'T12:00:00').getTime())/864e5>35)return 'VENCIDA';return o.estado};
+async function cmpVehiculos(){
+  const [uni,r]=await Promise.all([cmpPlacasUniverso(),api('listarComparendosPlacas',{})]);
+  const guard=Object.fromEntries((r.placas||[]).map(x=>[cmpPlaca(x.placa),x]));
+  const l=[...uni.values()].map(u=>{const g=guard[u.placa]||null,st=cmpPlacaEstado(g);return Object.assign({},u,{valida:PLACA_RE.test(u.placa),estado:st,cantidad:g?+g.cantidad||0:0,total:g?+g.total||0:0,ultima:g?g.ultima:'',fuente:g?g.fuente:'',motivo:g&&st==='SIN_VERIFICAR'?g.motivo:''})}).sort((a,b)=>a.placa.localeCompare(b.placa));
+  A.data.cmpV=l;
+  const c={DEUDA:0,SIN_VERIFICAR:0,VENCIDA:0,LIMPIO:0};l.forEach(x=>c[x.estado]++);const mal=l.filter(x=>!x.valida).length;
+  const fl=A.cmpFV||'NOV',vis=l.filter(x=>fl==='TODOS'||x.estado!=='LIMPIO'||!x.valida);
+  $('vista').innerHTML=cmpSelector()+`<div class="card"><div class="row"><h2 class="grow" style="margin:0">🚗 Comparendos de los vehículos</h2><button class="btn ghost sm" data-act="cmpRefrescar">Actualizar</button></div>
+    <p class="mut" style="font-size:13px;margin:6px 0">Placas tomadas de lo que ya está cargado en la app: rastreadores, turnos de los últimos 90 días y la programación de hoy. <b>${l.length}</b> placas.</p>
+    <div class="row" style="margin:10px 0;flex-wrap:wrap;gap:6px"><span class="badge bad">Con comparendos ${c.DEUDA}</span><span class="badge warn">Sin verificar ${c.SIN_VERIFICAR}</span><span class="badge warn">Revisión vencida ${c.VENCIDA}</span><span class="badge ok">Sin comparendos ${c.LIMPIO}</span>${mal?`<span class="badge bad">Placa mal escrita ${mal}</span>`:''}</div>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn ok" data-act="cmpVGuia">▶ Revisión guiada</button>${r.fuente==='MANUAL'?'':'<button class="btn" data-act="cmpVConsultarTodas">🔎 Consultar todas ahora</button>'}<a class="btn ghost" style="text-decoration:none" target="_blank" rel="noopener" href="${SIMIT_URL}">Abrir SIMIT</a></div>
+    <p class="mut" style="font-size:12px;margin:8px 0 0">Fuente actual: <b>${esc(r.fuente||'MANUAL')}</b>${(r.fuente||'MANUAL')==='MANUAL'?' (abre el SIMIT, busca la placa y pulsa «Registrar»)':''}. Una placa que no cumple el formato (ABC123 o moto ABC12D) se marca «mal escrita»: corrígela en su origen antes de consultar.</p>
+    <label>Mostrar</label><select id="cv_f" data-chg="cmpVFiltro"><option value="NOV"${fl==='NOV'?' selected':''}>Con novedad (comparendos, sin verificar, vencida o mal escrita)</option><option value="TODOS"${fl==='TODOS'?' selected':''}>Todas las placas</option></select></div>
+    <div class="card"><div class="scroll"><table><tr><th>Placa</th><th>Estado</th><th>Comparendos</th><th>Total</th><th>Última revisión</th><th></th></tr>
+    ${vis.length?vis.map(e=>`<tr><td><b>${esc(e.placa)}</b><br><span class="mut" style="font-size:12px">${[...e.origenes].map(esc).join(' · ')}</span>${e.valida?'':'<br><span class="badge bad">Mal escrita</span>'}</td><td>${cmpBadge(e)}${e.motivo?`<br><span class="mut" style="font-size:12px">${esc(e.motivo)}</span>`:''}</td><td>${e.estado==='DEUDA'?e.cantidad:'—'}</td><td>${e.estado==='DEUDA'?cmpPesos(e.total):'—'}</td><td>${e.ultima?fDoc(e.ultima):'Nunca'}${e.fuente?`<br><span class="mut" style="font-size:12px">${esc(e.fuente)}</span>`:''}</td><td>${e.valida?`${r.fuente==='MANUAL'?'':`<button class="btn ghost sm" data-act="cmpVConsultar" data-p="${esc(e.placa)}">Consultar</button> `}<button class="btn ghost sm" data-act="cmpVManual" data-p="${esc(e.placa)}">Registrar</button>`:''}</td></tr>`).join(''):`<tr><td colspan="6" class="mut">Nada por mostrar: todas las placas están sin comparendos y con revisión al día.</td></tr>`}</table></div>
+    <p class="mut" style="font-size:12px;margin:8px 0 0">Los comparendos de un vehículo quedan a nombre del propietario. Si aparece uno, avisa a quien lo tenga a cargo para sanearlo.</p></div>`;
+}
+ACT.cmpVFiltro=()=>{};ACT.chg_cmpVFiltro=()=>{A.cmpFV=val('cv_f');irTab('comparendos')};
+ACT.cmpVConsultar=async d=>{toast('Consultando '+d.p+'…');try{const r=await api('consultarComparendosPlacas',{placas:[d.p]});toast(r.mensaje||'Listo');irTab('comparendos')}catch(e){toast(e.message,true)}};
+ACT.cmpVConsultarTodas=async()=>{
+  const ps=(A.data.cmpV||[]).filter(x=>x.valida).map(x=>x.placa);
+  if(!ps.length){toast('No hay placas válidas',true);return}
+  if(!confirm('Se consultarán '+ps.length+' placas. Puede tardar unos minutos. ¿Continuar?'))return;
+  toast('Consultando placas…');try{const r=await api('consultarComparendosPlacas',{placas:ps});toast(r.mensaje||'Listo');irTab('comparendos')}catch(e){toast(e.message,true)}
+};
+ACT.cmpVManual=d=>{
+  modal(`<h2 style="margin-top:0">Registrar resultado del SIMIT</h2><p class="mut">Placa <b>${esc(d.p)}</b></p>
+    <p class="mut" style="font-size:13px">Busca la placa en el <a href="${SIMIT_URL}" target="_blank" rel="noopener">SIMIT</a> y anota lo que aparece.</p>
+    <label>Resultado</label><select id="cm_e"><option value="LIMPIO">Sin comparendos ni multas</option><option value="DEUDA">Tiene comparendos pendientes</option></select>
+    <label>Cantidad de comparendos</label><input id="cm_c" inputmode="numeric" value="0">
+    <label>Total adeudado (COP)</label><input id="cm_t" inputmode="numeric" value="0">
+    <label>Observación</label><input id="cm_o" placeholder="Ej: a nombre del propietario, ya pagado">
+    <button class="btn big ok" style="width:100%;margin-top:12px" data-act="cmpVManualOk" data-p="${esc(d.p)}">Guardar</button>
+    <button class="btn ghost" style="width:100%;margin-top:8px" data-act="cmpCerrar">Cancelar</button>`);
+};
+ACT.cmpVManualOk=async d=>{
+  const est=val('cm_e'),cant=parseInt(val('cm_c').replace(/\D/g,''))||0,tot=parseInt(val('cm_t').replace(/\D/g,''))||0;
+  if(est==='DEUDA'&&cant<1){toast('Indica cuántos comparendos tiene',true);return}
+  try{await api('registrarComparendoPlaca',{placa:d.p,estado:est,cantidad:est==='DEUDA'?cant:0,total:est==='DEUDA'?tot:0,obs:val('cm_o')});closeModal();toast('Resultado guardado');irTab('comparendos')}catch(e){toast(e.message,true)}
+};
+/* revisión guiada de placas */
+function cmpVGuiaPinta(deuda){
+  const e=A.cmpVQ[A.cmpVI];
+  if(!e){closeModal();toast('Revisión terminada');irTab('comparendos');return}
+  modal(`<h2 style="margin-top:0">🚗 ${A.cmpVI+1} de ${A.cmpVQ.length}</h2>
+    <p style="margin:0 0 10px;font-size:22px"><b>${esc(e.placa)}</b></p>
+    <button class="btn big" style="width:100%" data-act="cmpVGuiaAbrir">📋 Copiar placa y abrir SIMIT</button>
+    <p class="mut" style="font-size:13px">En el SIMIT pega la placa, resuelve el captcha y mira el resultado. Luego elige aquí:</p>
+    ${deuda?`<label>Cantidad de comparendos</label><input id="cm_gc" inputmode="numeric" value="1"><label>Total adeudado (COP)</label><input id="cm_gt" inputmode="numeric" value="0">
+      <button class="btn big bad" style="width:100%;margin-top:10px" data-act="cmpVGuiaDeudaOk">Guardar y seguir</button>`
+    :`<button class="btn big ok" style="width:100%;margin-top:6px" data-act="cmpVGuiaLimpio">✅ Sin comparendos</button>
+      <button class="btn big bad" style="width:100%;margin-top:8px" data-act="cmpVGuiaDeuda">⚠️ Tiene comparendos</button>`}
+    <div class="row" style="margin-top:10px"><button class="btn ghost sm" data-act="cmpVGuiaSaltar">Saltar</button><button class="btn ghost sm" data-act="cmpVGuiaSalir">Terminar</button></div>`);
+}
+ACT.cmpVGuia=()=>{const l=(A.data.cmpV||[]).filter(e=>e.valida&&e.estado!=='LIMPIO');if(!l.length){toast('Todas las placas están al día');return}A.cmpVQ=l;A.cmpVI=0;cmpVGuiaPinta(false)};
+ACT.cmpVGuiaAbrir=()=>{const e=A.cmpVQ[A.cmpVI];if(!e)return;try{navigator.clipboard.writeText(e.placa)}catch(x){}window.open(SIMIT_URL,'_blank','noopener');toast('Placa copiada: pégala en el SIMIT')};
+ACT.cmpVGuiaLimpio=async()=>{const e=A.cmpVQ[A.cmpVI];try{await api('registrarComparendoPlaca',{placa:e.placa,estado:'LIMPIO',cantidad:0,total:0,obs:''});A.cmpVI++;cmpVGuiaPinta(false)}catch(x){toast(x.message,true)}};
+ACT.cmpVGuiaDeuda=()=>cmpVGuiaPinta(true);
+ACT.cmpVGuiaDeudaOk=async()=>{const e=A.cmpVQ[A.cmpVI],c=parseInt(val('cm_gc').replace(/\D/g,''))||0,t=parseInt(val('cm_gt').replace(/\D/g,''))||0;
+  if(c<1){toast('Indica cuántos comparendos tiene',true);return}
+  try{await api('registrarComparendoPlaca',{placa:e.placa,estado:'DEUDA',cantidad:c,total:t,obs:''});A.cmpVI++;cmpVGuiaPinta(false)}catch(x){toast(x.message,true)}};
+ACT.cmpVGuiaSaltar=()=>{A.cmpVI++;cmpVGuiaPinta(false)};
+ACT.cmpVGuiaSalir=()=>{closeModal();irTab('comparendos')};
 
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b)return;
