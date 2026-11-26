@@ -297,7 +297,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.25-placas5';
+const APP_VERSION='2026.11.25-autoriza';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -564,7 +564,7 @@ function vistaEscolta(){
 const avisadoIni=new Set();
 function alertaInicio(){if(!EST||EST.turno)return;const hoy=hoyL(),tt=EST.tarde||10;if((EST.historial||[]).some(x=>x.Fecha===hoy))return;(EST.programacion||[]).filter(x=>x.Fecha===hoy&&!x.Motivo).forEach(x=>{const dif=mins(naive())-mins(x.Hora),k=x.ID+(dif>=tt?'T':'P');if(dif>=-10&&!avisadoIni.has(k)){avisadoIni.add(k);notificar(dif>=tt?'⛔ Aún no inicias tu turno':'⏰ Tu turno es a las '+x.Hora,dif>=tt?'Inicia o reporta el motivo':'Inícialo en la app');sonido()}})}
 async function cargaEsc(silencio){
-  try{const E=await api('miEstado');E.base=Date.now();EST=E;LS('rt_est',JSON.stringify(E));pintaEsc();if(!DOCS_T||Date.now()-DOCS_T>600000){docsCarga(true);cmpCargaEsc()}}
+  try{const E=await api('miEstado');E.base=Date.now();EST=E;LS('rt_est',JSON.stringify(E));pintaEsc();autCarga();if(!DOCS_T||Date.now()-DOCS_T>600000){docsCarga(true);cmpCargaEsc()}}
   catch(e){if(!silencio&&!e.offline)toast(e.message,true)}
 }
 let ultimaProg='',ultimaResp=null;
@@ -2178,10 +2178,11 @@ VISTAS.comparendos=async function(){
   if(S.rol!=='A'){$('vista').innerHTML='<div class="banner warn">Esta pestaña es solo del administrador.</div>';return}
   try{
   if(A.cmpV==='VEH')return await cmpVehiculos();
+  if(A.cmpV==='AUT')return await autAdmin();
   var r=await api('listarComparendos',{});
   }catch(e){
     const falta=/desconocida/i.test(e.message||'');
-    $('vista').innerHTML=cmpSelector()+`<div class="banner warn"><b>${falta?'El Apps Script aún no tiene instalado este módulo.':'No se pudo cargar.'}</b><br>${falta?(A.cmpV==='VEH'?'Faltan las acciones de placas: pega <code>apps-script/ComparendosPlacas.gs</code>, agrega los 3 <code>case</code> y la hoja <code>ComparendosPlacas</code> en Code.gs y publica una nueva versión de la implementación.':'Faltan las acciones de comparendos de escoltas: instala <code>apps-script/Comparendos.gs</code> (hoja, permisos y <code>case</code> en Code.gs) y publica una nueva versión de la implementación.'):esc(e.message||'')}</div>`;
+    $('vista').innerHTML=cmpSelector()+`<div class="banner warn"><b>${falta?'El Apps Script aún no tiene instalado este módulo.':'No se pudo cargar.'}</b><br>${falta?(A.cmpV==='AUT'?'Faltan las acciones de autorización: pega <code>apps-script/AutorizacionDatos.gs</code>, agrega la hoja, los permisos y los 3 <code>case</code> en Code.gs y publica una nueva versión.':A.cmpV==='VEH'?'Faltan las acciones de placas: pega <code>apps-script/ComparendosPlacas.gs</code>, agrega los 3 <code>case</code> y la hoja <code>ComparendosPlacas</code> en Code.gs y publica una nueva versión de la implementación.':'Faltan las acciones de comparendos de escoltas: instala <code>apps-script/Comparendos.gs</code> (hoja, permisos y <code>case</code> en Code.gs) y publica una nueva versión de la implementación.'):esc(e.message||'')}</div>`;
     return;
   }A.data.cmp=r;const fl=A.cmpF||'NOV';
   const l=r.escoltas.filter(e=>fl==='TODOS'||e.estado!=='LIMPIO');
@@ -2254,7 +2255,7 @@ ACT.cmpManualOk=async d=>{
 const PLACA_RE=/^([A-Z]{3}\d{3}|[A-Z]{3}\d{2}[A-Z])$/;   // carro ABC123 · moto ABC12D
 const MOTOS_ESC={EHP59H:'Alvarado Jaime',IIO89I:'Arias Pérez Carlos Edison',WEV97H:'Ariza Jefferson',NFV68I:'Bejarano Roa Cristian Andrés',DBS77H:'Díaz Vega Eduar',XBL60G:'Fonseca Pineda Brian Andrey',CUZ10I:'Giraldo Gómez Dávila Óscar',VIB14G:'Guillén Molano Fabián Alejandro',SHT58H:'Gutiérrez Agudelo Carlos Alfonso',CBY13H:'Montilla Ramírez Jhon Sebastián',OQP23I:'Moreno Conde Héctor',BGP61H:'Ospina Roa José Luis',YSQ10H:'Pérez Dávila David de Jesús',PKT25I:'Pérez Torres Daniel Alexander',SCH72F:'Sierra García Juan Guillermo',JVE78I:'Zambrano Rodríguez Edward Alexis'};   // motos de los escoltas activos, tomadas de «INDICE DOCUMENTOS ESCOLTAS REPCO»
 const cmpPlaca=v=>String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
-function cmpSelector(){return `<div class="row" style="gap:8px;margin-bottom:10px"><button class="btn ${A.cmpV==='VEH'?'ghost':''}" data-act="cmpVista" data-v="ESC">👤 Escoltas (cédula)</button><button class="btn ${A.cmpV==='VEH'?'':'ghost'}" data-act="cmpVista" data-v="VEH">🚗 Vehículos (placa)</button></div>`}
+function cmpSelector(){return `<div class="row" style="gap:8px;margin-bottom:10px"><button class="btn ${A.cmpV==='VEH'||A.cmpV==='AUT'?'ghost':''}" data-act="cmpVista" data-v="ESC">👤 Escoltas (cédula)</button><button class="btn ${A.cmpV==='VEH'?'':'ghost'}" data-act="cmpVista" data-v="VEH">🚗 Vehículos (placa)</button><button class="btn ${A.cmpV==='AUT'?'':'ghost'}" data-act="cmpVista" data-v="AUT">📝 Autorizaciones</button></div>`}
 ACT.cmpVista=d=>{A.cmpV=d.v;irTab('comparendos')};
 function cmpPlacasUniverso(){const m=new Map();Object.keys(MOTOS_ESC).forEach(k=>m.set(k,{placa:k,origenes:new Set()}));return m}
 const cmpPlacaEstado=o=>{if(!o||!o.estado||o.estado==='SIN_VERIFICAR')return 'SIN_VERIFICAR';if(o.estado==='LIMPIO'&&o.ultima&&(Date.now()-new Date(o.ultima+'T12:00:00').getTime())/864e5>35)return 'VENCIDA';return o.estado};
@@ -2321,6 +2322,45 @@ ACT.cmpVGuiaDeudaOk=async()=>{const e=A.cmpVQ[A.cmpVI],c=parseInt(val('cm_gc').r
   try{await api('registrarComparendoPlaca',{placa:e.placa,estado:'DEUDA',cantidad:c,total:t,obs:''});A.cmpVI++;cmpVGuiaPinta(false)}catch(x){toast(x.message,true)}};
 ACT.cmpVGuiaSaltar=()=>{A.cmpVI++;cmpVGuiaPinta(false)};
 ACT.cmpVGuiaSalir=()=>{closeModal();irTab('comparendos')};
+
+/* --- AUTORIZACIÓN DE TRATAMIENTO DE DATOS (Ley 1581 de 2012): el escolta acepta con un clic y queda el registro --- */
+const AUT_VERSION='2026-11-v1';
+const AUT_TEXTO=`AUTORIZACIÓN PARA EL TRATAMIENTO DE DATOS PERSONALES
+Responsable: Prosegur, empleador del escolta, operación REPCO. Contacto: andres.londono@prosegur.com.
+
+Autorizo de manera previa, expresa e informada el tratamiento de mis datos personales (nombre, cédula, placa de mi vehículo o moto, y el estado de comparendos, multas, SOAT y revisión técnico-mecánica que aparezcan en fuentes públicas como el SIMIT y el RUNT) para estas finalidades: verificar periódicamente que quien conduce en la operación esté al día con sus obligaciones de tránsito, controlar el cumplimiento del servicio y avisarme cuando deba sanear una novedad.
+
+Estos datos se usarán solo para esas finalidades, tendrán acceso restringido a la coordinación de seguridad física y no se compartirán con terceros sin mi autorización, salvo que la ley lo exija.
+
+Mis derechos: conocer, actualizar y rectificar mis datos; solicitar prueba de esta autorización; ser informado del uso que se les da; presentar quejas ante la Superintendencia de Industria y Comercio; y revocar esta autorización o solicitar la supresión de mis datos cuando proceda, escribiendo al contacto indicado. Responder esta solicitud es voluntario.`;
+let AUT_ME=null;
+async function autCarga(){
+  try{const r=await api('verMiAutorizacion',{});AUT_ME=r;
+    if(r.decision&&r.version===AUT_VERSION)return;     // ya decidió sobre esta versión
+    if(r.decision&&r.version!==AUT_VERSION&&r.decision==='RECHAZA')return;
+    if(S.rol==='E'&&!$('modal'))autPedir();
+  }catch(e){}
+}
+function autPedir(){
+  modal(`<h2 style="margin-top:0">📝 Autorización de datos</h2><div style="max-height:46vh;overflow:auto;white-space:pre-wrap;font-size:13px;line-height:1.45;border:1px solid var(--line,#334);border-radius:10px;padding:10px">${esc(AUT_TEXTO)}</div>
+    <button class="btn big ok" style="width:100%;margin-top:12px" data-act="autDecidir" data-d="ACEPTA">✅ Acepto y autorizo</button>
+    <button class="btn ghost" style="width:100%;margin-top:8px" data-act="autDecidir" data-d="RECHAZA">No autorizo</button>
+    <button class="btn ghost sm" style="width:100%;margin-top:8px" data-act="cmpCerrar">Decidir después</button>`);
+}
+ACT.autDecidir=async d=>{
+  try{await api('aceptarAutorizacion',{decision:d.d,version:AUT_VERSION,texto:AUT_TEXTO,dispositivo:(navigator.userAgent||'').slice(0,120)});
+    closeModal();toast(d.d==='ACEPTA'?'Gracias, quedó registrada tu autorización':'Quedó registrado que no autorizas')}
+  catch(e){toast(e.message,true)}
+};
+async function autAdmin(){
+  const r=await api('listarAutorizaciones',{}),l=r.escoltas||[];
+  const n={ACEPTA:0,RECHAZA:0,PENDIENTE:0};l.forEach(x=>n[x.decision]=(n[x.decision]||0)+1);
+  $('vista').innerHTML=cmpSelector()+`<div class="card"><div class="row"><h2 class="grow" style="margin:0">📝 Autorización de tratamiento de datos</h2><button class="btn ghost sm" data-act="cmpRefrescar">Actualizar</button></div>
+    <p class="mut" style="font-size:13px;margin:6px 0">Cada escolta ve la autorización al abrir la app y responde con un clic. Queda guardado quién, cuándo, la versión (<b>${AUT_VERSION}</b>) y la huella del texto que vio.</p>
+    <div class="row" style="gap:6px;flex-wrap:wrap;margin:10px 0"><span class="badge ok">Autorizó ${n.ACEPTA}</span><span class="badge warn">Pendiente ${n.PENDIENTE}</span><span class="badge bad">No autorizó ${n.RECHAZA}</span></div>
+    <div class="scroll"><table><tr><th>Escolta</th><th>Estado</th><th>Fecha</th></tr>${l.map(e=>`<tr><td>${esc(nombreCorto(e.nombre))}</td><td>${e.decision==='ACEPTA'?'<span class="badge ok">Autorizó</span>':e.decision==='RECHAZA'?'<span class="badge bad">No autorizó</span>':'<span class="badge warn">Pendiente</span>'}${e.decision!=='PENDIENTE'&&e.version!==AUT_VERSION?'<br><span class="mut" style="font-size:12px">versión anterior</span>':''}</td><td>${e.fecha?fDoc(e.fecha)+(e.hora?' '+esc(e.hora.slice(0,5)):''):'—'}</td></tr>`).join('')}</table></div>
+    <p class="mut" style="font-size:12px;margin:8px 0 0">Los pendientes ven la solicitud la próxima vez que abran la app. Pídeles que la abran y respondan. El texto es un modelo: que Jurídico lo revise antes de usarlo.</p></div>`;
+}
 
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b)return;
