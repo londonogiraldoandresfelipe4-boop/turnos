@@ -297,7 +297,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.26-caja1';
+const APP_VERSION='2026.11.26-caja2';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -2012,7 +2012,7 @@ VISTAS.caja=async function(){
   const r=await api('verCaja',{desde:(A.data.cjd||''),hasta:(A.data.cjh||'')});CJ.d=r;const s=r.saldos;
   const deudas=Object.keys(s.deuda).filter(k=>s.deuda[k]!==0).map(k=>`${esc(k)}: <b>${vP(s.deuda[k])}</b>`).join(' · ')||'sin deudas';
   const fila=m=>`<div class="item" style="${m.Estado==='ANULADO'?'opacity:.55;text-decoration:line-through':''}"><div class="row"><div class="grow"><b>${esc(CJ_T[m.Tipo]||m.Tipo)}</b> · ${m.Tipo==='ARQUEO'?'contado '+vP(m.Contado)+' / libro '+vP(m.Saldo):'<b>'+vP(m.Monto)+'</b> · '+esc(m.Medio)}<br><span class="mut">${esc(m.Fecha)}${m.Tercero?' · '+esc(m.Tercero):''}${m.Codigo?' · '+esc(m.Codigo):''}${m.Fuente?' · '+esc(CJ_F[m.Fuente]||m.Fuente):''}${m.Ref?' · ref '+esc(m.Ref):''}</span>${m.Concepto?`<br><span class="mut">${esc(m.Concepto)}</span>`:''}${m.Estado==='ANULADO'?`<br><span class="mut">ANULADO: ${esc(m.MotivoAnulado)} (${esc(m.Anulado)})</span>`:''}</div><div style="text-align:right">${m.Estado==='ANULADO'?'':cjSop(m)}</div></div>
-    ${m.Estado!=='ANULADO'?`<div class="row" style="margin-top:4px">${m.tieneFoto?`<button class="btn ghost sm" data-act="cjVerFoto" data-f="${esc(m.FotoId)}">Ver soporte</button>`:''}${m.Tipo!=='ARQUEO'?`<button class="btn ghost sm" data-act="cjAnular" data-id="${esc(m.ID)}">Anular</button>`:''}</div>`:''}</div>`;
+    ${m.Estado!=='ANULADO'?`<div class="row" style="margin-top:4px">${m.tieneFoto?`<button class="btn ghost sm" data-act="cjVerFoto" data-f="${esc(m.FotoId)}">Ver soporte</button>`:''}${m.Tipo!=='ARQUEO'?`<button class="btn ghost sm" data-act="cjMedio" data-id="${esc(m.ID)}" data-m="${esc(m.Medio)}">Cambiar medio</button><button class="btn ghost sm" data-act="cjAnular" data-id="${esc(m.ID)}">Anular</button>`:''}</div>`:''}</div>`;
   $('vista').innerHTML=`<div class="card"><div class="row"><h2 class="grow" style="margin:0">💰 Caja: préstamos, entregas y pagos</h2><button class="btn sm" data-act="cjNuevo">+ Movimiento</button><button class="btn ghost sm" data-act="cjArqueo">Arqueo</button><button class="btn ghost sm" data-act="cjCsv">CSV</button><button class="btn ghost sm" data-act="imprimir">Imprimir</button></div>
   <div class="grid2" style="margin-top:10px"><div class="item"><span class="mut">Efectivo que debería tener en mano</span><br><b style="font-size:20px">${vP(s.efectivoEnMano)}</b></div><div class="item"><span class="mut">Debo (préstamos sin pagar)</span><br><b style="font-size:20px">${vP(s.deudaTotal)}</b><br><span class="mut" style="font-size:12px">${deudas}</span></div>
   <div class="item"><span class="mut">Entregado a escoltas</span><br><b>${vP(s.entregado)}</b>${s.entregasSinSoporte?`<br><span class="badge bad">${s.entregasSinSoporte} entrega(s) sin soporte</span>`:''}</div><div class="item"><span class="mut">Pagado a préstamos</span><br><b>${vP(s.pagado)}</b><br><span class="mut" style="font-size:12px">Fondo fijo ${vP(s.pagadoPorFuente.FONDO_FIJO)} · Anticipo ${vP(s.pagadoPorFuente.ANTICIPO)}${s.pagadoPorFuente.OTRO?' · Otro '+vP(s.pagadoPorFuente.OTRO):''}</span></div></div>
@@ -2052,6 +2052,7 @@ async cjGuardar(){
   try{let r;try{r=await api('guardarCaja',p)}catch(e){if(/Solo hay \$/.test(e.message)&&confirm(e.message+'\n\n¿Registrar igual (la caja quedará en negativo hasta que registres el ingreso o préstamo que la cubre)?'))r=await api('guardarCaja',Object.assign(p,{sobregiro:'SI'}));else throw e}
     closeModal();toast(r.soporte==='FALTA'&&t==='ENTREGA'?'Guardado. Falta el soporte: pide al escolta que confirme "Recibí" o sube la foto':(r.valeAuto?'Guardado y pasado al Cuadre como vale del escolta ✔':'Movimiento guardado'));irTab('caja')}catch(e){toast(e.message,true)}
 },
+async cjMedio(d){const op=['EFECTIVO','NEQUI','TRANSFERENCIA'].filter(x=>x!==d.m);const nv=prompt('Hoy está como '+d.m+'. ¿Cuál es el medio correcto? Escribe: '+op.join(' o '));if(nv==null)return;const medio=nv.trim().toUpperCase();const mo=prompt('Motivo del cambio (mínimo 8 letras). Queda guardado, no se borra nada:');if(mo==null)return;try{await api('corregirCaja',{id:d.id,medio,motivo:mo});toast('Medio corregido ✔');irTab('caja')}catch(e){toast(e.message,true)}},
 async cjAnular(d){const mo=prompt('Motivo de la anulación (el movimiento NO se borra, queda visible):');if(mo===null)return;try{await api('anularCaja',{id:d.id,motivo:mo});toast('Anulado');irTab('caja')}catch(e){toast(e.message,true)}},
 cjArqueo(){const s=CJ.d.saldos;
   modal(`<h2 style="margin-top:0">Arqueo de caja</h2><p>El libro dice que deberías tener <b>${vP(s.efectivoEnMano)}</b> en efectivo.</p>
