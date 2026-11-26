@@ -297,7 +297,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.26-caja2';
+const APP_VERSION='2026.11.26-caja3';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -2901,7 +2901,7 @@ VISTAS.cuadre=async function(){
   ${sec('VALE',m=>`<button class="btn sm" data-act="cdCerrar" data-id="${esc(m.ID)}">Legalizar</button>`,'+ Vale')}
   ${sec('FACTURA',m=>`<button class="btn sm" data-act="cdCerrar" data-id="${esc(m.ID)}">Enviar a Oracle</button>`,'+ Factura')}
   ${sec('COBRAR',m=>`<button class="btn sm" data-act="cdCerrar" data-id="${esc(m.ID)}">Oracle pagó</button>`,'+ Por cobrar')}
-  ${sec('FONDO',()=>'',r.cuadre.fondo?'':'+ Fondo fijo')}
+  ${sec('FONDO',()=>'','Cambiar fondo fijo')}
   ${sec('ANTICIPO',()=>'','+ Anticipo')}
   <div class="card"><h2>Cerradas y anuladas</h2>${hist}</div>`;
 };
