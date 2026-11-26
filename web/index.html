@@ -297,7 +297,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.26-comparendos-asesoria';
+const APP_VERSION='2026.11.26-comparendos-pdf';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -2390,7 +2390,7 @@ const CD_TIPOS={PICO:['🚫','Pico y placa o zona restringida'],ESTAC:['🅿️'
 const CD_MEDIO={VIA:'Me lo puso un agente en la vía',CAMARA:'Fotomulta (cámara o llegó por correo)'};
 const CD_GEST={PENDIENTE:['bad','Sin gestionar'],PETICION:['warn','Petición enviada'],AUDIENCIA:['warn','Impugnado / audiencia'],ACUERDO:['warn','Acuerdo de pago'],PAGADO:['ok','Pagado'],RESUELTO:['ok','Resuelto o exonerado']};
 const CD_CORREO_ASESORIA='andres.londono@prosegur.com';
-const CDT={items:[],ase:[],local:false,ini:false};
+const CDT={items:[],ase:[],local:false,ini:false,imp:null};
 const cdLsK=k=>k+S.id;
 function cdIni(){if(CDT.ini||!S.id)return;CDT.ini=true;const c=jp(LS('rt_cd_'+S.id),null);if(c){CDT.items=c.items||[];CDT.ase=c.asesorias||[]}}
 async function cdCarga(){
@@ -2500,9 +2500,9 @@ function cmpCardEsc(){
   let h='<div class="card">';
   if(deuda)h+=`<div class="banner bad">🚦 En la consulta de comparendos (SIMIT) aparece${CMP_ME.cantidad>1?'n':''} <b>${CMP_ME.cantidad}</b> comparendo${CMP_ME.cantidad>1?'s':''} sin sanear${CMP_ME.total?' por <b>'+cmpPesos(CMP_ME.total)+'</b>':''} a tu nombre. Revísalo en el SIMIT y sanéalo; luego avisa a la Central para validar de nuevo.<br>Última revisión: ${fDoc(CMP_ME.ultima)}<br><a class="btn sm" style="margin-top:8px;display:inline-block;text-decoration:none" target="_blank" rel="noopener" href="${SIMIT_URL}">Abrir SIMIT</a></div>`;
   else h+='<h2 style="margin-top:0">🚦 Mis comparendos</h2>';
-  h+=its.length?its.map(cdItemHtml).join(''):'<p class="mut" style="margin:0 0 8px">Anota el tipo de cada comparendo para ver tus plazos, los pasos para sanearlo o impugnarlo y los modelos de derecho de petición.</p>';
+  h+=its.length?its.map(cdItemHtml).join(''):'<p class="mut" style="margin:0 0 8px">Sube el PDF del SIMIT o anota cada comparendo para ver tus plazos, los pasos para sanearlo o impugnarlo y los modelos de derecho de petición.</p>';
   const asa=CDT.ase.filter(a=>a.estado!=='ATENDIDA').length;
-  h+=`<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn sm" data-act="cdForm">➕ Agregar comparendo</button><button class="btn ghost sm" data-act="cdPlantillas">📄 Plantillas de petición</button><button class="btn ghost sm" data-act="cdAse">🙋 Solicitar asesoría${asa?' ('+asa+')':''}</button></div>`;
+  h+=`<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn sm" data-act="cdPdf">📎 Subir PDF del SIMIT</button><button class="btn ghost sm" data-act="cdForm">➕ Agregar a mano</button><button class="btn ghost sm" data-act="cdPlantillas">📄 Plantillas de petición</button><button class="btn ghost sm" data-act="cdAse">🙋 Solicitar asesoría${asa?' ('+asa+')':''}</button></div>`;
   const ult=CDT.ase.slice(0,3);
   if(ult.length)h+='<div style="margin-top:10px">'+ult.map(a=>`<div class="item"><span class="badge ${a.estado==='ATENDIDA'?'ok':'warn'}">${a.estado==='ATENDIDA'?'Respondida':'Asesoría en trámite'}</span> <span class="mut" style="font-size:12px">${esc(fDoc(a.fecha))}</span><br><span style="font-size:13px">${esc(a.mensaje)}</span>${a.respuesta?`<br><b style="font-size:13px">Respuesta:</b> <span style="font-size:13px">${esc(a.respuesta)}</span>`:''}</div>`).join('')+'</div>';
   return h+'</div>';
@@ -2600,6 +2600,94 @@ ACT.cdPlantGen=d=>{
 ACT.cdCopiar=async()=>{const t=val('pt_txt');try{await navigator.clipboard.writeText(t);toast('Texto copiado')}catch(e){const a=$('pt_txt');a.select();try{document.execCommand('copy');toast('Texto copiado')}catch(x){toast('Selecciona el texto y cópialo a mano',true)}}};
 ACT.cdDescargar=d=>{const t=val('pt_txt'),h='<html><head><meta charset="utf-8"></head><body style="font-family:Arial;font-size:12pt">'+esc(t).replace(/\n/g,'<br>')+'</body></html>',b=new Blob(['﻿'+h],{type:'application/msword'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='Derecho_de_peticion_'+(d.t||'comparendo')+'.doc';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)};
 ACT.cdCompartir=async()=>{const t=val('pt_txt');if(navigator.share){try{await navigator.share({title:'Derecho de petición',text:t});return}catch(e){if(e&&e.name==='AbortError')return}}ACT.cdCopiar()};
+/* --- importar el PDF del SIMIT: se lee en el celular, el escolta revisa y confirma antes de guardar --- */
+let CD_PDFJS=null;
+function cdCargaPdfJs(){
+  if(window.pdfjsLib)return Promise.resolve();
+  if(CD_PDFJS)return CD_PDFJS;
+  return CD_PDFJS=new Promise((ok,ko)=>{const s=document.createElement('script');s.src='lib/pdf.min.js';s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc='lib/pdf.worker.min.js';ok()};s.onerror=()=>{CD_PDFJS=null;ko(new Error('No se pudo cargar el lector de PDF. Revisa tu internet e inténtalo de nuevo.'))};document.head.appendChild(s)});
+}
+async function cdPdfLineas(file){
+  await cdCargaPdfJs();
+  const pdf=await window.pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,out=[];
+  for(let n=1;n<=pdf.numPages&&n<=15;n++){
+    const tc=await (await pdf.getPage(n)).getTextContent(),filas={};
+    tc.items.forEach(it=>{if(!it.str||!it.str.trim())return;const y=Math.round(it.transform[5]/4);(filas[y]=filas[y]||[]).push({x:it.transform[4],t:it.str})});
+    Object.keys(filas).map(Number).sort((a,b)=>b-a).forEach(y=>out.push(filas[y].sort((a,b)=>a.x-b.x).map(z=>z.t).join(' ').replace(/\s+/g,' ').trim()));
+    out.push('');
+  }
+  return out;
+}
+const CD_KW=[['ALCO',/alcohol|embriaguez|alcoholemia|sustancias psicoactivas/],['VELOC',/velocidad/],['SEMAF',/sem[aá]foro|luz roja|se[nñ]al de pare|se[nñ]al de tr[aá]nsito|cruce/],['DOCS',/soat|seguro obligatorio|revisi[oó]n t[eé]cnic|tecnomec|t[eé]cnico.?mec/],['LICEN',/licencia/],['MOTO',/casco|chaleco|motociclista|motocicleta.{0,40}(elemento|protecci)|elementos de protecci/],['CELU',/celular|tel[eé]fono m[oó]vil/],['ESTAC',/estacion/],['PICO',/pico y placa|restringid|horas prohibidas|zona prohibida|sitios? prohibid/]];
+const CD_COD={C14:'PICO',C02:'ESTAC'};
+const cdIsoDe=s=>{let m=/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/.exec(s);if(m)return m[3]+'-'+m[2]+'-'+m[1];m=/^(\d{4})[\/\-](\d{2})[\/\-](\d{2})$/.exec(s);return m?m[1]+'-'+m[2]+'-'+m[3]:''};
+/** Lee las líneas de texto del estado de cuenta y devuelve los comparendos que encuentra (el escolta los revisa antes de guardar). */
+function cdParsePdf(lineas){
+  const texto=lineas.join('\n'),plano=texto.replace(/\s+/g,' ');
+  const limpio=/no (?:registra|tiene|presenta|posee|se encontr\w+)[^.]{0,60}(?:comparendos|multas|sanciones)|paz y salvo/i.test(plano);
+  const re=/(?<![\dA-Za-z])([A-Z]?\d{12,24})(?![\d])/g,anc=[];let m;
+  while((m=re.exec(plano)))anc.push({n:m[1],i:m.index,f:m.index+m[1].length});
+  const mapa=new Map();
+  anc.forEach((a,k)=>{
+    const w=plano.slice(a.f,k+1<anc.length?anc[k+1].i:plano.length).slice(0,700),wl=w.toLowerCase(),it={numero:a.n,fecha:'',fechaNotif:'',placa:'',codigo:'',valor:0,entidad:'',tipo:'OTRO',medio:'VIA',gestion:'PENDIENTE'};
+    const re2=/\b(\d{2}[\/\-]\d{2}[\/\-]\d{4}|\d{4}[\/\-]\d{2}[\/\-]\d{2})\b/g;let d;
+    while((d=re2.exec(w))){const ctx=w.slice(Math.max(0,d.index-28),d.index).toLowerCase(),iso=cdIsoDe(d[1]);if(!iso)continue;if(/notif/.test(ctx)){if(!it.fechaNotif)it.fechaNotif=iso}else if(!it.fecha)it.fecha=iso}
+    const pl=/\b([A-Z]{3}\d{3}|[A-Z]{3}\d{2}[A-Z])\b/.exec(w);if(pl)it.placa=pl[1];
+    const cd=/\b([A-I]\d{2})\b/.exec(w);if(cd)it.codigo=cd[1];
+    const vs=(w.match(/\$\s?\d[\d\.\,]*/g)||[]).map(x=>parseInt(x.replace(/\D/g,''),10)||0).filter(x=>x>0&&x<100000000);if(vs.length)it.valor=Math.max.apply(null,vs);
+    const en=/(Secretar[ií]a[^$\d]{0,70}|Instituto [^$\d]{0,60}|Direcci[oó]n de [^$\d]{0,50}|Tr[aá]nsito de [^$\d]{0,40}|Movilidad [^$\d]{0,40}|Municipio de [^$\d]{0,40})/i.exec(w);if(en)it.entidad=en[1].trim().replace(/\s+(Estado|Pendiente|Pagad\w+|Cancelad\w+|Valor|Placa|Infracci\w+).*$/i,'').slice(0,80);
+    for(const [t,rx] of CD_KW)if(rx.test(wl)){it.tipo=t;break}
+    if(it.tipo==='OTRO'&&CD_COD[it.codigo])it.tipo=CD_COD[it.codigo];
+    if(/foto|c[aá]mara|detecci[oó]n|electr[oó]nic|video/.test(wl))it.medio='CAMARA';
+    if(/pagad|cancelad/.test(wl))it.gestion='PAGADO';else if(/acuerdo de pago/.test(wl))it.gestion='ACUERDO';
+    const prev=mapa.get(a.n);
+    if(prev){Object.keys(it).forEach(k2=>{if(!prev[k2]||prev[k2]==='OTRO'||prev[k2]===0)prev[k2]=it[k2]})}else mapa.set(a.n,it);
+  });
+  return {items:[...mapa.values()],limpio,caracteres:plano.length};
+}
+ACT.cdPdf=()=>{
+  modal(`<h2 style="margin-top:0">📎 Subir el PDF del SIMIT</h2>
+    <ol style="padding-left:20px;font-size:14px;line-height:1.5;margin:6px 0 10px"><li>Entra al <a href="${SIMIT_URL}" target="_blank" rel="noopener">SIMIT</a> y consulta con tu cédula.</li><li>Descarga o imprime como PDF tu <b>estado de cuenta</b> (con el detalle de los comparendos).</li><li>Súbelo aquí. La app lee los datos y tú confirmas antes de guardar.</li></ol>
+    <input type="file" id="cdpdf_f" accept="application/pdf,.pdf" data-chg="cdPdf" style="width:100%">
+    <p class="mut" style="font-size:12px;margin:8px 0 0">El PDF se lee en tu celular y <b>no se sube a ningún servidor</b>: solo se guardan los datos que confirmes. Si el PDF es una foto o escaneo no se puede leer; en ese caso agrega el comparendo a mano.</p>
+    <div id="cdpdf_msg" class="mut" style="margin-top:8px"></div>
+    <button class="btn ghost" style="width:100%;margin-top:8px" data-act="cmpCerrar">Cancelar</button>`);
+};
+ACT.chg_cdPdf=async()=>{
+  const f=$('cdpdf_f')&&$('cdpdf_f').files[0],msg=$('cdpdf_msg');if(!f)return;
+  if(f.size>8*1024*1024){toast('El PDF pesa más de 8 MB',true);return}
+  if(msg)msg.textContent='Leyendo el PDF…';
+  try{
+    const r=cdParsePdf(await cdPdfLineas(f));
+    if(!r.items.length){
+      if(msg)msg.innerHTML=r.limpio?'<div class="banner ok">El PDF indica que <b>no tienes comparendos</b>. 🎉</div>':r.caracteres<40?'<div class="banner warn">No pude leer texto en este PDF (parece una foto o escaneo). Agrega el comparendo a mano.</div>':'<div class="banner warn">Leí el PDF pero no encontré comparendos con el formato esperado. Agrégalos a mano con «➕ Agregar comparendo» o pídele ayuda a la Central.</div>';
+      return;
+    }
+    CDT.imp=r.items;cdPdfRevisar();
+  }catch(e){if(msg)msg.innerHTML='<div class="banner bad">'+esc(/password|encrypt/i.test(e.message||'')?'El PDF tiene contraseña.':(e.message||'No se pudo leer el PDF'))+'</div>'}
+};
+function cdPdfRevisar(){
+  const l=CDT.imp;
+  modal(`<h2 style="margin-top:0">📎 Encontré ${l.length} comparendo${l.length>1?'s':''}</h2><p class="mut" style="font-size:13px;margin:0 0 8px">Revisa los datos, corrige lo que esté mal y marca los que quieras guardar. El tipo lo sugiere la app: confírmalo.</p>
+    ${l.map((x,i)=>`<div class="item"><label style="display:flex;gap:8px;align-items:center;margin:0"><input type="checkbox" id="ci_ok${i}" ${x.gestion==='PAGADO'?'':'checked'} style="width:auto"><b>Guardar este comparendo</b>${x.gestion==='PAGADO'?' <span class="badge ok">Pagado</span>':''}</label>
+      <label>Número</label><input id="ci_n${i}" value="${esc(x.numero)}"><label>Fecha de la infracción</label><input id="ci_f${i}" type="date" value="${esc(x.fecha)}">
+      <label>Tipo</label><select id="ci_t${i}">${cdOpts(CD_TIPOS,x.tipo)}</select><label>¿Cómo te lo pusieron?</label><select id="ci_m${i}">${cdOpts(CD_MEDIO,x.medio)}</select>
+      <label>Valor (COP)</label><input id="ci_v${i}" inputmode="numeric" value="${x.valor||''}"><span class="mut" style="font-size:12px">${[x.placa&&'Placa '+x.placa,x.codigo&&'Código '+x.codigo,x.entidad].filter(Boolean).map(esc).join(' · ')}</span></div>`).join('')}
+    <button class="btn big ok" style="width:100%;margin-top:10px" data-act="cdPdfGuardar">Guardar seleccionados</button><button class="btn ghost" style="width:100%;margin-top:8px" data-act="cmpCerrar">Cancelar</button>`);
+}
+ACT.cdPdfGuardar=async()=>{
+  const l=CDT.imp||[];let n=0;
+  try{
+    for(let i=0;i<l.length;i++){
+      if(!$('ci_ok'+i)||!$('ci_ok'+i).checked)continue;
+      const x=l[i],num=val('ci_n'+i),ex=CDT.items.find(z=>z.numero&&z.numero===num),fecha=val('ci_f'+i);
+      if(!fecha){toast('Falta la fecha en el comparendo '+(i+1)+' (puedes ponerla a mano)',true);return}
+      const p={id:ex?ex.id:'',tipo:val('ci_t'+i),medio:val('ci_m'+i),numero:num,fecha,fechaNotif:x.fechaNotif||(ex&&ex.fechaNotif)||'',valor:parseInt(val('ci_v'+i).replace(/\D/g,''))||0,placa:x.placa||(ex&&ex.placa)||'',codigo:x.codigo||(ex&&ex.codigo)||'',entidad:x.entidad||(ex&&ex.entidad)||'',gestion:ex&&ex.gestion!=='PENDIENTE'?ex.gestion:x.gestion,obs:'Cargado del PDF del SIMIT el '+cdFl(cdHoyD())};
+      await cdPost('guardarComparendoDet',p);n++;
+    }
+    closeModal();CDT.imp=null;toast(n?n+' comparendo'+(n>1?'s':'')+' cargado'+(n>1?'s':''):'No marcaste ninguno');await cdCarga();pintaEsc();
+  }catch(e){toast(e.message,true)}
+};
 /* --- solicitar asesoría --- */
 ACT.cdAse=d=>{
   const its=CDT.items.filter(x=>x.gestion!=='RETIRADO'),pf=jp(LS('rt_cdperf'),{});
