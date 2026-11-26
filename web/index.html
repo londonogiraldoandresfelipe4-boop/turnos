@@ -297,7 +297,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.26-comparendos-pdf';
+const APP_VERSION='2026.11.26-comparendos-pdf2';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -2190,7 +2190,7 @@ VISTAS.comparendos=async function(){
     <p class="mut" style="font-size:12px;margin:8px 0 0">Fuente actual: <b>${esc(r.fuente)}</b>${r.fuente==='MANUAL'?' (abre el SIMIT, mira la cédula y pulsa «Registrar»)':''}. Cuando la consulta automática no responde (captcha o bloqueo), el escolta queda «Sin verificar» y tú registras el resultado a mano con el botón de su fila. Revisión automática: cada mes.</p>
     <label>Mostrar</label><select id="cm_f" data-chg="cmpFiltro"><option value="NOV"${fl==='NOV'?' selected':''}>Con novedad (comparendos, sin verificar o vencida)</option><option value="TODOS"${fl==='TODOS'?' selected':''}>Todos los escoltas</option></select></div>
     <div class="card"><div class="scroll"><table><tr><th>Escolta</th><th>Estado</th><th>Comparendos</th><th>Total</th><th>Última revisión</th><th></th></tr>
-    ${l.length?l.map(e=>`<tr><td><b>${esc(e.nombre)}</b><br><span class="mut" style="font-size:12px">CC ···${esc(e.ced4)}${e.correo?'':' · sin correo'}</span></td><td>${cmpBadge(e)}${e.motivo?`<br><span class="mut" style="font-size:12px">${esc(e.motivo)}</span>`:''}</td><td>${e.estado==='DEUDA'?e.cantidad:'—'}</td><td>${e.estado==='DEUDA'?cmpPesos(e.total):'—'}</td><td>${e.ultima?fDoc(e.ultima):'Nunca'}${e.fuente?`<br><span class="mut" style="font-size:12px">${esc(e.fuente)}</span>`:''}</td><td>${r.fuente==='MANUAL'?'':`<button class="btn ghost sm" data-act="cmpConsultar" data-id="${esc(e.id)}" data-nom="${esc(e.nombre)}">Consultar</button> `}<button class="btn ghost sm" data-act="cmpManual" data-id="${esc(e.id)}" data-nom="${esc(e.nombre)}">Registrar</button> <button class="btn ghost sm" data-act="cdForm" data-esc="${esc(e.id)}" data-nom="${esc(e.nombre)}">Tipo</button></td></tr>`).join(''):`<tr><td colspan="6" class="mut">Nada por mostrar: todos los escoltas están sin comparendos y con revisión al día.</td></tr>`}</table></div>
+    ${l.length?l.map(e=>`<tr><td><b>${esc(e.nombre)}</b><br><span class="mut" style="font-size:12px">CC ···${esc(e.ced4)}${e.correo?'':' · sin correo'}</span></td><td>${cmpBadge(e)}${e.motivo?`<br><span class="mut" style="font-size:12px">${esc(e.motivo)}</span>`:''}</td><td>${e.estado==='DEUDA'?e.cantidad:'—'}</td><td>${e.estado==='DEUDA'?cmpPesos(e.total):'—'}</td><td>${e.ultima?fDoc(e.ultima):'Nunca'}${e.fuente?`<br><span class="mut" style="font-size:12px">${esc(e.fuente)}</span>`:''}</td><td>${r.fuente==='MANUAL'?'':`<button class="btn ghost sm" data-act="cmpConsultar" data-id="${esc(e.id)}" data-nom="${esc(e.nombre)}">Consultar</button> `}<button class="btn ghost sm" data-act="cmpManual" data-id="${esc(e.id)}" data-nom="${esc(e.nombre)}">Registrar</button> <button class="btn ghost sm" data-act="cdForm" data-esc="${esc(e.id)}" data-nom="${esc(e.nombre)}">Tipo</button> <button class="btn ghost sm" data-act="cdPdf" data-esc="${esc(e.id)}" data-nom="${esc(e.nombre)}">PDF</button></td></tr>`).join(''):`<tr><td colspan="6" class="mut">Nada por mostrar: todos los escoltas están sin comparendos y con revisión al día.</td></tr>`}</table></div>
     <p class="mut" style="font-size:12px;margin:8px 0 0">El escolta con comparendos recibe aviso en la app y por correo para sanearlos. Esta consulta usa solo su cédula; ten su autorización por escrito para tratar este dato (Ley 1581 de 2012).</p></div>`;
 };
 ACT.cmpRefrescar=()=>irTab('comparendos');
@@ -2390,7 +2390,7 @@ const CD_TIPOS={PICO:['🚫','Pico y placa o zona restringida'],ESTAC:['🅿️'
 const CD_MEDIO={VIA:'Me lo puso un agente en la vía',CAMARA:'Fotomulta (cámara o llegó por correo)'};
 const CD_GEST={PENDIENTE:['bad','Sin gestionar'],PETICION:['warn','Petición enviada'],AUDIENCIA:['warn','Impugnado / audiencia'],ACUERDO:['warn','Acuerdo de pago'],PAGADO:['ok','Pagado'],RESUELTO:['ok','Resuelto o exonerado']};
 const CD_CORREO_ASESORIA='andres.londono@prosegur.com';
-const CDT={items:[],ase:[],local:false,ini:false,imp:null};
+const CDT={items:[],ase:[],local:false,ini:false,imp:null,impEsc:'',impNom:'',impPlano:''};
 const cdLsK=k=>k+S.id;
 function cdIni(){if(CDT.ini||!S.id)return;CDT.ini=true;const c=jp(LS('rt_cd_'+S.id),null);if(c){CDT.items=c.items||[];CDT.ase=c.asesorias||[]}}
 async function cdCarga(){
@@ -2643,10 +2643,11 @@ function cdParsePdf(lineas){
     const prev=mapa.get(a.n);
     if(prev){Object.keys(it).forEach(k2=>{if(!prev[k2]||prev[k2]==='OTRO'||prev[k2]===0)prev[k2]=it[k2]})}else mapa.set(a.n,it);
   });
-  return {items:[...mapa.values()],limpio,caracteres:plano.length};
+  return {items:[...mapa.values()],limpio,caracteres:plano.length,plano};
 }
-ACT.cdPdf=()=>{
-  modal(`<h2 style="margin-top:0">📎 Subir el PDF del SIMIT</h2>
+ACT.cdPdf=d=>{
+  CDT.impEsc=(d&&d.esc)||'';CDT.impNom=(d&&d.nom)||'';
+  modal(`<h2 style="margin-top:0">📎 Subir el PDF del SIMIT${CDT.impNom?' de '+esc(nombreCorto(CDT.impNom)):''}</h2>
     <ol style="padding-left:20px;font-size:14px;line-height:1.5;margin:6px 0 10px"><li>Entra al <a href="${SIMIT_URL}" target="_blank" rel="noopener">SIMIT</a> y consulta con tu cédula.</li><li>Descarga o imprime como PDF tu <b>estado de cuenta</b> (con el detalle de los comparendos).</li><li>Súbelo aquí. La app lee los datos y tú confirmas antes de guardar.</li></ol>
     <input type="file" id="cdpdf_f" accept="application/pdf,.pdf" data-chg="cdPdf" style="width:100%">
     <p class="mut" style="font-size:12px;margin:8px 0 0">El PDF se lee en tu celular y <b>no se sube a ningún servidor</b>: solo se guardan los datos que confirmes. Si el PDF es una foto o escaneo no se puede leer; en ese caso agrega el comparendo a mano.</p>
@@ -2663,12 +2664,13 @@ ACT.chg_cdPdf=async()=>{
       if(msg)msg.innerHTML=r.limpio?'<div class="banner ok">El PDF indica que <b>no tienes comparendos</b>. 🎉</div>':r.caracteres<40?'<div class="banner warn">No pude leer texto en este PDF (parece una foto o escaneo). Agrega el comparendo a mano.</div>':'<div class="banner warn">Leí el PDF pero no encontré comparendos con el formato esperado. Agrégalos a mano con «➕ Agregar comparendo» o pídele ayuda a la Central.</div>';
       return;
     }
-    CDT.imp=r.items;cdPdfRevisar();
+    CDT.imp=r.items;CDT.impPlano=r.plano;cdPdfRevisar();
   }catch(e){if(msg)msg.innerHTML='<div class="banner bad">'+esc(/password|encrypt/i.test(e.message||'')?'El PDF tiene contraseña.':(e.message||'No se pudo leer el PDF'))+'</div>'}
 };
 function cdPdfRevisar(){
-  const l=CDT.imp;
-  modal(`<h2 style="margin-top:0">📎 Encontré ${l.length} comparendo${l.length>1?'s':''}</h2><p class="mut" style="font-size:13px;margin:0 0 8px">Revisa los datos, corrige lo que esté mal y marca los que quieras guardar. El tipo lo sugiere la app: confírmalo.</p>
+  const l=CDT.imp,es=CDT.impEsc?((A.data.cmp||{}).escoltas||[]).find(e=>String(e.id)===String(CDT.impEsc)):null,ced=es&&es.ced?String(es.ced).replace(/\D/g,''):'';
+  const aviso=ced?(String(CDT.impPlano||'').replace(/[\.\s]/g,'').indexOf(ced)>=0?'<div class="banner ok">La cédula del PDF coincide con la de '+esc(nombreCorto(es.nombre))+'.</div>':'<div class="banner warn">No encontré la cédula de '+esc(nombreCorto(es.nombre))+' en el PDF. Verifica que sea el PDF correcto antes de guardar.</div>'):'';
+  modal(`<h2 style="margin-top:0">📎 Encontré ${l.length} comparendo${l.length>1?'s':''}</h2>${aviso}<p class="mut" style="font-size:13px;margin:0 0 8px">Revisa los datos, corrige lo que esté mal y marca los que quieras guardar. El tipo lo sugiere la app: confírmalo.</p>
     ${l.map((x,i)=>`<div class="item"><label style="display:flex;gap:8px;align-items:center;margin:0"><input type="checkbox" id="ci_ok${i}" ${x.gestion==='PAGADO'?'':'checked'} style="width:auto"><b>Guardar este comparendo</b>${x.gestion==='PAGADO'?' <span class="badge ok">Pagado</span>':''}</label>
       <label>Número</label><input id="ci_n${i}" value="${esc(x.numero)}"><label>Fecha de la infracción</label><input id="ci_f${i}" type="date" value="${esc(x.fecha)}">
       <label>Tipo</label><select id="ci_t${i}">${cdOpts(CD_TIPOS,x.tipo)}</select><label>¿Cómo te lo pusieron?</label><select id="ci_m${i}">${cdOpts(CD_MEDIO,x.medio)}</select>
@@ -2680,12 +2682,14 @@ ACT.cdPdfGuardar=async()=>{
   try{
     for(let i=0;i<l.length;i++){
       if(!$('ci_ok'+i)||!$('ci_ok'+i).checked)continue;
-      const x=l[i],num=val('ci_n'+i),ex=CDT.items.find(z=>z.numero&&z.numero===num),fecha=val('ci_f'+i);
+      const x=l[i],num=val('ci_n'+i),fecha=val('ci_f'+i),base=CDT.impEsc?((A.data.cdAdm||{}).items||[]).filter(z=>String(z.escoltaId)===String(CDT.impEsc)):CDT.items,ex=base.find(z=>z.numero&&z.numero===num);
       if(!fecha){toast('Falta la fecha en el comparendo '+(i+1)+' (puedes ponerla a mano)',true);return}
       const p={id:ex?ex.id:'',tipo:val('ci_t'+i),medio:val('ci_m'+i),numero:num,fecha,fechaNotif:x.fechaNotif||(ex&&ex.fechaNotif)||'',valor:parseInt(val('ci_v'+i).replace(/\D/g,''))||0,placa:x.placa||(ex&&ex.placa)||'',codigo:x.codigo||(ex&&ex.codigo)||'',entidad:x.entidad||(ex&&ex.entidad)||'',gestion:ex&&ex.gestion!=='PENDIENTE'?ex.gestion:x.gestion,obs:'Cargado del PDF del SIMIT el '+cdFl(cdHoyD())};
-      await cdPost('guardarComparendoDet',p);n++;
+      if(CDT.impEsc){p.escoltaId=CDT.impEsc;await api('guardarComparendoDetAdm',p)}else await cdPost('guardarComparendoDet',p);
+      n++;
     }
-    closeModal();CDT.imp=null;toast(n?n+' comparendo'+(n>1?'s':'')+' cargado'+(n>1?'s':''):'No marcaste ninguno');await cdCarga();pintaEsc();
+    closeModal();CDT.imp=null;toast(n?n+' comparendo'+(n>1?'s':'')+' cargado'+(n>1?'s':'')+(CDT.impEsc?' (ya los ve el escolta)':''):'No marcaste ninguno');
+    if(CDT.impEsc){CDT.impEsc='';irTab('comparendos')}else{await cdCarga();pintaEsc()}
   }catch(e){toast(e.message,true)}
 };
 /* --- solicitar asesoría --- */
@@ -2713,7 +2717,7 @@ ACT.cdAseOk=async()=>{
 };
 /* --- vista del administrador: asesorías y detalle de comparendos --- */
 async function cdAdmin(){
-  const r=await api('listarComparendosDet',{});A.data.cdAdm=r;
+  const r=await api('listarComparendosDet',{});A.data.cdAdm=r;if(!A.data.cmp){try{A.data.cmp=await api('listarComparendos',{})}catch(e){}}
   const pend=(r.asesorias||[]).filter(a=>a.estado!=='ATENDIDA'),hechas=(r.asesorias||[]).filter(a=>a.estado==='ATENDIDA').slice(0,5);
   const its=(r.items||[]).filter(x=>x.gestion!=='RETIRADO');
   const fila=a=>`<div class="item"><div class="row"><div class="grow"><b>${esc(nombreCorto(a.escolta))}</b> <span class="badge ${a.estado==='ATENDIDA'?'ok':'warn'}">${a.estado==='ATENDIDA'?'Respondida':'Pendiente'}</span> <span class="mut" style="font-size:12px">${esc(fDoc(a.fecha))} ${esc((a.hora||'').slice(0,5))}</span><br>${a.resumen?`<span class="mut" style="font-size:13px">${esc(a.resumen)}</span><br>`:''}<span style="font-size:14px">${esc(a.mensaje)}</span>${a.contacto?`<br><span class="mut" style="font-size:12px">Contacto: ${esc(a.contacto)}</span>`:''}${a.respuesta?`<br><b style="font-size:13px">Respuesta:</b> <span style="font-size:13px">${esc(a.respuesta)}</span>`:''}</div><button class="btn sm" data-act="cdResp" data-id="${esc(a.id)}">${a.estado==='ATENDIDA'?'Editar':'Responder'}</button></div></div>`;
@@ -2722,10 +2726,11 @@ async function cdAdmin(){
     ${pend.length?pend.map(fila).join(''):'<p class="mut">No hay solicitudes pendientes.</p>'}
     ${hechas.length?'<h3 style="margin:12px 0 4px">Últimas respondidas</h3>'+hechas.map(fila).join(''):''}</div>
     <div class="card"><h2 style="margin-top:0">Comparendos por tipo</h2>
-    <div class="row" style="gap:6px;margin-bottom:8px"><select id="cd_esc" class="grow">${(r.escoltas||[]).map(e=>`<option value="${esc(e.id)}">${esc(e.nombre)}</option>`).join('')}</select><button class="btn sm" data-act="cdFormAdm">➕ Agregar</button></div>
+    <div class="row" style="gap:6px;margin-bottom:8px"><select id="cd_esc" class="grow">${(r.escoltas||[]).map(e=>`<option value="${esc(e.id)}">${esc(e.nombre)}</option>`).join('')}</select><button class="btn sm" data-act="cdFormAdm">➕ Agregar</button><button class="btn sm" data-act="cdPdfAdm">📎 Subir PDF</button></div>
     <div class="scroll"><table><tr><th>Escolta</th><th>Tipo</th><th>Medio</th><th>Comparendo</th><th>Gestión / plazo</th><th></th></tr>${its.length?its.map(x=>{const t=CD_TIPOS[x.tipo]||CD_TIPOS.OTRO,g=CD_GEST[x.gestion]||CD_GEST.PENDIENTE,act=x.gestion!=='PAGADO'&&x.gestion!=='RESUELTO',pz=act?cdPlazoTxt(x)[0]:'';return `<tr><td>${esc(nombreCorto(x.escolta))}</td><td>${t[0]} ${esc(t[1])}</td><td>${x.medio==='CAMARA'?'Fotomulta':'En vía'}</td><td>${x.numero?esc(x.numero)+'<br>':''}<span class="mut" style="font-size:12px">${esc(fDoc(x.fecha))}${x.valor?' · '+cmpPesos(x.valor):''}</span></td><td><span class="badge ${g[0]}">${g[1]}</span>${pz?`<br><span class="mut" style="font-size:12px">${esc(pz)}</span>`:''}</td><td><button class="btn ghost sm" data-act="cdForm" data-id="${esc(x.id)}" data-nom="${esc(x.escolta)}">Editar</button></td></tr>`}).join(''):'<tr><td colspan="6" class="mut">Aún nadie ha registrado el tipo de sus comparendos.</td></tr>'}</table></div>
     <p class="mut" style="font-size:12px;margin:8px 0 0">El escolta registra el tipo de cada comparendo desde su app y ve los pasos y plantillas de derecho de petición. Tú puedes completarlo por él con «Agregar».</p></div>`;
 }
+ACT.cdPdfAdm=()=>{const s=$('cd_esc');if(!s||!s.value){toast('Elige un escolta',true);return}ACT.cdPdf({esc:s.value,nom:s.options[s.selectedIndex].text})};
 ACT.cdFormAdm=()=>{const s=$('cd_esc');if(!s||!s.value){toast('Elige un escolta',true);return}ACT.cdForm({esc:s.value,nom:s.options[s.selectedIndex].text})};
 ACT.cdResp=d=>{
   const a=((A.data.cdAdm||{}).asesorias||[]).find(x=>String(x.id)===String(d.id));if(!a)return;
