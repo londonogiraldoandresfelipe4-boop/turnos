@@ -297,7 +297,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.26-rapida1';
+const APP_VERSION='2026.11.26-caja1';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -1891,6 +1891,7 @@ vCerrar(){
   <div class="row"><button class="btn ok" data-act="vCerrarOk">Cerrar comisión</button><button class="btn ghost" data-act="vCom" data-id="${esc(VT.com)}">Volver</button></div>`);
 },
 async vCerrarOk(){try{const r=await api('cerrarComision',{id:VT.com,devuelto:val('vc_dev'),reembolsado:val('vc_rei')});if(r.nota)alert(r.nota);ACT.vCom({id:VT.com})}catch(e){toast(e.message,true)}},
+async vAnularCom(d){const mo=prompt('Motivo de la anulación (mínimo 8 letras), por ejemplo: «Asignada por error, no salió de caravana». La comisión no se borra:');if(mo==null)return;try{const r=await api('anularComision',{id:d.id||VT.com,motivo:mo});closeModal();toast('Comisión anulada');if(r&&r.aviso)alert('⚠ '+r.aviso);irTab('viaticos')}catch(e){toast(e.message,true)}},
 async vReabrir(){if(!confirm('¿Reabrir la comisión?'))return;try{await api('reabrirComision',{id:VT.com});ACT.vCom({id:VT.com})}catch(e){toast(e.message,true)}},
 vImprimir(){
   const r=VT.det,c=r.comision,q=c.cuadre,w=window.open('','_blank');if(!w)return toast('Permite ventanas emergentes',true);
@@ -1943,7 +1944,7 @@ async vCfgOk(){const c={};['viat_fondo','viat_dias_legalizar','viat_tol_ocr','vi
 });
 function vAdminBotones(c,r){
   const q=c.cuadre;
-  return `<div class="row" style="margin-top:12px;flex-wrap:wrap">${c.Estado!=='CERRADA'?`<button class="btn ok sm" data-act="vLimpios">Aprobar todos los sin alerta roja</button><button class="btn ghost sm" data-act="vFisicos">Marcar físicos recibidos</button><button class="btn sm" data-act="vCerrar">Cerrar comisión</button>`:`<button class="btn ghost sm" data-act="vReabrir">Reabrir</button>`}<button class="btn ghost sm" data-act="vImprimir">🖨 Imprimir</button><button class="btn ghost sm" data-act="vCsv" data-id="${esc(c.ID)}">CSV</button>${c.Estado!=='CERRADA'?`<button class="btn ghost sm" data-act="vNueva" data-id="${esc(c.ID)}">Editar comisión</button>`:''}</div>`;
+  return `<div class="row" style="margin-top:12px;flex-wrap:wrap">${c.Estado!=='CERRADA'?`<button class="btn ok sm" data-act="vLimpios">Aprobar todos los sin alerta roja</button><button class="btn ghost sm" data-act="vFisicos">Marcar físicos recibidos</button><button class="btn sm" data-act="vCerrar">Cerrar comisión</button>`:`<button class="btn ghost sm" data-act="vReabrir">Reabrir</button>`}<button class="btn ghost sm" data-act="vImprimir">🖨 Imprimir</button><button class="btn ghost sm" data-act="vCsv" data-id="${esc(c.ID)}">CSV</button>${c.Estado!=='CERRADA'?`<button class="btn ghost sm" data-act="vNueva" data-id="${esc(c.ID)}">Editar comisión</button><button class="btn ghost sm" data-act="vAnularCom" data-id="${esc(c.ID)}">Anular comisión</button>`:''}</div>`;
 }
 /* Aviso del formulario según la lectura automática (OCR). o.pendiente = aún leyendo la foto. */
 function vAvisoHtml(r,o){
@@ -2049,7 +2050,7 @@ async cjGuardar(){
   if(!confirm('Confirma el movimiento:\n\n'+resumen+'\n\n¿El valor es exacto?'))return;
   const p={tipo:t,fecha:val('cj_f'),monto:n,medio:val('cj_med'),terceroId:val('cj_esc')||'',comisionId:val('cj_com')||'',tercero:val('cj_ter')||'',fuente:val('cj_fue')||'',ref:val('cj_ref'),concepto:val('cj_con'),fotoId:CJ.foto?CJ.foto.fotoId:'',hash:CJ.foto?CJ.foto.hash:''};
   try{let r;try{r=await api('guardarCaja',p)}catch(e){if(/Solo hay \$/.test(e.message)&&confirm(e.message+'\n\n¿Registrar igual (la caja quedará en negativo hasta que registres el ingreso o préstamo que la cubre)?'))r=await api('guardarCaja',Object.assign(p,{sobregiro:'SI'}));else throw e}
-    closeModal();toast(r.soporte==='FALTA'&&t==='ENTREGA'?'Guardado. Falta el soporte: pide al escolta que confirme "Recibí" o sube la foto':'Movimiento guardado');irTab('caja')}catch(e){toast(e.message,true)}
+    closeModal();toast(r.soporte==='FALTA'&&t==='ENTREGA'?'Guardado. Falta el soporte: pide al escolta que confirme "Recibí" o sube la foto':(r.valeAuto?'Guardado y pasado al Cuadre como vale del escolta ✔':'Movimiento guardado'));irTab('caja')}catch(e){toast(e.message,true)}
 },
 async cjAnular(d){const mo=prompt('Motivo de la anulación (el movimiento NO se borra, queda visible):');if(mo===null)return;try{await api('anularCaja',{id:d.id,motivo:mo});toast('Anulado');irTab('caja')}catch(e){toast(e.message,true)}},
 cjArqueo(){const s=CJ.d.saldos;
