@@ -297,7 +297,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.25-placas2';
+const APP_VERSION='2026.11.25-placas3';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -2252,11 +2252,13 @@ ACT.cmpManualOk=async d=>{
 
 /* --- COMPARENDOS DE LOS VEHÍCULOS (por placa): usa las placas ya cargadas en la app --- */
 const PLACA_RE=/^([A-Z]{3}\d{3}|[A-Z]{3}\d{2}[A-Z])$/;   // carro ABC123 · moto ABC12D
+const MOTOS_ESC={EHP59H:'Alvarado Jaime',IIO89I:'Arias Pérez Carlos Edison',WEV97H:'Ariza Jefferson',NFV68I:'Bejarano Roa Cristian Andrés',DBS77H:'Díaz Vega Eduar',XBL60G:'Fonseca Pineda Brian Andrey',CUZ10I:'Giraldo Gómez Dávila Óscar',VIB14G:'Guillén Molano Fabián Alejandro',SHT58H:'Gutiérrez Agudelo Carlos Alfonso',CBY13H:'Montilla Ramírez Jhon Sebastián',OQP23I:'Moreno Conde Héctor',BGP61H:'Ospina Roa José Luis',YSQ10H:'Pérez Dávila David de Jesús',PKT25I:'Pérez Torres Daniel Alexander',SCH72F:'Sierra García Juan Guillermo',JVE78I:'Zambrano Rodríguez Edward Alexis'};   // motos de los escoltas activos, tomadas de «INDICE DOCUMENTOS ESCOLTAS REPCO»
 const cmpPlaca=v=>String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
 function cmpSelector(){return `<div class="row" style="gap:8px;margin-bottom:10px"><button class="btn ${A.cmpV==='VEH'?'ghost':''}" data-act="cmpVista" data-v="ESC">👤 Escoltas (cédula)</button><button class="btn ${A.cmpV==='VEH'?'':'ghost'}" data-act="cmpVista" data-v="VEH">🚗 Vehículos (placa)</button></div>`}
 ACT.cmpVista=d=>{A.cmpV=d.v;irTab('comparendos')};
 async function cmpPlacasUniverso(){
-  const set=new Map(),add=(raw,origen)=>{const raw0=String(raw||'').trim();if(!raw0)return;const k=cmpPlaca(raw0);if(!k)return;const o=set.get(k)||{placa:k,origenes:new Set(),crudo:raw0};o.origenes.add(origen);set.set(k,o)};
+  const set=new Map(),add=(raw,origen)=>{const raw0=String(raw||'').trim();if(!raw0)return;const k=cmpPlaca(raw0);if(!PLACA_RE.test(k))return;const o=set.get(k)||{placa:k,origenes:new Set(),crudo:raw0};o.origenes.add(origen);set.set(k,o)};
+  Object.keys(MOTOS_ESC).forEach(k=>add(k,'Moto de escolta'));
   try{const c=A.cfg||(await api('verConfig')).config;A.cfg=c;String(c.rastreadores||'').split(/\r?\n/).forEach(l=>{const m=l.split('=')[0];if(m&&m.trim())add(m,'Rastreador')})}catch(e){}
   try{const h=new Date(),d=new Date(h.getTime()-90*864e5),f=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
     const t=await api('listarTurnos',{desde:f(d),hasta:f(h),escoltaId:''});(t.turnos||[]).forEach(x=>{add(x.Vehiculo,'Turnos');add(x.Placa,'Turnos')})}catch(e){}
@@ -2267,18 +2269,18 @@ const cmpPlacaEstado=o=>{if(!o||!o.estado||o.estado==='SIN_VERIFICAR')return 'SI
 async function cmpVehiculos(){
   const [uni,r]=await Promise.all([cmpPlacasUniverso(),api('listarComparendosPlacas',{})]);
   const guard=Object.fromEntries((r.placas||[]).map(x=>[cmpPlaca(x.placa),x]));
-  const l=[...uni.values()].map(u=>{const g=guard[u.placa]||null,st=cmpPlacaEstado(g);return Object.assign({},u,{valida:PLACA_RE.test(u.placa),estado:st,cantidad:g?+g.cantidad||0:0,total:g?+g.total||0:0,ultima:g?g.ultima:'',fuente:g?g.fuente:'',motivo:g&&st==='SIN_VERIFICAR'?g.motivo:''})}).sort((a,b)=>a.placa.localeCompare(b.placa));
+  const l=[...uni.values()].map(u=>{const g=guard[u.placa]||null,st=cmpPlacaEstado(g);return Object.assign({},u,{dueno:MOTOS_ESC[u.placa]||'',valida:PLACA_RE.test(u.placa),estado:st,cantidad:g?+g.cantidad||0:0,total:g?+g.total||0:0,ultima:g?g.ultima:'',fuente:g?g.fuente:'',motivo:g&&st==='SIN_VERIFICAR'?g.motivo:''})}).sort((a,b)=>a.placa.localeCompare(b.placa));
   A.data.cmpV=l;
   const c={DEUDA:0,SIN_VERIFICAR:0,VENCIDA:0,LIMPIO:0};l.forEach(x=>c[x.estado]++);const mal=l.filter(x=>!x.valida).length;
   const fl=A.cmpFV||'NOV',vis=l.filter(x=>fl==='TODOS'||x.estado!=='LIMPIO'||!x.valida);
   $('vista').innerHTML=cmpSelector()+`<div class="card"><div class="row"><h2 class="grow" style="margin:0">🚗 Comparendos de los vehículos</h2><button class="btn ghost sm" data-act="cmpRefrescar">Actualizar</button></div>
-    <p class="mut" style="font-size:13px;margin:6px 0">Placas tomadas de lo que ya está cargado en la app: rastreadores, turnos de los últimos 90 días y la programación de hoy. <b>${l.length}</b> placas.</p>
+    <p class="mut" style="font-size:13px;margin:6px 0">Motos de los escoltas (según los SOAT cargados), más las placas válidas de rastreadores, turnos de los últimos 90 días y programación de hoy. <b>${l.length}</b> placas.</p>
     <div class="row" style="margin:10px 0;flex-wrap:wrap;gap:6px"><span class="badge bad">Con comparendos ${c.DEUDA}</span><span class="badge warn">Sin verificar ${c.SIN_VERIFICAR}</span><span class="badge warn">Revisión vencida ${c.VENCIDA}</span><span class="badge ok">Sin comparendos ${c.LIMPIO}</span>${mal?`<span class="badge bad">Placa mal escrita ${mal}</span>`:''}</div>
     <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn ok" data-act="cmpVGuia">▶ Revisión guiada</button>${r.fuente==='MANUAL'?'':'<button class="btn" data-act="cmpVConsultarTodas">🔎 Consultar todas ahora</button>'}<a class="btn ghost" style="text-decoration:none" target="_blank" rel="noopener" href="${SIMIT_URL}">Abrir SIMIT</a></div>
     <p class="mut" style="font-size:12px;margin:8px 0 0">Fuente actual: <b>${esc(r.fuente||'MANUAL')}</b>${(r.fuente||'MANUAL')==='MANUAL'?' (abre el SIMIT, busca la placa y pulsa «Registrar»)':''}. Una placa que no cumple el formato (ABC123 o moto ABC12D) se marca «mal escrita»: corrígela en su origen antes de consultar.</p>
     <label>Mostrar</label><select id="cv_f" data-chg="cmpVFiltro"><option value="NOV"${fl==='NOV'?' selected':''}>Con novedad (comparendos, sin verificar, vencida o mal escrita)</option><option value="TODOS"${fl==='TODOS'?' selected':''}>Todas las placas</option></select></div>
     <div class="card"><div class="scroll"><table><tr><th>Placa</th><th>Estado</th><th>Comparendos</th><th>Total</th><th>Última revisión</th><th></th></tr>
-    ${vis.length?vis.map(e=>`<tr><td><b>${esc(e.placa)}</b><br><span class="mut" style="font-size:12px">${[...e.origenes].map(esc).join(' · ')}</span>${e.valida?'':'<br><span class="badge bad">Mal escrita</span>'}</td><td>${cmpBadge(e)}${e.motivo?`<br><span class="mut" style="font-size:12px">${esc(e.motivo)}</span>`:''}</td><td>${e.estado==='DEUDA'?e.cantidad:'—'}</td><td>${e.estado==='DEUDA'?cmpPesos(e.total):'—'}</td><td>${e.ultima?fDoc(e.ultima):'Nunca'}${e.fuente?`<br><span class="mut" style="font-size:12px">${esc(e.fuente)}</span>`:''}</td><td>${e.valida?`${r.fuente==='MANUAL'?'':`<button class="btn ghost sm" data-act="cmpVConsultar" data-p="${esc(e.placa)}">Consultar</button> `}<button class="btn ghost sm" data-act="cmpVManual" data-p="${esc(e.placa)}">Registrar</button>`:''}</td></tr>`).join(''):`<tr><td colspan="6" class="mut">Nada por mostrar: todas las placas están sin comparendos y con revisión al día.</td></tr>`}</table></div>
+    ${vis.length?vis.map(e=>`<tr><td><b>${esc(e.placa)}</b><br>${e.dueno?`<span style="font-size:13px">${esc(e.dueno)}</span><br>`:''}<span class="mut" style="font-size:12px">${[...e.origenes].map(esc).join(' · ')}</span>${e.valida?'':'<br><span class="badge bad">Mal escrita</span>'}</td><td>${cmpBadge(e)}${e.motivo?`<br><span class="mut" style="font-size:12px">${esc(e.motivo)}</span>`:''}</td><td>${e.estado==='DEUDA'?e.cantidad:'—'}</td><td>${e.estado==='DEUDA'?cmpPesos(e.total):'—'}</td><td>${e.ultima?fDoc(e.ultima):'Nunca'}${e.fuente?`<br><span class="mut" style="font-size:12px">${esc(e.fuente)}</span>`:''}</td><td>${e.valida?`${r.fuente==='MANUAL'?'':`<button class="btn ghost sm" data-act="cmpVConsultar" data-p="${esc(e.placa)}">Consultar</button> `}<button class="btn ghost sm" data-act="cmpVManual" data-p="${esc(e.placa)}">Registrar</button>`:''}</td></tr>`).join(''):`<tr><td colspan="6" class="mut">Nada por mostrar: todas las placas están sin comparendos y con revisión al día.</td></tr>`}</table></div>
     <p class="mut" style="font-size:12px;margin:8px 0 0">Los comparendos de un vehículo quedan a nombre del propietario. Si aparece uno, avisa a quien lo tenga a cargo para sanearlo.</p></div>`;
 }
 ACT.cmpVFiltro=()=>{};ACT.chg_cmpVFiltro=()=>{A.cmpFV=val('cv_f');irTab('comparendos')};
