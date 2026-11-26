@@ -297,7 +297,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.25-autoriza';
+const APP_VERSION='2026.11.25-autoriza2';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -2324,7 +2324,7 @@ ACT.cmpVGuiaSaltar=()=>{A.cmpVI++;cmpVGuiaPinta(false)};
 ACT.cmpVGuiaSalir=()=>{closeModal();irTab('comparendos')};
 
 /* --- AUTORIZACIÓN DE TRATAMIENTO DE DATOS (Ley 1581 de 2012): el escolta acepta con un clic y queda el registro --- */
-const AUT_VERSION='2026-11-v1';
+const AUT_VERSION='2026-11-v2';
 const AUT_TEXTO=`AUTORIZACIÓN PARA EL TRATAMIENTO DE DATOS PERSONALES
 Responsable: Prosegur, empleador del escolta, operación REPCO. Contacto: andres.londono@prosegur.com.
 
@@ -2342,23 +2342,41 @@ async function autCarga(){
   }catch(e){}
 }
 function autPedir(){
-  modal(`<h2 style="margin-top:0">📝 Autorización de datos</h2><div style="max-height:46vh;overflow:auto;white-space:pre-wrap;font-size:13px;line-height:1.45;border:1px solid var(--line,#334);border-radius:10px;padding:10px">${esc(AUT_TEXTO)}</div>
-    <button class="btn big ok" style="width:100%;margin-top:12px" data-act="autDecidir" data-d="ACEPTA">✅ Acepto y autorizo</button>
+  modal(`<h2 style="margin-top:0">📝 Autorización de datos</h2><div style="max-height:34vh;overflow:auto;white-space:pre-wrap;font-size:13px;line-height:1.45;border:1px solid var(--line,#334);border-radius:10px;padding:10px">${esc(AUT_TEXTO)}</div>
+    <label>Últimos 4 dígitos de tu cédula</label><input id="au_c" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="0000">
+    <label>Tu firma (dibújala con el dedo)</label><canvas id="au_f" width="320" height="120" style="width:100%;max-width:340px;height:120px;background:#fff;border-radius:10px;touch-action:none;display:block"></canvas>
+    <div class="row" style="margin-top:6px"><button class="btn ghost sm" data-act="autBorrar">Borrar firma</button></div>
+    <button class="btn big ok" style="width:100%;margin-top:10px" data-act="autDecidir" data-d="ACEPTA">✅ Acepto y autorizo</button>
     <button class="btn ghost" style="width:100%;margin-top:8px" data-act="autDecidir" data-d="RECHAZA">No autorizo</button>
     <button class="btn ghost sm" style="width:100%;margin-top:8px" data-act="cmpCerrar">Decidir después</button>`);
+  const cv=$('au_f'),cx=cv.getContext('2d');cx.lineWidth=2.4;cx.lineCap='round';cx.strokeStyle='#111';AUT_TINTA=false;let dib=false;
+  const pt=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)*cv.width/r.width,(e.clientY-r.top)*cv.height/r.height]};
+  cv.addEventListener('pointerdown',e=>{dib=true;AUT_TINTA=true;const[x,y]=pt(e);cx.beginPath();cx.moveTo(x,y);cx.lineTo(x+.1,y+.1);cx.stroke();cv.setPointerCapture(e.pointerId);e.preventDefault()});
+  cv.addEventListener('pointermove',e=>{if(!dib)return;const[x,y]=pt(e);cx.lineTo(x,y);cx.stroke();e.preventDefault()});
+  ['pointerup','pointercancel'].forEach(k=>cv.addEventListener(k,()=>{dib=false}));
 }
+let AUT_TINTA=false;
+ACT.autBorrar=()=>{const cv=$('au_f');if(!cv)return;cv.getContext('2d').clearRect(0,0,cv.width,cv.height);AUT_TINTA=false};
 ACT.autDecidir=async d=>{
-  try{await api('aceptarAutorizacion',{decision:d.d,version:AUT_VERSION,texto:AUT_TEXTO,dispositivo:(navigator.userAgent||'').slice(0,120)});
-    closeModal();toast(d.d==='ACEPTA'?'Gracias, quedó registrada tu autorización':'Quedó registrado que no autorizas')}
+  const p={decision:d.d,version:AUT_VERSION,texto:AUT_TEXTO,dispositivo:(navigator.userAgent||'').slice(0,120)};
+  if(d.d==='ACEPTA'){
+    const c4=val('au_c').replace(/\D/g,'');
+    if(c4.length!==4){toast('Escribe los 4 últimos dígitos de tu cédula',true);return}
+    if(!AUT_TINTA){toast('Dibuja tu firma en el recuadro',true);return}
+    const cv=$('au_f'),t=document.createElement('canvas');t.width=cv.width;t.height=cv.height;const tx=t.getContext('2d');tx.fillStyle='#fff';tx.fillRect(0,0,t.width,t.height);tx.drawImage(cv,0,0);
+    p.ced4=c4;p.firma=t.toDataURL('image/png');
+  }
+  try{await api('aceptarAutorizacion',p);closeModal();toast(d.d==='ACEPTA'?'Gracias, quedó registrada tu autorización':'Quedó registrado que no autorizas')}
   catch(e){toast(e.message,true)}
 };
+ACT.autFirma=async d=>{try{const r=await api('verFirmaAutorizacion',{id:d.id});modal(`<h2 style="margin-top:0">Firma de ${esc(d.n)}</h2><img src="${r.firma}" style="width:100%;background:#fff;border-radius:10px"><p class="mut" style="font-size:13px">${esc(fDoc(r.fecha))} ${esc((r.hora||'').slice(0,5))} · versión ${esc(r.version)}</p><button class="btn ghost" style="width:100%" data-act="cmpCerrar">Cerrar</button>`)}catch(e){toast(e.message,true)}};
 async function autAdmin(){
   const r=await api('listarAutorizaciones',{}),l=r.escoltas||[];
   const n={ACEPTA:0,RECHAZA:0,PENDIENTE:0};l.forEach(x=>n[x.decision]=(n[x.decision]||0)+1);
   $('vista').innerHTML=cmpSelector()+`<div class="card"><div class="row"><h2 class="grow" style="margin:0">📝 Autorización de tratamiento de datos</h2><button class="btn ghost sm" data-act="cmpRefrescar">Actualizar</button></div>
     <p class="mut" style="font-size:13px;margin:6px 0">Cada escolta ve la autorización al abrir la app y responde con un clic. Queda guardado quién, cuándo, la versión (<b>${AUT_VERSION}</b>) y la huella del texto que vio.</p>
     <div class="row" style="gap:6px;flex-wrap:wrap;margin:10px 0"><span class="badge ok">Autorizó ${n.ACEPTA}</span><span class="badge warn">Pendiente ${n.PENDIENTE}</span><span class="badge bad">No autorizó ${n.RECHAZA}</span></div>
-    <div class="scroll"><table><tr><th>Escolta</th><th>Estado</th><th>Fecha</th></tr>${l.map(e=>`<tr><td>${esc(nombreCorto(e.nombre))}</td><td>${e.decision==='ACEPTA'?'<span class="badge ok">Autorizó</span>':e.decision==='RECHAZA'?'<span class="badge bad">No autorizó</span>':'<span class="badge warn">Pendiente</span>'}${e.decision!=='PENDIENTE'&&e.version!==AUT_VERSION?'<br><span class="mut" style="font-size:12px">versión anterior</span>':''}</td><td>${e.fecha?fDoc(e.fecha)+(e.hora?' '+esc(e.hora.slice(0,5)):''):'—'}</td></tr>`).join('')}</table></div>
+    <div class="scroll"><table><tr><th>Escolta</th><th>Estado</th><th>Fecha</th></tr>${l.map(e=>`<tr><td>${esc(nombreCorto(e.nombre))}</td><td>${e.decision==='ACEPTA'?'<span class="badge ok">Autorizó</span>':e.decision==='RECHAZA'?'<span class="badge bad">No autorizó</span>':'<span class="badge warn">Pendiente</span>'}${e.decision!=='PENDIENTE'&&e.version!==AUT_VERSION?'<br><span class="mut" style="font-size:12px">versión anterior</span>':''}</td><td>${e.fecha?fDoc(e.fecha)+(e.hora?' '+esc(e.hora.slice(0,5)):''):'—'}${e.firma?` <button class="btn ghost sm" data-act="autFirma" data-id="${esc(e.id)}" data-n="${esc(nombreCorto(e.nombre))}">Ver firma</button>`:''}</td></tr>`).join('')}</table></div>
     <p class="mut" style="font-size:12px;margin:8px 0 0">Los pendientes ven la solicitud la próxima vez que abran la app. Pídeles que la abran y respondan. El texto es un modelo: que Jurídico lo revise antes de usarlo.</p></div>`;
 }
 

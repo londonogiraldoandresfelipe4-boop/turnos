@@ -6,13 +6,14 @@
  * PASO 2. En Code.gs:
  *   a) HOJAS, al final antes del «};»:
  *        ,
- *        AutorizacionDatos: ['EscoltaID','Escolta','Cedula4','Version','Decision','Fecha','Hora','HashTexto','Dispositivo']
+ *        AutorizacionDatos: ['EscoltaID','Escolta','Cedula4','Version','Decision','Fecha','Hora','HashTexto','Dispositivo','Firma']
  *   b) SOLO_ESCOLTA agregar:  verMiAutorizacion:1, aceptarAutorizacion:1
- *      SOLO_ADMIN    agregar:  listarAutorizaciones:1
+ *      SOLO_ADMIN    agregar:  listarAutorizaciones:1, verFirmaAutorizacion:1
  *   c) En el switch de ejecutar_:
  *        case 'verMiAutorizacion': return autMia_(s, p);
  *        case 'aceptarAutorizacion': return autDecidir_(s, p);
  *        case 'listarAutorizaciones': return autListar_();
+ *        case 'verFirmaAutorizacion': return autFirma_(p);
  * PASO 3. Volver a implementar la aplicación web (Nueva versión).
  */
 
@@ -29,21 +30,33 @@ function autDecidir_(s, p) {
   var dec = p.decision === 'ACEPTA' ? 'ACEPTA' : 'RECHAZA';
   var e = filas_('Escoltas').filter(function (x) { return String(x.ID) === String(s.i); })[0];
   if (!e) throw usuario_('Escolta no encontrado');
+  var firma = '';
+  if (dec === 'ACEPTA') {   // el escolta confirma su identidad con los 4 últimos dígitos de la cédula y dibuja su firma
+    var c4 = String(e.Cedula || '').replace(/\D/g, '').slice(-4);
+    if (!c4 || String(p.ced4 || '').replace(/\D/g, '') !== c4) throw usuario_('Los 4 últimos dígitos de la cédula no coinciden');
+    firma = String(p.firma || '');
+    if (firma.indexOf('data:image/png;base64,') !== 0 || firma.length < 600 || firma.length > 45000) throw usuario_('Falta la firma');
+  }
   var texto = String(p.texto || '');
   if (texto.length < 100) throw usuario_('Falta el texto de la autorización');
   var hash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, texto, Utilities.Charset.UTF_8)
     .map(function (b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('');
   agregar_('AutorizacionDatos', { EscoltaID: e.ID, Escolta: e.Nombre, Cedula4: String(e.Cedula || '').slice(-4),
     Version: String(p.version || '').slice(0, 20), Decision: dec, Fecha: hoy_(), Hora: fmt_(new Date(), 'HH:mm:ss'),
-    HashTexto: hash, Dispositivo: String(p.dispositivo || '').slice(0, 120) });
+    HashTexto: hash, Dispositivo: String(p.dispositivo || '').slice(0, 120), Firma: firma });
   log_(e.Nombre, 'Autorización de datos', dec + ' · versión ' + String(p.version || ''));
   return { ok: true, decision: dec };
+}
+function autFirma_(p) {
+  var o = autUltimas_()[String(p.id)];
+  if (!o || !o.Firma) throw usuario_('Sin firma registrada');
+  return { firma: o.Firma, fecha: o.Fecha, hora: o.Hora, version: o.Version };
 }
 function autListar_() {
   var u = autUltimas_();
   var l = docEscoltasActivos_().map(function (e) {
     var o = u[String(e.ID)];
-    return { id: e.ID, nombre: e.Nombre, decision: o ? o.Decision : 'PENDIENTE', version: o ? o.Version : '', fecha: o ? o.Fecha : '', hora: o ? o.Hora : '' };
+    return { id: e.ID, nombre: e.Nombre, decision: o ? o.Decision : 'PENDIENTE', version: o ? o.Version : '', fecha: o ? o.Fecha : '', hora: o ? o.Hora : '', firma: !!(o && o.Firma) };
   });
   return { escoltas: l };
 }
