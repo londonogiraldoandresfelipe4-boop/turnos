@@ -297,7 +297,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.25-placas';
+const APP_VERSION='2026.11.25-placas2';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -2176,8 +2176,14 @@ function cmpCardEsc(){
 }
 VISTAS.comparendos=async function(){
   if(S.rol!=='A'){$('vista').innerHTML='<div class="banner warn">Esta pestaña es solo del administrador.</div>';return}
-  if(A.cmpV==='VEH')return cmpVehiculos();
-  const r=await api('listarComparendos',{});A.data.cmp=r;const fl=A.cmpF||'NOV';
+  try{
+  if(A.cmpV==='VEH')return await cmpVehiculos();
+  var r=await api('listarComparendos',{});
+  }catch(e){
+    const falta=/desconocida/i.test(e.message||'');
+    $('vista').innerHTML=cmpSelector()+`<div class="banner warn"><b>${falta?'El Apps Script aún no tiene instalado este módulo.':'No se pudo cargar.'}</b><br>${falta?(A.cmpV==='VEH'?'Faltan las acciones de placas: pega <code>apps-script/ComparendosPlacas.gs</code>, agrega los 3 <code>case</code> y la hoja <code>ComparendosPlacas</code> en Code.gs y publica una nueva versión de la implementación.':'Faltan las acciones de comparendos de escoltas: instala <code>apps-script/Comparendos.gs</code> (hoja, permisos y <code>case</code> en Code.gs) y publica una nueva versión de la implementación.'):esc(e.message||'')}</div>`;
+    return;
+  }A.data.cmp=r;const fl=A.cmpF||'NOV';
   const l=r.escoltas.filter(e=>fl==='TODOS'||e.estado!=='LIMPIO');
   const c=r.resumen;
   $('vista').innerHTML=cmpSelector()+`<div class="card"><div class="row"><h2 class="grow" style="margin:0">🚦 Comparendos de los escoltas</h2><button class="btn ghost sm" data-act="cmpRefrescar">Actualizar</button></div>
