@@ -297,7 +297,7 @@ let Q=jp(LS('rt_q'),[]);
 const saveQ=()=>LS('rt_q',JSON.stringify(Q));
 const saveS=()=>LS('rt_s',S.token?JSON.stringify({token:S.token,rol:S.rol,id:S.id,nombre:S.nombre,cfg:S.cfg}):null);
 let online=true;
-const APP_VERSION='2026.11.26-peticiones-v2';
+const APP_VERSION='2026.11.26-rapida1';
 const DEV=(()=>{let d=LS('rt_dev');if(!d){d=Math.random().toString(36).slice(2,12)+Date.now().toString(36);LS('rt_dev',d)}return d})();
 let QE=jp(LS('rt_qe'),[]); /* registros que el servidor rechazó: NO se borran, quedan para revisar */
 const saveQE=()=>LS('rt_qe',JSON.stringify(QE));
@@ -306,7 +306,17 @@ const NOM_ACC={iniciarTurno:'Inicio de turno',cerrarTurno:'Cierre de turno',regi
 const ES_APK=(()=>{try{const C=window.Capacitor;return !!(C&&C.isNativePlatform&&C.isNativePlatform())}catch(e){return false}})();
 const LECT=/^(ver|listar|listaEscoltas|pulso$|miEstado|libroEstado|resumen|reporte|puntualidad|saludSistema|ping|estadoAdmin|ejecutivo|cargar|exportar|sugerir|ntfyInfo)/;
 let FALLAS=0;
-async function api(action,payload,publico,ms){
+const RC=new Map(),RCX=/^(pulso|miEstado|ping|saludSistema|estadoAdmin|libroEstado|verMiComparendo)/;  /* lecturas que sí deben ir siempre frescas */
+function api(action,payload,publico,ms){
+  const lect=LECT.test(action);
+  if(!lect){RC.clear();return api0(action,payload,publico,ms)}  /* una escritura invalida todo lo guardado */
+  if(RCX.test(action))return api0(action,payload,publico,ms);
+  const k=action+'|'+(publico?1:0)+'|'+JSON.stringify(payload||{}),h=RC.get(k);
+  if(h&&(h.p||Date.now()-h.t<15000))return h.p||Promise.resolve(h.v);  /* misma lectura ya pedida hace <15 s o aún en curso: se reutiliza */
+  const p=api0(action,payload,publico,ms).then(v=>{RC.set(k,{t:Date.now(),v});return v},e=>{RC.delete(k);throw e});
+  RC.set(k,{t:Date.now(),p});return p;
+}
+async function api0(action,payload,publico,ms){
   if(!S.api)throw Object.assign(new Error('Falta el enlace del sistema'),{server:true});
   const lect=LECT.test(action);if(!ms&&lect)ms=30000; /* las lecturas nunca se quedan colgadas; las escrituras no tienen tope para no duplicar */
   let r;
@@ -654,7 +664,14 @@ function vistaAdmin(){
   if(S.impPend){const c=S.impPend;S.impPend=null;if(S.rol!=='A')toast('Entra como administrador para importar la programación del Asistente',true);else setTimeout(()=>{irTab('prog');setTimeout(()=>{ACT.impAbrir();const t=$('imp_c');if(t){t.value=c;ACT.impVer()}},500)},300)}
 }
 function pintaTabs(){const l=S.rol==='A'?TABS_A:TABS_C,el=$('tabs');el.classList.add('nav');el.innerHTML=l.map(([g,it])=>`<div class="tg${it.some(x=>x[0]===A.tab)?' cur':''}">${l.length>1?`<span class="tgl">${g}</span>`:''}<div class="tgb">${it.map(([k,n,ic])=>`<button class="${A.tab===k?'on':''}" data-act="tab" data-t="${k}"><span class="ic">${ic}</span>${n}</button>`).join('')}</div></div>`).join('')}
-function irTab(t){A.tab=t;pintaTabs();const f=VISTAS[t];$('vista').innerHTML='<div class="card mut">Cargando…</div>';f().catch(e=>{$('vista').innerHTML=`<div class="banner bad">${esc(e.message)}</div>`})}
+const VC={};  /* última pantalla pintada de cada pestaña (solo en memoria, de esta sesión) */
+function irTab(t){
+  const ant=A.tab;if(ant&&ant!==t&&$('vista')&&$('vista').dataset.tab===ant&&!/Cargando…/.test($('vista').innerHTML))VC[ant]={h:$('vista').innerHTML,t:Date.now()};
+  A.tab=t;pintaTabs();const f=VISTAS[t],v=$('vista'),c=VC[t];
+  v.dataset.tab=t;
+  if(c&&ant!==t&&Date.now()-c.t<600000&&A.data&&Object.keys(A.data).length)v.innerHTML=c.h;  /* se ve al instante; abajo se actualiza */
+  else v.innerHTML='<div class="card mut">Cargando…</div>';
+  f().catch(e=>{if(A.tab===t&&!(c&&v.innerHTML===c.h))v.innerHTML=`<div class="banner bad">${esc(e.message)}</div>`;else if(!c)toast(e.message,true)})}
 const ORD_T=['CARAVANA','TAT','MOVIMIENTO','DISPONIBLE'];
 const gpsLinea=t=>{const km=parseFloat(t.Km)||0,ts=parseInt(t.UltTs,10)||0,min=ts?Math.round((Date.now()/1000-ts)/60):null;
   return `<br><span style="font-size:13px">📡 <b>${f1(km)} km</b> · ${ts?(min<=1?'señal ahora':'último punto hace '+(min<60?min+' min':f1(min/60)+' h'))+(min>10?' ⚠':''):'<span style="color:var(--warn)">sin señal GPS todavía</span>'}</span> <button class="btn ghost sm" data-act="verRastro" data-id="${esc(t.ID)}">Ver recorrido</button>`};
@@ -2931,7 +2948,8 @@ function cabecera(){
 }
 document.addEventListener('click',e=>{const b=e.target.closest('.btema');if(!b)return;const dia=raiz.getAttribute('data-tema')==='dia';tema(dia?'noche':'dia');SL('tema',dia?'noche':'dia');cabecera()});
 addEventListener('online',cabecera);addEventListener('offline',cabecera);
-setInterval(hora,1000);
+setInterval(()=>{if(!document.hidden)hora()},1000);
+document.addEventListener('visibilitychange',()=>{if(document.hidden||!S.token)return;if(S.rol==='E')pulsoEsc();else if(S.rol==='A'||S.rol==='C')pulsoAdm()});
 /* módulos */
 const clave=c=>{const t=(c.querySelector(':scope>h2')||{}).textContent||'';const v=(document.querySelector('.tabs .on')||{}).textContent||(c.closest('#esc')?'esc':'');return 'plg:'+v+':'+t.replace(/[\d()]+/g,'').trim().slice(0,40)};
 function modulos(){
